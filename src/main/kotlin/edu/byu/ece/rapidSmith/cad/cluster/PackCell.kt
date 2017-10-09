@@ -1,0 +1,131 @@
+package edu.byu.ece.rapidSmith.cad.cluster
+
+import edu.byu.ece.rapidSmith.design.subsite.Cell
+import edu.byu.ece.rapidSmith.design.subsite.CellPin
+import edu.byu.ece.rapidSmith.design.subsite.PropertyType
+import edu.byu.ece.rapidSmith.device.Bel
+import java.util.*
+
+/**
+ * Properties of the cells needed for packing.
+ */
+
+private val PACKING_PROPERTY = PropertyType.registerType("PACKING")
+
+internal class PackingInfo {
+	var isValid: Boolean = true
+	var cluster: Cluster<*, *>? = null
+	var locInCluster: Bel? = null
+	var carryChain: CarryChain? = null
+	var subChainIndex: Int? = null
+	var initialGain: Double = 0.0
+	var gain: Double? = Double.MAX_VALUE
+	val sinkCarryChains by lazy { HashSet<CarryChainConnection>(2) }
+	val sourceCarryChains by lazy { HashSet<CarryChainConnection>(2) }
+}
+
+private val PACKING_INFO_KEY = "PACKING_INFO"
+internal val Cell.packingInfo: PackingInfo
+	get() = properties.getValue(PACKING_INFO_KEY) as PackingInfo
+
+fun Cell.initPackingInfo() {
+	properties.update(PACKING_INFO_KEY, PACKING_PROPERTY, PackingInfo())
+}
+
+var Cell.isValid: Boolean
+	get() = packingInfo.isValid
+	set(value) { packingInfo.isValid = value }
+
+private val CLUSTER_KEY = "CLUSTER"
+/**
+ * Returns the cluster this cell exists in.
+ */
+fun <C: Cluster<*, *>> Cell.getCluster(): C? {
+	@Suppress("UNCHECKED_CAST")
+	return packingInfo.cluster as C?
+}
+
+fun <C: Cluster<*, *>> Cell.setCluster(cluster: C?) {
+	setCluster(cluster, packingInfo)
+}
+
+internal fun <C: Cluster<*, *>> setCluster(cluster: C?, packingInfo: PackingInfo) {
+	// update the carry chain info for the cell
+	if (packingInfo.carryChain != null) {
+		// if adding the cell to a cluster
+		if (packingInfo.cluster == null && cluster != null)
+			packingInfo.carryChain!!.incrementNumPackedCells()
+		// if removing the cell from a cluster
+		else if (packingInfo.cluster != null && cluster == null) {
+			packingInfo.carryChain!!.decrementNumPackedCells()
+		}
+	}
+	packingInfo.cluster = cluster
+}
+
+var Cell.locationInCluster: Bel?
+	get() = packingInfo.locInCluster
+	set(value) { packingInfo.locInCluster = value }
+
+var Cell.carryChain: CarryChain?
+	get() = packingInfo.carryChain
+	set(value) { packingInfo.carryChain = value }
+
+var Cell.subchain: Int?
+	get() = packingInfo.subChainIndex
+	set(value) { packingInfo.subChainIndex = value }
+
+var Cell.initialGain: Double
+	get() = packingInfo.initialGain
+	set(value) { packingInfo.initialGain = value }
+
+var Cell.gain: Double?
+	get() = packingInfo.gain
+	set(value) { packingInfo.gain = value }
+
+val Cell.sinkCarryChains: Set<CarryChainConnection>
+	get() = packingInfo.sinkCarryChains
+
+val Cell.sourceCarryChains: Set<CarryChainConnection>
+	get() = packingInfo.sourceCarryChains
+
+fun Cell.addSinkCarryChain(sourcePin: CellPin, sinkPin: CellPin) {
+	val ccc = CarryChainConnection(sourcePin, sinkPin)
+	packingInfo.sinkCarryChains += ccc
+}
+
+fun Cell.addSourceCarryChain(sourcePin: CellPin, sinkPin: CellPin) {
+	val ccc = CarryChainConnection(sourcePin, sinkPin)
+	packingInfo.sourceCarryChains += ccc
+}
+
+fun Cell.isInCluster(): Boolean = packingInfo.cluster != null
+
+fun Cell.getPossibleAnchors(cluster: PackUnitTemplate): List<Bel> {
+	return cluster.bels.filter { b -> possibleAnchors.contains(b.id) }
+}
+
+val Cell.numExposedPins: Int
+	get() {
+		var numNetsLeavingMolecule = 0
+		for (pin in pins) {
+			if (pin.isConnectedToNet) {
+				val net = pin.net
+				var netLeavesMolecule = false
+				for (oPin in net.pins) {
+					val otherCell = oPin.cell
+					if (otherCell !== this) {
+						netLeavesMolecule = true
+						break
+					}
+				}
+
+				if (netLeavesMolecule)
+					numNetsLeavingMolecule++
+
+			}
+		}
+
+		return numNetsLeavingMolecule
+	}
+
