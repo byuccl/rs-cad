@@ -12,6 +12,7 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.RoutabilityCheckerPackRuleFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.TableBasedRoutabilityCheckerFactory
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.Mixing5And6LutsRuleFactory
 import edu.byu.ece.rapidSmith.cad.place.annealer.MoveValidator
 import edu.byu.ece.rapidSmith.cad.place.annealer.SimulatedAnnealingPlacer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.MismatchedRAMBValidator
@@ -47,7 +48,7 @@ class SiteCadFlow {
 	companion object {
 		@JvmStatic
 		fun main(args: Array<String>) {
-			val design = VivadoInterface.loadTCP(args[0]).design
+			val design = VivadoInterface.loadRSCP(args[0]).design
 			val device = design.device
 			design.unplaceDesign()
 			design.cells.forEach { it.removePseudoPins() }
@@ -83,6 +84,8 @@ private class SitePackerFactory(
 ) {
 	private val di0LutSourcePrepacker = DI0LutSourcePrepackerFactory(cellLibrary)
 	private val lutFFPairPrepacker = Artix7LutFFPrepackerFactory(cellLibrary)
+
+	private val mixing5And6LutPackRuleFactory = Mixing5And6LutsRuleFactory()
 
 	fun make(): RSVPack<SitePackUnit> {
 		val packStrategies: Map<PackUnitType, PackStrategy<SitePackUnit>> = packUnits.map {
@@ -126,7 +129,8 @@ private class SitePackerFactory(
 		) // TODO populate this list
 
 		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, ::slicePinMapper)
-		val packRules = listOf<PackRuleFactory>(
+		val packRules = listOf(
+			mixing5And6LutPackRuleFactory,
 			RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
 		) // TODO populate this list
 		return MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
@@ -148,7 +152,8 @@ private class SitePackerFactory(
 
 		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, ::slicePinMapper)
 
-		val packRules = listOf<PackRuleFactory>(
+		val packRules = listOf(
+			mixing5And6LutPackRuleFactory,
 			RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
 		) // TODO populate this list
 		return MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
