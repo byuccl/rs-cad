@@ -16,7 +16,7 @@ import edu.byu.ece.rapidSmith.util.luts.InitString
  */
 class Mixing5And6LutsRuleFactory : PackRuleFactory {
 	override fun make(cluster: Cluster<*, *>): PackRule {
-		return Mixing5And5LutsRule(cluster, LUT6TYPES, LUT5TYPES)
+		return Mixing5And6LutsRule(cluster, LUT6TYPES, LUT5TYPES)
 	}
 
 	// TODO make this a parameter
@@ -31,7 +31,7 @@ class Mixing5And6LutsRuleFactory : PackRuleFactory {
 	}
 }
 
-class Mixing5And5LutsRule(
+class Mixing5And6LutsRule(
 	private val cluster: Cluster<*, *>,
 	private val LUT6TYPES: Set<String>,
 	private val LUT5TYPES: Set<String>
