@@ -12,7 +12,6 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackStatus
 import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellNet
-import edu.byu.ece.rapidSmith.design.subsite.LibraryCell
 import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.device.Site
 import java.util.*
@@ -21,7 +20,6 @@ import java.util.*
 
  */
 class D6LutUsedRamPackRuleFactory(
-	private val leafRamCellTypes: Set<LibraryCell>,
 	private val ramMaker: RamMaker
 ) : PackRuleFactory {
 	private var rams: Map<Cell, Ram>? = null
@@ -120,7 +118,7 @@ class D6LutUsedRamPackRuleFactory(
 		// the cell must be valid, a ram cell and placeable in the DLUT
 		private fun isValidRam(cell: Cell): Boolean {
 			return cell.isValid &&
-				cell.libCell in leafRamCellTypes &&
+				cell.libCell in ramMaker.leafRamCellTypes &&
 				cell.ramPosition.indexOf('D') != -1
 		}
 

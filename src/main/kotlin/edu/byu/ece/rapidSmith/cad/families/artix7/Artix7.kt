@@ -11,9 +11,7 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.ForcedRoutingPrepacker
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.LutramPrepackerFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
-import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.RoutabilityCheckerPackRuleFactory
-import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.TableBasedRoutabilityCheckerFactory
-import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.Mixing5And6LutsRuleFactory
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.*
 import edu.byu.ece.rapidSmith.cad.place.annealer.MoveValidator
 import edu.byu.ece.rapidSmith.cad.place.annealer.SimulatedAnnealingPlacer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.MismatchedRAMBValidator
@@ -83,11 +81,17 @@ private class SitePackerFactory(
 	val belCosts: BelCostMap,
 	val cellLibrary: CellLibrary
 ) {
+	val ramMaker = RamMaker(cellLibrary)
+
 	private val di0LutSourcePrepacker = DI0LutSourcePrepackerFactory(cellLibrary)
 	private val lutFFPairPrepacker = Artix7LutFFPrepackerFactory(cellLibrary)
-	private val lutramsPrepacker = LutramPrepackerFactory(RamMaker(cellLibrary))
+	private val lutramsPrepacker = LutramPrepackerFactory(ramMaker)
 
 	private val mixing5And6LutPackRuleFactory = Mixing5And6LutsRuleFactory()
+	private val d6LutUsedRamPackRuleFactory = D6LutUsedRamPackRuleFactory(ramMaker)
+	private val ramFullyPackedPackRuleFactory = RamFullyPackedPackRuleFactory(ramMaker)
+	private val ramPositionsPackRuleFactory = RamPositionsPackRuleFactory(ramMaker)
+//	TODO private val reserveFFForSourcePackRuleFactory = ReserveFF
 
 	fun make(): RSVPack<SitePackUnit> {
 		val packStrategies: Map<PackUnitType, PackStrategy<SitePackUnit>> = packUnits.map {
@@ -157,6 +161,9 @@ private class SitePackerFactory(
 
 		val packRules = listOf(
 			mixing5And6LutPackRuleFactory,
+			d6LutUsedRamPackRuleFactory,
+			ramFullyPackedPackRuleFactory,
+			ramPositionsPackRuleFactory,
 			RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
 		) // TODO populate this list
 		return MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
