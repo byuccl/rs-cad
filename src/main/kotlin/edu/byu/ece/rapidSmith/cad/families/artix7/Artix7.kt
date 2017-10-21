@@ -91,7 +91,7 @@ private class SitePackerFactory(
 	private val d6LutUsedRamPackRuleFactory = D6LutUsedRamPackRuleFactory(ramMaker)
 	private val ramFullyPackedPackRuleFactory = RamFullyPackedPackRuleFactory(ramMaker)
 	private val ramPositionsPackRuleFactory = RamPositionsPackRuleFactory(ramMaker)
-//	TODO private val reserveFFForSourcePackRuleFactory = ReserveFF
+	private val reserveFFForSourcePackRuleFactory = ReserveFFForSourcePackRuleFactory(cellLibrary)
 
 	fun make(): RSVPack<SitePackUnit> {
 		val packStrategies: Map<PackUnitType, PackStrategy<SitePackUnit>> = packUnits.map {
@@ -132,11 +132,12 @@ private class SitePackerFactory(
 			ForcedRoutingPrepackerFactory(
 				packUnit, packUnits.pinsDrivingGeneralFabric,
 				packUnits.pinsDrivenByGeneralFabric, Artix7.SWITCHBOX_TILES)
-		) // TODO populate this list
+		)
 
 		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, ::slicePinMapper)
 		val packRules = listOf(
 			mixing5And6LutPackRuleFactory,
+			reserveFFForSourcePackRuleFactory,
 			RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
 		) // TODO populate this list
 		return MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
@@ -161,6 +162,7 @@ private class SitePackerFactory(
 
 		val packRules = listOf(
 			mixing5And6LutPackRuleFactory,
+			reserveFFForSourcePackRuleFactory,
 			d6LutUsedRamPackRuleFactory,
 			ramFullyPackedPackRuleFactory,
 			ramPositionsPackRuleFactory,
