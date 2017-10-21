@@ -25,6 +25,7 @@ repositories {
 
 dependencies {
     compile fileTree(dir: 'jars', include: ['*.jar'])
+    runtime fileTree(dir: 'jars', include: ['*.jar'])
     compile 'com.caucho:hessian:4.0.38'
     compile 'org.antlr:antlr4-runtime:4.6'
     compile 'org.jdom:jdom2:2.0.6'
