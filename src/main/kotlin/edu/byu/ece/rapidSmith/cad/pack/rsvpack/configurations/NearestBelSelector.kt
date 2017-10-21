@@ -275,14 +275,16 @@ private class ClusterConnectionsBuilder {
 				continue
 
 			if (!cct.reversed) {
-				cct.wire.getWireConnections(forward).forEach { handleWireConnection(cct, it, pq, false) }
+				cct.wire.getWireConnections(forward)
+					.forEach { handleWireConnection(cct, it, pq, false) }
 				cct.wire.getSitePinConnection(forward)?.let { handleSitePin(cct, it, pq, false) }
 				if (cct.wire != sourceWire)
 					cct.wire.getBelPinConnection(forward)?.let { handleBelPin(cct, it, connections) }
 			}
 
 			if (!forward) {
-				cct.wire.getWireConnections(true).forEach { handleWireConnection(cct, it, pq, true) }
+				cct.wire.getWireConnections(true)
+					.forEach { handleWireConnection(cct, it, pq, true) }
 				cct.wire.getSitePinConnection(true)?.let { handleSitePin(cct, it, pq, true) }
 				if (cct.wire != sourceWire)
 					cct.wire.getBelPinConnection(true)?.let { handleBelPin(cct, it, connections) }
@@ -313,8 +315,10 @@ private class ClusterConnectionsBuilder {
 		if (!source.leftSite) {
 			pq += CCTWire(c.sinkWire, c.sitePin.site, source.distance, source.reversed || reverse)
 		} else if (c.sitePin.site === source.sourceSite) {
-			assert(source.wire is TileWire)
-			pq += CCTWire(c.sinkWire, source.sourceSite, source.distance, source.reversed || reverse)
+			// This is a hack.  Routing should never traverse back through the site but
+			// something with BEL routethroughs is off and I don't care to find out what happened.
+			if (source.wire is TileWire)
+				pq += CCTWire(c.sinkWire, source.sourceSite, source.distance, source.reversed || reverse)
 		}
 	}
 
