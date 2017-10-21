@@ -31,7 +31,7 @@ class Mixing5And6LutsRuleFactory : PackRuleFactory {
 	}
 }
 
-class Mixing5And6LutsRule(
+private class Mixing5And6LutsRule(
 	private val cluster: Cluster<*, *>,
 	private val LUT6TYPES: Set<String>,
 	private val LUT5TYPES: Set<String>
