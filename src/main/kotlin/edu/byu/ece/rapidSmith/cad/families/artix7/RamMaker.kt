@@ -54,7 +54,8 @@ private fun findCellPositions(ram: Ram, cells: List<Cell>) {
 	when (ram.type) {
 		"RAM128X1D" -> {
 			val positions = cells.associate { cell ->
-				val position = when (cell.name) {
+				val matched = Regex(".+/(.+)").matchEntire(cell.name)!!
+				val position = when (matched.groupValues[1]) {
 					"SP.HIGH", "DP.HIGH" -> "AC"
 					"SP.LOW" -> "D"
 					"DP.LOW" -> "B"
