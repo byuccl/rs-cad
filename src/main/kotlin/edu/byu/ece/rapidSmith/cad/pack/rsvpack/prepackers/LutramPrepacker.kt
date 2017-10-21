@@ -1,56 +1,29 @@
 package edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers
 
-import edu.byu.ece.rapidSmith.cad.cluster.*
+import edu.byu.ece.rapidSmith.cad.cluster.Cluster
+import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
+import edu.byu.ece.rapidSmith.cad.cluster.locationInCluster
+import edu.byu.ece.rapidSmith.cad.families.artix7.Ram
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.*
 import edu.byu.ece.rapidSmith.design.subsite.Cell
-import edu.byu.ece.rapidSmith.design.subsite.CellDesign
-import edu.byu.ece.rapidSmith.design.subsite.CellLibrary
-import edu.byu.ece.rapidSmith.design.subsite.LibraryCell
 import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.device.Site
-import java.util.ArrayList
-import java.util.HashMap
-import java.util.HashSet
-import java.util.NoSuchElementException
+import java.util.*
 
-class LutramPrepackerFactory(
-	cellLibrary: CellLibrary
-) : PrepackerFactory<PackUnit>() {
-	private val ramCellTypes = HashSet<LibraryCell>()
-	private val rams = HashMap<String, Ram>()
-
-	init {
-		ramCellTypes.add(cellLibrary.get("SPRAM32"))
-		ramCellTypes.add(cellLibrary.get("SPRAM64"))
-		ramCellTypes.add(cellLibrary.get("DPRAM32"))
-		ramCellTypes.add(cellLibrary.get("DPRAM64"))
-	}
-
-	override fun init(design: CellDesign) {
-		for (cell in design.cells) {
-			if (ramCellTypes.contains(cell.libCell)) {
-				var ram = rams[cell.properties.getValue("\$RAMGROUP")]
-				if (ram == null) {
-					ram = Ram()
-					rams[cell.properties.getValue("\$RAMGROUP") as String] = ram
-				}
-				ram.cells.add(cell)
-			}
-		}
-	}
-
+class LutramPrepackerFactory(private val rams: Map<Cell, Ram>)
+	: PrepackerFactory<PackUnit>() {
 	override fun make(): Prepacker<PackUnit> =
-		LutramPrepacker(ramCellTypes, rams)
+		LutramPrepacker(rams)
 }
 
 private class LutramPrepacker(
-	val ramCellTypes: Set<LibraryCell>,
-	val rams: Map<String, Ram>
+	val rams: Map<Cell, Ram>
 ) : Prepacker<PackUnit>() {
+
 	override fun packRequired(
 		cluster: Cluster<*, *>, changedCells: MutableMap<Cell, Bel>
 	): PrepackStatus {
-		val changedRamCells = changedCells.keys.filter { it -> it.libCell in ramCellTypes }
+		val changedRamCells = changedCells.keys.filter { it -> it in rams }
 		val incompleteRams = changedRamCells
 			.associateBy { it.ram!! }
 			.filter { !it.key.fullyPacked() }
@@ -62,6 +35,7 @@ private class LutramPrepacker(
 			val (possible, locations) = findLocationsForCells(ramCell, ram, cluster)
 			if (!possible)
 				return PrepackStatus.INFEASIBLE
+
 			for (cell in ram.cells) {
 				val locInCluster = cell.locationInCluster
 				if (locInCluster == null) {
@@ -72,9 +46,8 @@ private class LutramPrepacker(
 					if (status == PackStatus.INFEASIBLE)
 						return PrepackStatus.INFEASIBLE
 				} else {
-					val bel = locInCluster
-					val le = bel.name[0]
-					if (le !in cell.ramPosition!!)
+					val le = locInCluster.name[0]
+					if (le !in cell.ramPosition)
 						return PrepackStatus.INFEASIBLE
 				}
 			}
@@ -93,18 +66,10 @@ private class LutramPrepacker(
 
 		val ramSize = ram.cells.size
 		return when (ramSize) {
-			1 -> {
-				return Pair(true, emptyMap())
-			}
-			2 -> {
-				matchRamPairs(baseSite, cluster, le, num, ram)
-			}
-			3,4 -> {
-				findLocationForFullUsage(baseSite, cluster, num, ram)
-			}
-			else -> {
-				throw AssertionError("too many rams in group")
-			}
+			1 -> Pair(true, emptyMap())
+			2 -> matchRamPairs(baseSite, cluster, le, num, ram)
+			3,4 -> findLocationForFullUsage(baseSite, cluster, num, ram)
+			else -> throw AssertionError("too many rams in group")
 		}
 	}
 
@@ -112,6 +77,7 @@ private class LutramPrepacker(
 		baseSite: Site, cluster: Cluster<*, *>,
 		le: Char, num: Char, ram: Ram
 	) : Pair<Boolean, Map<Cell, Bel>> {
+		// Select the other location for this cell
 		val ole = when (le) {
 			'A' -> 'B'
 			'B' -> 'A'
@@ -120,6 +86,7 @@ private class LutramPrepacker(
 			else -> throw AssertionError("Illegal LE")
 		}
 
+		// validate the size of the RAM
 		val unplacedCells = ram.unpackedCells()
 		assert(unplacedCells.size <= 1)
 
@@ -129,7 +96,7 @@ private class LutramPrepacker(
 
 		// make sure its a valid position for the cell
 		val unplacedCell = unplacedCells[0]
-		if (ole !in unplacedCell.ramPosition!!)
+		if (ole !in unplacedCell.ramPosition)
 			return Pair(false, emptyMap())
 
 		// make sure the BEL is available
@@ -162,7 +129,7 @@ private class LutramPrepacker(
 				while (it.hasNext()) {
 					val obel = it.next()
 					val ole = obel.name[0]
-					if (ole in cell.ramPosition!!) {
+					if (ole in cell.ramPosition) {
 						it.remove()
 						locations[cell] = obel
 						foundBelForCell = true
@@ -184,24 +151,14 @@ private class LutramPrepacker(
 
 	private val Cell.ram : Ram?
 		get() {
-			val ramgroup = properties.getValue("\$RAMGROUP") as String
-			return rams[ramgroup]
+			return rams[parent!!]
 		}
-}
 
-private val Cell.ramPosition : String?
-	get() = properties.getValue("\$RAMPOSITION") as String?
-
-private class Ram {
-	internal var cells: MutableList<Cell> = ArrayList()
-
-	internal fun fullyPacked(): Boolean {
-		return cells.all { it.getCluster<Cluster<*, *>>() != null }
-	}
-
-	internal fun unpackedCells(): List<Cell> {
-		return cells.filter { it.isValid }
-	}
+	private val Cell.ramPosition : String
+		get() {
+			// How to get this?
+			return rams[this]!!.positions[this]!!
+		}
 }
 
 private fun <T> List<T>.ringIterator() = RingIterator(this)

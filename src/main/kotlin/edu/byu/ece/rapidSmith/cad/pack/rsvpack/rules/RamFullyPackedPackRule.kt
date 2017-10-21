@@ -1,0 +1,168 @@
+package edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules
+
+import edu.byu.ece.rapidSmith.cad.cluster.Cluster
+import edu.byu.ece.rapidSmith.cad.cluster.locationInCluster
+import edu.byu.ece.rapidSmith.cad.families.artix7.Ram
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRule
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRuleFactory
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRuleResult
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackStatus
+import edu.byu.ece.rapidSmith.design.subsite.Cell
+import edu.byu.ece.rapidSmith.device.Bel
+import edu.byu.ece.rapidSmith.device.Site
+import edu.byu.ece.rapidSmith.device.families.Artix7
+import java.util.*
+
+/**
+
+ */
+class RamFullyPackedPackRuleFactory(private val rams: Map<Cell, Ram>) : PackRuleFactory {
+	override fun make(cluster: Cluster<*, *>): PackRule {
+		return Rule(cluster)
+	}
+
+	inner class Rule(cluster: Cluster<*, *>) : PackRule {
+		private val lutRamsBels = HashMap<String, ArrayList<Bel>>()
+		private var state: State
+		private val stack = ArrayDeque<State>()
+
+		init {
+			val template = cluster.type.template
+			template.bels.asSequence()
+				.filter { it.site.type == Artix7.SiteTypes.SLICEM }
+				.filter { it.name.matches(Regex("[A-D][5-6]LUT")) }
+				.forEach { lutRamsBels.computeIfAbsent(it.name) { ArrayList(1) }.add(it) }
+			state = State()
+			state.status = PackStatus.VALID
+		}
+
+		override fun validate(changedCells: Collection<Cell>): PackRuleResult {
+			stack.push(state)
+
+			// check LUT is placed at a valid location
+			val changedRamCells = changedCells.filter { c -> c in rams }
+
+			if (changedRamCells.isEmpty()) {
+				// nothing in the any ram has changed.  Return the previous result
+				val status = state.status!!
+				val conditionals = state.conditionals
+				return PackRuleResult(status, conditionals)
+			}
+
+			updateState(changedRamCells)
+
+			val result = ensureRamsAreComplete()
+			state.status = result.status
+			state.conditionals = result.conditionals
+
+			val status = state.status!!
+			val conditionals = state.conditionals
+			return PackRuleResult(status, conditionals)
+		}
+
+		private fun updateState(changedRamCells: List<Cell>) {
+			state = State()
+			state.status = PackStatus.VALID
+			state.conditionals = null
+			state.incompleteRams = HashSet(stack.peek().incompleteRams)
+
+			val rams = changedRamCells
+				.map { rams[it]!! } // check this null assertion
+				.toSet()
+			state.incompleteRams.addAll(rams)
+			val completedRams = rams.filter { it.fullyPacked() }
+			state.incompleteRams.removeAll(completedRams)
+		}
+
+		private fun ensureRamsAreComplete(): StatusConditionalsPair {
+			val conditionals: HashMap<Cell, Set<Bel>>
+			if (!state.incompleteRams.isEmpty()) {
+				conditionals = HashMap()
+				for (ram in state.incompleteRams) {
+					for (ramCell in ram.unpackedCells()) {
+						val possibleLocations = getPossibleLocations(ramCell)
+						if (possibleLocations.isEmpty())
+							return StatusConditionalsPair(PackStatus.INFEASIBLE, null)
+						conditionals.put(ramCell, possibleLocations)
+					}
+				}
+				return StatusConditionalsPair(PackStatus.CONDITIONAL, conditionals)
+			}
+			return StatusConditionalsPair(PackStatus.VALID, null)
+		}
+
+		private fun getPossibleLocations(ramCell: Cell): Set<Bel> {
+			val possibles = HashSet<Bel>()
+			val locations = ramCell.ramPosition
+			when (ramCell.libCell.name) {
+				"RAMS32", "RAMD32" -> {
+					run {
+						var ch = 'A'
+						while (ch <= 'D') {
+							if (locations.indexOf(ch) != -1)
+								possibles.addAll(lutRamsBels[ch + "5LUT"]!!)
+							ch++
+						}
+					}
+					var ch = 'A'
+					while (ch <= 'D') {
+						if (locations.indexOf(ch) != -1)
+							possibles.addAll(lutRamsBels[ch + "6LUT"]!!)
+						ch++
+					}
+				}
+				"RAMS64E", "RAMD64E" -> {
+					var ch = 'A'
+					while (ch <= 'D') {
+						if (locations.indexOf(ch) != -1)
+							possibles.addAll(lutRamsBels[ch + "6LUT"]!!)
+						ch++
+					}
+				}
+			}
+			return possibles
+		}
+
+		override fun revert() {
+			state = stack.pop()
+		}
+	}
+
+	private class State {
+		internal var status: PackStatus? = null
+		internal var incompleteRams: MutableSet<Ram> = HashSet()
+		internal var conditionals: Map<Cell, Set<Bel>>? = null
+	}
+
+	private class SiteLutNumberPair(internal val site: Site, internal val lutNumber: Int) {
+
+		override fun equals(other: Any?): Boolean {
+			if (this === other) return true
+			if (other == null || javaClass != other.javaClass) return false
+			val that = other as SiteLutNumberPair?
+			return lutNumber == that!!.lutNumber && site == that.site
+		}
+
+		override fun hashCode(): Int {
+			return Objects.hash(site, lutNumber)
+		}
+
+		override fun toString(): String {
+			return "SiteLutNumberPair{" +
+				"site=" + site +
+				", lutNumber=" + lutNumber +
+				'}'
+		}
+	}
+
+	private class StatusConditionalsPair(
+		var status: PackStatus,
+		var conditionals: Map<Cell, Set<Bel>>?
+	)
+
+	private val Cell.ramPosition : String
+		get() {
+			return rams[this]!!.positions[this]!!
+		}
+}
+
