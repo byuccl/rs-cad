@@ -7,10 +7,6 @@ import edu.byu.ece.rapidSmith.design.subsite.*
 import kotlin.streams.asSequence
 
 
-fun makeRams(cellLibrary: CellLibrary, design: CellDesign): Map<Cell, Ram> {
-	return RamMaker(cellLibrary, design).make()
-}
-
 class Ram(var parent: Cell) {
 	val cells : Collection<Cell>
 		get() = parent.internalCells
@@ -32,20 +28,14 @@ class Ram(var parent: Cell) {
 	}
 }
 
-class RamMaker(cellLibrary: CellLibrary, val design: CellDesign) {
-	val rams: Map<Cell, Ram>
-
+class RamMaker(cellLibrary: CellLibrary) {
 	val leafRamCellTypes = setOf(
 		cellLibrary.get("RAMD32"),
 		cellLibrary.get("RAMD64E"),
 		cellLibrary.get("RAMS32"),
 		cellLibrary.get("RAMS64E"))
 
-	init {
-		rams = make()
-	}
-
-	fun make(): Map<Cell, Ram> {
+	fun make(design: CellDesign): Map<Cell, Ram> {
 		return design.leafCells.asSequence()
 			.filter { it.libCell in leafRamCellTypes } // look at just RAM cells
 			.map { it to it.parent } // RAM cell to parent cell

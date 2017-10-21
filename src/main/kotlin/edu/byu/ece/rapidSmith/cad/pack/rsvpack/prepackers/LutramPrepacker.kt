@@ -4,16 +4,25 @@ import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import edu.byu.ece.rapidSmith.cad.cluster.locationInCluster
 import edu.byu.ece.rapidSmith.cad.families.artix7.Ram
+import edu.byu.ece.rapidSmith.cad.families.artix7.RamMaker
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.*
 import edu.byu.ece.rapidSmith.design.subsite.Cell
+import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.device.Site
 import java.util.*
 
-class LutramPrepackerFactory(private val rams: Map<Cell, Ram>)
+class LutramPrepackerFactory(private val ramMaker: RamMaker)
 	: PrepackerFactory<PackUnit>() {
+
+	private var rams: Map<Cell, Ram>? = null
+
+	override fun init(design: CellDesign) {
+		rams = ramMaker.make(design)
+	}
+
 	override fun make(): Prepacker<PackUnit> =
-		LutramPrepacker(rams)
+		LutramPrepacker(checkNotNull(rams))
 }
 
 private class LutramPrepacker(
