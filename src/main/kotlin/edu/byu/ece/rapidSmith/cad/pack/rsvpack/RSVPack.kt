@@ -234,7 +234,7 @@ private fun cellCanBePlacedAt(cluster: Cluster<*, *>, cell: Cell, anchor: Bel): 
 private fun <T: PackUnit> createClusterDesign(netlist: CellDesign): ClusterDesign<T, *> {
 	val designCopy = CellDesign(netlist.name, netlist.partName)
 	netlist.cells.forEach { c -> designCopy.addCell(c.deepCopy()) }
-	netlist.nets.forEach { net ->
+	netlist.nets.filter { !it.isInternal }.forEach { net ->
 		val newNet = net.deepCopy()
 		designCopy.addNet(newNet)
 		net.pins.forEach { pin ->
