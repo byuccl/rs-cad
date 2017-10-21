@@ -13,11 +13,11 @@ class SRLChainsPrepackerFactory : PrepackerFactory<PackUnit>() {
 	private val mc31Sinks = HashMap<Cell, Cell>()
 
 	override fun init(design: CellDesign) {
-		val mc31SourceCells = design.cells
-			.filter { it.usesPin("MC31") }
+		val q31SourceCells = design.cells
+			.filter { it.usesPin("Q31") || it.usesPin("Q15") }
 
-		mc31SourceCells.forEach { source ->
-			val mc31Pin = source.getPin("MC31")
+		q31SourceCells.forEach { source ->
+			val mc31Pin = source.getPin("Q31") ?: source.getPin("Q15")!!
 			val sinks = mc31Pin.net.sinkPins
 			if (sinks.size != 1)
 				throw AssertionError("Too many or too few sinks on an MC31 pin")
@@ -31,17 +31,21 @@ class SRLChainsPrepackerFactory : PrepackerFactory<PackUnit>() {
 	}
 }
 
-class SRLChainsPrepacker(val mc31Sinks: Map<Cell, Cell>) : Prepacker<PackUnit>() {
+private class SRLChainsPrepacker(val mc31Sinks: Map<Cell, Cell>) : Prepacker<PackUnit>() {
 	override fun packRequired(
 		cluster: Cluster<*, *>,
 		changedCells: MutableMap<Cell, Bel>
 	): PrepackStatus {
-		val sources: Queue<Cell> = ArrayDeque()
-		val mc31sinkCells = changedCells.filter { it.key in mc31Sinks }
-		mc31sinkCells.forEach { c, _ -> sources.add(c) }
+		val mc31sinkCells = changedCells.asSequence()
+			.map { it.key }
+			.filter { it in mc31Sinks }
+			.toList()
 
 		if (mc31sinkCells.isEmpty())
 			return PrepackStatus.UNCHANGED
+
+		val sources: Queue<Cell> = ArrayDeque()
+		sources.addAll(mc31sinkCells)
 
 		var status = PrepackStatus.UNCHANGED
 		while (sources.isNotEmpty()) {

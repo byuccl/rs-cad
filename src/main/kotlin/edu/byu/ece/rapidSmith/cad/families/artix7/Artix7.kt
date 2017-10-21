@@ -5,10 +5,7 @@ import edu.byu.ece.rapidSmith.cad.cluster.*
 import edu.byu.ece.rapidSmith.cad.cluster.site.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations.*
-import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.Artix7LutFFPrepackerFactory
-import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.DI0LutSourcePrepackerFactory
-import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.ForcedRoutingPrepackerFactory
-import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.LutramPrepackerFactory
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.*
@@ -153,6 +150,7 @@ private class SitePackerFactory(
 			lutFFPairPrepacker,
 			di0LutSourcePrepacker,
 			lutramsPrepacker,
+			SRLChainsPrepackerFactory(),
 			ForcedRoutingPrepackerFactory(packUnit,
 				packUnits.pinsDrivingGeneralFabric,
 				packUnits.pinsDrivenByGeneralFabric, Artix7.SWITCHBOX_TILES)
