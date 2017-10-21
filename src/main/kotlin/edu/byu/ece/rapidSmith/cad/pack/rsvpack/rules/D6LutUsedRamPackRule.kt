@@ -4,11 +4,13 @@ import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.isValid
 import edu.byu.ece.rapidSmith.cad.cluster.locationInCluster
 import edu.byu.ece.rapidSmith.cad.families.artix7.Ram
+import edu.byu.ece.rapidSmith.cad.families.artix7.RamMaker
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRule
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRuleFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRuleResult
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackStatus
 import edu.byu.ece.rapidSmith.design.subsite.Cell
+import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellNet
 import edu.byu.ece.rapidSmith.design.subsite.LibraryCell
 import edu.byu.ece.rapidSmith.device.Bel
@@ -20,13 +22,22 @@ import java.util.*
  */
 class D6LutUsedRamPackRuleFactory(
 	private val leafRamCellTypes: Set<LibraryCell>,
-	private val rams: Map<Cell, Ram>
+	private val ramMaker: RamMaker
 ) : PackRuleFactory {
-	override fun make(cluster: Cluster<*, *>): PackRule {
-		return Rule(cluster)
+	private var rams: Map<Cell, Ram>? = null
+
+	override fun init(design: CellDesign) {
+		this.rams = ramMaker.make(design)
 	}
 
-	inner class Rule(private val cluster: Cluster<*, *>) : PackRule {
+	override fun make(cluster: Cluster<*, *>): PackRule {
+		return Rule(cluster, checkNotNull(rams))
+	}
+
+	inner class Rule(
+		private val cluster: Cluster<*, *>,
+		private val rams: Map<Cell, Ram>
+	) : PackRule {
 		private var state: State
 		private val stack = ArrayDeque<State>()
 
@@ -116,6 +127,12 @@ class D6LutUsedRamPackRuleFactory(
 		override fun revert() {
 			state = stack.pop()
 		}
+
+		private val Cell.ramPosition : String
+			get() {
+				return rams[this]!!.positions[this]!!
+			}
+
 	}
 
 	private class State {
@@ -144,11 +161,6 @@ class D6LutUsedRamPackRuleFactory(
 				'}'
 		}
 	}
-
-	private val Cell.ramPosition : String
-		get() {
-			return rams[this]!!.positions[this]!!
-		}
 
 	private class StatusConditionalsPair(
 		var status: PackStatus,

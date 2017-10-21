@@ -3,21 +3,29 @@ package edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.locationInCluster
 import edu.byu.ece.rapidSmith.cad.families.artix7.Ram
+import edu.byu.ece.rapidSmith.cad.families.artix7.RamMaker
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRule
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRuleFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRuleResult
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackStatus
 import edu.byu.ece.rapidSmith.design.subsite.Cell
+import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 
 /**
 
  */
-class RamPositionsPackRuleFactory(private val rams: Map<Cell, Ram>) : PackRuleFactory {
-	override fun make(cluster: Cluster<*, *>): PackRule {
-		return Rule()
+class RamPositionsPackRuleFactory(private val ramMaker: RamMaker) : PackRuleFactory {
+	private var rams: Map<Cell, Ram>? = null
+
+	override fun init(design: CellDesign) {
+		rams = ramMaker.make(design)
 	}
 
-	inner class Rule : PackRule {
+	override fun make(cluster: Cluster<*, *>): PackRule {
+		return Rule(checkNotNull(rams))
+	}
+
+	inner class Rule(private val rams: Map<Cell, Ram>) : PackRule {
 		override fun validate(changedCells: Collection<Cell>): PackRuleResult {
 			// check LUT is placed at a valid location
 			val changedRamCells = changedCells.filter { c -> c in rams }

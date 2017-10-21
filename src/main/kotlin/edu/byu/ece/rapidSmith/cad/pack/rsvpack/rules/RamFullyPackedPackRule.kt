@@ -1,27 +1,33 @@
 package edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules
 
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
-import edu.byu.ece.rapidSmith.cad.cluster.locationInCluster
 import edu.byu.ece.rapidSmith.cad.families.artix7.Ram
+import edu.byu.ece.rapidSmith.cad.families.artix7.RamMaker
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRule
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRuleFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRuleResult
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackStatus
 import edu.byu.ece.rapidSmith.design.subsite.Cell
+import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.Bel
-import edu.byu.ece.rapidSmith.device.Site
 import edu.byu.ece.rapidSmith.device.families.Artix7
 import java.util.*
 
 /**
 
  */
-class RamFullyPackedPackRuleFactory(private val rams: Map<Cell, Ram>) : PackRuleFactory {
-	override fun make(cluster: Cluster<*, *>): PackRule {
-		return Rule(cluster)
+class RamFullyPackedPackRuleFactory(private val ramMaker: RamMaker) : PackRuleFactory {
+	private var rams: Map<Cell, Ram>? = null
+
+	override fun init(design: CellDesign) {
+		rams = ramMaker.make(design)
 	}
 
-	inner class Rule(cluster: Cluster<*, *>) : PackRule {
+	override fun make(cluster: Cluster<*, *>): PackRule {
+		return Rule(cluster, checkNotNull(rams))
+	}
+
+	inner class Rule(cluster: Cluster<*, *>, val rams: Map<Cell, Ram>) : PackRule {
 		private val lutRamsBels = HashMap<String, ArrayList<Bel>>()
 		private var state: State
 		private val stack = ArrayDeque<State>()
@@ -126,6 +132,11 @@ class RamFullyPackedPackRuleFactory(private val rams: Map<Cell, Ram>) : PackRule
 		override fun revert() {
 			state = stack.pop()
 		}
+
+		private val Cell.ramPosition : String
+			get() {
+				return rams[this]!!.positions[this]!!
+			}
 	}
 
 	private class State {
@@ -134,35 +145,9 @@ class RamFullyPackedPackRuleFactory(private val rams: Map<Cell, Ram>) : PackRule
 		internal var conditionals: Map<Cell, Set<Bel>>? = null
 	}
 
-	private class SiteLutNumberPair(internal val site: Site, internal val lutNumber: Int) {
-
-		override fun equals(other: Any?): Boolean {
-			if (this === other) return true
-			if (other == null || javaClass != other.javaClass) return false
-			val that = other as SiteLutNumberPair?
-			return lutNumber == that!!.lutNumber && site == that.site
-		}
-
-		override fun hashCode(): Int {
-			return Objects.hash(site, lutNumber)
-		}
-
-		override fun toString(): String {
-			return "SiteLutNumberPair{" +
-				"site=" + site +
-				", lutNumber=" + lutNumber +
-				'}'
-		}
-	}
-
 	private class StatusConditionalsPair(
 		var status: PackStatus,
 		var conditionals: Map<Cell, Set<Bel>>?
 	)
-
-	private val Cell.ramPosition : String
-		get() {
-			return rams[this]!!.positions[this]!!
-		}
 }
 
