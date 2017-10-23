@@ -89,6 +89,11 @@ private class SitePackerFactory(
 	private val ramFullyPackedPackRuleFactory = RamFullyPackedPackRuleFactory(ramMaker)
 	private val ramPositionsPackRuleFactory = RamPositionsPackRuleFactory(ramMaker)
 	private val reserveFFForSourcePackRuleFactory = ReserveFFForSourcePackRuleFactory(cellLibrary)
+	private val carryChainLookAheadRuleFactory = CarryChainLookAheadRuleFactory(
+		listOf("S0", "S1", "S2", "S3"),
+		ramMaker.leafRamCellTypes,
+		Artix7.SiteTypes.SLICEM
+	)
 
 	fun make(): RSVPack<SitePackUnit> {
 		val packStrategies: Map<PackUnitType, PackStrategy<SitePackUnit>> = packUnits.map {
@@ -135,6 +140,7 @@ private class SitePackerFactory(
 		val packRules = listOf(
 			mixing5And6LutPackRuleFactory,
 			reserveFFForSourcePackRuleFactory,
+			carryChainLookAheadRuleFactory,
 			RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
 		) // TODO populate this list
 		return MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)

@@ -17,7 +17,6 @@ internal class PackingInfo {
 	var cluster: Cluster<*, *>? = null
 	var locInCluster: Bel? = null
 	var carryChain: CarryChain? = null
-	var subChainIndex: Int? = null
 	var initialGain: Double = 0.0
 	var gain: Double? = Double.MAX_VALUE
 	val sinkCarryChains by lazy { HashSet<CarryChainConnection>(2) }
@@ -36,7 +35,6 @@ var Cell.isValid: Boolean
 	get() = packingInfo.isValid
 	set(value) { packingInfo.isValid = value }
 
-private val CLUSTER_KEY = "CLUSTER"
 /**
  * Returns the cluster this cell exists in.
  */
@@ -51,15 +49,6 @@ fun <C: Cluster<*, *>> Cell.setCluster(cluster: C?) {
 
 internal fun <C: Cluster<*, *>> setCluster(cluster: C?, packingInfo: PackingInfo) {
 	// update the carry chain info for the cell
-	if (packingInfo.carryChain != null) {
-		// if adding the cell to a cluster
-		if (packingInfo.cluster == null && cluster != null)
-			packingInfo.carryChain!!.incrementNumPackedCells()
-		// if removing the cell from a cluster
-		else if (packingInfo.cluster != null && cluster == null) {
-			packingInfo.carryChain!!.decrementNumPackedCells()
-		}
-	}
 	packingInfo.cluster = cluster
 }
 
@@ -70,10 +59,6 @@ var Cell.locationInCluster: Bel?
 var Cell.carryChain: CarryChain?
 	get() = packingInfo.carryChain
 	set(value) { packingInfo.carryChain = value }
-
-var Cell.subchain: Int?
-	get() = packingInfo.subChainIndex
-	set(value) { packingInfo.subChainIndex = value }
 
 var Cell.initialGain: Double
 	get() = packingInfo.initialGain

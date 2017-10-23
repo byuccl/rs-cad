@@ -14,23 +14,10 @@ import java.util.*
  */
 class CarryChain private constructor() {
 	private val cells = HashSet<Cell>()
-	private var numPackedCells = 0
 
 	private fun addCell(cell: Cell) {
 		cells.add(cell)
 		cell.carryChain = this
-	}
-
-	// TODO move this into its checker class
-	val isPartiallyPlaced: Boolean
-		get() = numPackedCells != 0
-
-	fun incrementNumPackedCells() {
-		numPackedCells++
-	}
-
-	fun decrementNumPackedCells() {
-		numPackedCells--
 	}
 
 	fun getCells(): Set<Cell> {
@@ -74,7 +61,7 @@ class CarryChain private constructor() {
 /**
  *
  */
-class CarryChainConnection(val clusterPin: CellPin, val endPin: CellPin) {
+class CarryChainConnection(val clusterPin: CellPin, endPin: CellPin) {
 	val endCell = endPin.cell!!
 
 	override fun equals(other: Any?): Boolean {
