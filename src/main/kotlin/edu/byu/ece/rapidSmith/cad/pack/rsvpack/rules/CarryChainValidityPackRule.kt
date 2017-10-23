@@ -47,9 +47,15 @@ class CarryChainValidityRuleFactory : PackRuleFactory {
 	}
 
 	private inner class CarryChainValidityRule : PackRule {
+		private val incrementedCarryChains = ArrayDeque<List<CarryChain>>()
+
 		override fun validate(changedCells: Collection<Cell>): PackRuleResult {
 			val ccCells = getCarryChainCells(changedCells)
 			val infeasible = !usesNonconsecutiveCarryChains(ccCells)
+
+			val ccs = ccCells.map { it.carryChain!! }
+			ccs.forEach { it.incrementNumPackedCells() }
+			incrementedCarryChains.push(ccs)
 
 			return when {
 				infeasible -> PackRuleResult(PackStatus.INFEASIBLE, null)
@@ -100,7 +106,9 @@ class CarryChainValidityRuleFactory : PackRuleFactory {
 			}
 		}
 
-		override fun revert() {}
+		override fun revert() {
+			incrementedCarryChains.pop().forEach { it.decrementNumPackedCells() }
+		}
 	}
 
 	private fun getCarryChainCells(changedCells: Collection<Cell>): List<Cell> {
