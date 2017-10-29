@@ -30,7 +30,7 @@ class ReserveFFForSourcePackRuleFactory(cellLibrary: CellLibrary) : PackRuleFact
 	override fun init(design: CellDesign) {
 		mergedCells = HashMap()
 
-		for (cell in design.cells) {
+		for (cell in design.leafCells) {
 			if (cell.libCell === ccLibCell) {
 				val packCell = cell as Cell
 				var le = 'A'

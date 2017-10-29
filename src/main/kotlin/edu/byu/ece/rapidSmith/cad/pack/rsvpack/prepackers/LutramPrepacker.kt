@@ -12,6 +12,11 @@ import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.device.Site
 import java.util.*
 
+/**
+ * Used to speed up the packing of LUTRAMs.  The getLocations method is
+ * outdated and doesn't work properly with RAMs that use both the 5 and 6 LUT
+ * components of a LUT.  This is being left in for reference.
+ */
 class LutramPrepackerFactory(private val ramMaker: RamMaker)
 	: PrepackerFactory<PackUnit>() {
 
@@ -160,12 +165,11 @@ private class LutramPrepacker(
 
 	private val Cell.ram : Ram?
 		get() {
-			return rams[parent!!]
+			return rams[this]
 		}
 
 	private val Cell.ramPosition : String
 		get() {
-			// How to get this?
 			return rams[this]!!.positions[this]!!
 		}
 }

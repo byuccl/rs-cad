@@ -1,6 +1,7 @@
 package edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules
 
 import edu.byu.ece.rapidSmith.cad.cluster.*
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.PinMapper
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.RoutingTable.SourcePinEntry
 import edu.byu.ece.rapidSmith.design.NetType
 import edu.byu.ece.rapidSmith.design.subsite.Cell
@@ -24,7 +25,7 @@ class TableBasedRoutabilityChecker(
 	private val cluster: Cluster<*, *>,
 	private val pinGroups: Map<BelPin, PinGroup>,
 	private val packUnits: PackUnitList<*>,
-	private val preferredPin: (CellPin, Bel) -> BelPin
+	private val preferredPin: PinMapper
 ) : RoutabilityChecker {
 	private val template: PackUnitTemplate = cluster.type.template
 
@@ -34,8 +35,8 @@ class TableBasedRoutabilityChecker(
 		get() = _bel2CellPinMap
 
 	// The determined mappings from CellPins to BelPins for quick lookup
-	private val _cell2BelPinMap: StackedHashMap<CellPin, BelPin> = StackedHashMap()
-	private val cell2BelPinMap: Map<CellPin, BelPin>
+	private val _cell2BelPinMap: StackedHashMap<CellPin, List<BelPin>> = StackedHashMap()
+	private val cell2BelPinMap: Map<CellPin, List<BelPin>>
 		get() = _cell2BelPinMap
 
 	// Map from the nets in the cluster to the possible sources.
@@ -250,10 +251,10 @@ class TableBasedRoutabilityChecker(
 		// update info on the sinkpin
 		val sinkCell = sinkPin.cell
 		val sinkBel = sinkCell.locationInCluster!!
-		val belPin = preferredPin(sinkPin, sinkBel)
+		val belPins = preferredPin(sinkPin, sinkBel)
 		sinks.sinkPinsInCluster += sinkPin
-		_bel2CellPinMap[belPin] = sinkPin
-		_cell2BelPinMap[sinkPin] = belPin
+		belPins.forEach { _bel2CellPinMap[it] = sinkPin }
+		_cell2BelPinMap[sinkPin] = belPins
 	}
 
 	private fun CellPin.getPossibleSinks(): List<BelPinTemplate> {
@@ -293,7 +294,7 @@ class TableBasedRoutabilityChecker(
 		source.belPin = belPin
 		source.drivesGeneralFabric = belPin.drivesGeneralFabric
 		_bel2CellPinMap[belPin] = sourcePin
-		_cell2BelPinMap[sourcePin] = belPin
+		_cell2BelPinMap[sourcePin] = listOf(belPin)
 
 		// update the sinks with external routes now
 		val sinks = _netSinks[net]!!
@@ -347,27 +348,29 @@ class TableBasedRoutabilityChecker(
 		// The source cell has already been placed so we know where it is and
 		// where it enters this cluster.
 		val sinkBel = sinkCell.locationInCluster!!
-		val belPin = preferredPin(sinkPin, sinkBel)
+		val belPins = preferredPin(sinkPin, sinkBel)
 		val endSiteIndex = sinkBel.site.index
 
-		// find any direct connections to this path
-		var directSink = false
-		val carrySinks = HashSet<Wire>()
-		for (dc in template.directSinksOfCluster) {
-			if (endSiteIndex == dc.endSiteIndex && dc.endPin == belPin.template) {
-				carrySinks.add(dc.clusterExit)
-				directSink = true
+		for (belPin in belPins) {
+			// find any direct connections to this path
+			var directSink = false
+			val carrySinks = HashSet<Wire>()
+			for (dc in template.directSinksOfCluster) {
+				if (endSiteIndex == dc.endSiteIndex && dc.endPin == belPin.template) {
+					carrySinks.add(dc.clusterExit)
+					directSink = true
+				}
 			}
-		}
 
-		// place in the correct location
-		val drivenGenerally = belPin.drivenByGeneralFabric
-		if (drivenGenerally && directSink) {
-			sinks.optionalCarryChains[sinkPin] = carrySinks
-		} else if (drivenGenerally) {
-			sinks.mustLeave = true
-		} else {
-			sinks.requiredCarryChains.put(sinkPin, carrySinks)
+			// place in the correct location
+			val drivenGenerally = belPin.drivenByGeneralFabric
+			if (drivenGenerally && directSink) {
+				sinks.optionalCarryChains[sinkPin] = carrySinks
+			} else if (drivenGenerally) {
+				sinks.mustLeave = true
+			} else {
+				sinks.requiredCarryChains.put(sinkPin, carrySinks)
+			}
 		}
 	}
 
@@ -377,10 +380,11 @@ class TableBasedRoutabilityChecker(
 			val pins = cell.pins
 			for (pin in pins) {
 				if (pin.isConnectedToNet) {
-					val belPin = cell2BelPinMap[pin]
-					val pinGroup = pinGroups[belPin]!!
-					changedGroups.add(pinGroup)
+					val belPins = cell2BelPinMap[pin]!!
+					belPins.mapTo(changedGroups) { pinGroups[it]!! }
 				} else if (isLUTOpin(pin)) {
+					// special code indicating that changing one output LUT may affect
+					// the validity of the other output on the LUT
 					val bel = cell.locationInCluster
 					val belPins = pin.getPossibleBelPins(bel)
 					assert(belPins.size == 1)
@@ -784,13 +788,14 @@ class TableBasedRoutabilityChecker(
 		// Check if the sink in the cluster is outside the pin group
 		// and requires exiting and re-entering to reach.
 		for (sinkInCluster in sinks.sinkPinsInCluster) {
-			val sinkBelPin = cell2BelPinMap[sinkInCluster]!!
-			if (sinkBelPin !in tableRow.sinkPins) {
-
-				// source must be able to exit cluster and sink must be able to come
-				// into cluster via general fabric
-				if (!(sinkBelPin.drivenByGeneralFabric && entry.drivesGeneralFabric))
-					return IsRowValidForSourceReturn(Routability.INFEASIBLE, null)
+			val sinkBelPins = cell2BelPinMap[sinkInCluster]!!
+			for (sinkBelPin in sinkBelPins) {
+				if (sinkBelPin !in tableRow.sinkPins) {
+					// source must be able to exit cluster and sink must be able to come
+					// into cluster via general fabric
+					if (!(sinkBelPin.drivenByGeneralFabric && entry.drivesGeneralFabric))
+						return IsRowValidForSourceReturn(Routability.INFEASIBLE, null)
+				}
 			}
 		}
 
@@ -1072,7 +1077,7 @@ private data class IsRowValidForSourceReturn(
  */
 class TableBasedRoutabilityCheckerFactory(
 	packUnit: PackUnit,
-	private val preferredPin: (CellPin, Bel) -> BelPin
+	private val preferredPin: PinMapper
 ) : RoutabilityCheckerFactory {
 	private val pinGroups = buildPinGroups(packUnit.template)
 

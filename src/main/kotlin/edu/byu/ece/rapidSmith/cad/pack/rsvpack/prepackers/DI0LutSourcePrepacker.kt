@@ -10,6 +10,7 @@ import edu.byu.ece.rapidSmith.device.Site
 import edu.byu.ece.rapidSmith.util.put
 import edu.byu.ece.rapidSmith.util.putTo
 import java.util.HashMap
+import kotlin.streams.toList
 
 class DI0LutSourcePrepackerFactory(
 	cellLibrary: CellLibrary
@@ -21,13 +22,14 @@ class DI0LutSourcePrepackerFactory(
 	override fun init(design: CellDesign) {
 		// Finds all of the LUTs driving the DI0 pin of a CARRY4 which must
 		// be packed with the CARRY4.
-		val pairs = design.cells.filter { it.libCell == carry4 }
+		val pairs = design.leafCells.filter { it.libCell == carry4 }
 			.filter { requiresExternalCYInitPin(it) }
 			.map { it to it.getPin("DI[0]")!! }
 			.filter { it.second.isConnectedToNet }
 			.map { it.first to it.second.net!! }
 			.filter { !it.second.isStaticNet }
 			.map { it.first to it.second.sourcePin.cell!! }
+			.toList()
 		pairs.putTo(c4ToLutMap) { it.first to it.second }
 		pairs.putTo(lutToC4Map) { it.second to it.first }
 	}

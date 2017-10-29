@@ -25,10 +25,10 @@ class SharedNetsCellSelector(
 
 	override fun init(design: CellDesign) {
 		design.nets.forEach { if (shouldFilterNet(it)) filteredNets += it }
-		design.cells.forEach { numUsedPinsMap[it] = computeNumUsedPinsOnCell(it) }
-		design.cells.forEach { numUniqueNetsMap[it] = computeNumUniqueNetsOnCell(it) }
-		design.cells.forEach { sharedNetsMap[it] = findSharedNets(it) }
-		design.cells.forEach { sharedPinsMap[it] = findSharedPins(it) }
+		design.leafCells.forEach { numUsedPinsMap[it] = computeNumUsedPinsOnCell(it) }
+		design.leafCells.forEach { numUniqueNetsMap[it] = computeNumUniqueNetsOnCell(it) }
+		design.leafCells.forEach { sharedNetsMap[it] = findSharedNets(it) }
+		design.leafCells.forEach { sharedPinsMap[it] = findSharedPins(it) }
 	}
 
 	private fun computeNumUsedPinsOnCell(cell: Cell): Int {

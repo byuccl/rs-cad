@@ -4,12 +4,12 @@ import edu.byu.ece.rapidSmith.cad.cluster.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterResult
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.PinMapper
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.Routability
 import edu.byu.ece.rapidSmith.design.NetType
 import edu.byu.ece.rapidSmith.design.subsite.CellNet
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import edu.byu.ece.rapidSmith.design.subsite.RouteTree
-import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.device.BelPin
 import edu.byu.ece.rapidSmith.device.Site
 import edu.byu.ece.rapidSmith.device.Wire
@@ -18,7 +18,7 @@ import java.util.*
 
 class BasicPathFinderRouterFactory<in T: PackUnit>(
 	private val packUnits: PackUnitList<T>,
-	private val preferredPin: (CellPin, Bel) -> BelPin,
+	private val preferredPin: PinMapper,
 	private val wireInvalidator: (PackUnit, Source, Terminal) -> Set<Wire>,
 	private val maxIterations: Int = 10
 ) : ClusterRouterFactory<T> {
@@ -38,7 +38,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 	private val packUnit: PackUnit,
 	private val wireCosts: Map<Wire, Int>,
 	private val packUnits: PackUnitList<T>,
-	private val preferredPin: (CellPin, Bel) -> BelPin,
+	private val preferredPin: PinMapper,
 	private val wireInvalidator: (PackUnit, Source, Terminal) -> Set<Wire>,
 	private val maxIterations: Int
 ) : ClusterRouter<T> {
@@ -63,7 +63,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 	private inner class Impl(val cluster: Cluster<T, *>) {
 		val routeTreeMap = HashMap<CellNet, ArrayList<RouteTree>>()
-		val belPinMap = HashMap<CellNet, HashMap<CellPin, BelPin>>()
+		val belPinMap = HashMap<CellNet, HashMap<CellPin, List<BelPin>>>()
 
 		private val wireUsage = HashMap<Wire, OccupancyHistoryPair>()
 		private val routePins = HashMap<CellNet, RoutePins>()
@@ -180,12 +180,12 @@ private class BasicPathFinderRouter<T: PackUnit>(
 		private fun initInsideClusterSink(sinks: Sinks.Builder, sinkPin: CellPin) {
 			val sinkCell = sinkPin.cell
 			val sinkBel = sinkCell.locationInCluster!!
-			val belPin = preferredPin(sinkPin, sinkBel)
+			val belPins = preferredPin(sinkPin, sinkBel)
 
 			val pinMap = Terminal.Builder()
 			pinMap.cellPin = sinkPin
-			pinMap.belPin = belPin
-			pinMap.wires += belPin.wire!!
+			pinMap.belPins.addAll(belPins)
+			pinMap.wires += belPins.map { it.wire!! }
 			sinks.sinkPinsInCluster += pinMap
 		}
 
@@ -196,34 +196,36 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			// The source cell has already been placed so we know where it is and
 			// where it enters this cluster.
 			val sinkBel = sinkPin.cell.locationInCluster!!
-			val belPin = preferredPin(sinkPin, sinkBel)
+			val belPins = preferredPin(sinkPin, sinkBel)
 			val endSiteIndex = sinkBel.site.index
 
-			// find any direct connections to this path
-			var directSink = false
-			val carrySinks = HashSet<Wire>()
-			for (dc in template.directSinksOfCluster) {
-				if (endSiteIndex == dc.endSiteIndex && dc.endPin == belPin.template) {
-					carrySinks.add(dc.clusterExit)
-					directSink = true
+			for (belPin in belPins) {
+				// find any direct connections to this path
+				var directSink = false
+				val carrySinks = HashSet<Wire>()
+				for (dc in template.directSinksOfCluster) {
+					if (endSiteIndex == dc.endSiteIndex && dc.endPin == belPin.template) {
+						carrySinks.add(dc.clusterExit)
+						directSink = true
+					}
 				}
-			}
 
-			// place in the correct location
-			val drivenGenerally = belPin.drivenByGeneralFabric
-			if (drivenGenerally && directSink) {
-				val terminal = Terminal.Builder()
-				terminal.cellPin = sinkPin
-				terminal.wires += carrySinks
-				terminal.wires += clusterOutputs.wires
-				sinks.optionalCarryChains += terminal
-			} else if (drivenGenerally) {
-				sinks.mustRouteExternal = true
-			} else {
-				val terminal = Terminal.Builder()
-				terminal.cellPin = sinkPin
-				terminal.wires += carrySinks
-				sinks.requiredCarryChains += terminal
+				// place in the correct location
+				val drivenGenerally = belPin.drivenByGeneralFabric
+				if (drivenGenerally && directSink) {
+					val terminal = Terminal.Builder()
+					terminal.cellPin = sinkPin
+					terminal.wires += carrySinks
+					terminal.wires += clusterOutputs.wires
+					sinks.optionalCarryChains += terminal
+				} else if (drivenGenerally) {
+					sinks.mustRouteExternal = true
+				} else {
+					val terminal = Terminal.Builder()
+					terminal.cellPin = sinkPin
+					terminal.wires += carrySinks
+					sinks.requiredCarryChains += terminal
+				}
 			}
 		}
 
@@ -289,7 +291,8 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 		private fun routeNet(net: CellNet, routePins: RoutePins): RouteStatus {
 			val (source, sinks) = routePins
-			val pinMap = belPinMap.computeIfAbsent(net) { HashMap() }
+			val pinMap = HashMap<CellPin, List<BelPin>>()
+			belPinMap[net] = pinMap
 
 			val sourceTrees = buildSources(source, pinMap)
 
@@ -303,7 +306,11 @@ private class BasicPathFinderRouter<T: PackUnit>(
 				if (status == RouteStatus.IMPOSSIBLE)
 					return RouteStatus.IMPOSSIBLE
 
-				pinMap[sink.cellPin!!] = terminal as BelPin
+				pinMap.compute(sink.cellPin!!) { _, v ->
+					if (v == null)
+						listOf(terminal as BelPin)
+					else
+						v + (terminal as BelPin) }
 				updateSourceTrees(treeSink)
 			}
 
@@ -355,7 +362,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 				RouteStatus.SUCCESS
 		}
 
-		private fun buildSources(source: Source, pinMap: HashMap<CellPin, BelPin>): ArrayList<RouteTree> {
+		private fun buildSources(source: Source, pinMap: HashMap<CellPin, List<BelPin>>): ArrayList<RouteTree> {
 			val sourceTrees = ArrayList<RouteTree>()
 			for (sourceWire in source.wires) {
 				val rt = RouteTree(sourceWire)
@@ -364,7 +371,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 				sourceTrees.add(rt)
 			}
 			if (source.belPin != null)
-				pinMap[source.cellPin!!] = source.belPin!!
+				pinMap[source.cellPin!!] = listOf(source.belPin!!)
 			return sourceTrees
 		}
 
@@ -520,12 +527,10 @@ private fun buildWireCosts(template: PackUnitTemplate): Map<Wire, Int> {
 		sites.add(bel.site)
 	}
 
-	for (site in sites) {
-		for (wire in site.wires) {
-			if (wire.wireName.matches(".*[A-D]OUTMUX\\.OUT".toRegex()))
-				wireCosts.put(wire, 3)
-		}
-	}
+	sites.asSequence()
+		.flatMap { it.wires.asSequence() }
+		.filter { it.wireName.matches(".*[A-D]OUTMUX\\.OUT".toRegex()) }
+		.associateTo(wireCosts) { it to 3 }
 	return wireCosts
 }
 
@@ -574,14 +579,14 @@ private data class RoutePins(val source: Source, val sinks: Sinks)
 
 abstract class Terminal {
 	abstract val cellPin: CellPin?
-	abstract val belPin: BelPin?
+	abstract val belPins: List<BelPin>
 	abstract val wires: Set<Wire>
 
-	fun isPinMapping() = belPin != null
+	fun isPinMapping() = belPins.isNotEmpty()
 
 	class Builder: Terminal() {
 		override var cellPin: CellPin? = null
-		override var belPin: BelPin? = null
+		override var belPins = ArrayList<BelPin>()
 		override val wires = HashSet<Wire>()
 	}
 }

@@ -9,6 +9,7 @@ import edu.byu.ece.rapidSmith.design.subsite.LibraryCell
 import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.util.putTo
 import java.util.HashMap
+import kotlin.streams.toList
 
 class Artix7LutFFPrepackerFactory(
 	cellLibrary: CellLibrary
@@ -54,10 +55,11 @@ class Artix7LutFFPrepackerFactory(
 	}
 
 	override fun init(design: CellDesign) {
-		val pairs = design.cells.filter { it.libCell in ffLibCells }
+		val pairs = design.leafCells.filter { it.libCell in ffLibCells }
 			.map { it to getFFSource((it)) }
 			.filter { it.second != null }
 			.map { it.first to it.second!!}
+			.toList()
 		pairs.putTo(pairedCells) { it.first to it.second }
 		pairs.putTo(pairedCells) { it.second to it.first }
 	}

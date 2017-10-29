@@ -6,6 +6,7 @@ import edu.byu.ece.rapidSmith.design.subsite.*
 import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.util.Offset
 import java.util.*
+import kotlin.streams.toList
 
 /**
  * A packer for Xilinx FPGAs.
@@ -72,7 +73,7 @@ private class _RSVPack<T: PackUnit>(
 ) {
 	private val design = createClusterDesign<T>(design)
 	private val unclusteredCells = HashSet<Cell>(
-		(this.design.cellDesign.cells.size * 1.5).toInt())
+		(this.design.cellDesign.leafCells.count() * 1.5).toInt())
 
 	fun pack(): ClusterDesign<T, *> {
 		init()
@@ -86,7 +87,7 @@ private class _RSVPack<T: PackUnit>(
 		utils.prepareDesign(design.cellDesign)
 
 		// set the unclustered cells to all cells in the design
-		unclusteredCells += this.design.cellDesign.cells
+		unclusteredCells += this.design.cellDesign.leafCells.toList()
 		unclusteredCells -= design.cellDesign.vccNet.sourcePin.cell
 		unclusteredCells -= design.cellDesign.gndNet.sourcePin.cell
 
@@ -191,12 +192,6 @@ private class _RSVPack<T: PackUnit>(
 		// if no carry chain is used, there is nothing to do here
 		if (ccCells.isEmpty())
 			return
-
-		// Increment the number of packed carry chains
-		// TODO move this into the carry chain checker
-		ccCells.map { it.carryChain!! }
-			.forEach { it.incrementNumPackedCells() }
-
 
 		// Add the chain to a new group
 		val clusterChain = ClusterChain(cluster)

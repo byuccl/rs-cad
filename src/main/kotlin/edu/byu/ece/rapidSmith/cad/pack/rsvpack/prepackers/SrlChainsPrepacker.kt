@@ -13,7 +13,7 @@ class SRLChainsPrepackerFactory : PrepackerFactory<PackUnit>() {
 	private val mc31Sinks = HashMap<Cell, Cell>()
 
 	override fun init(design: CellDesign) {
-		val q31SourceCells = design.cells
+		val q31SourceCells = design.leafCells
 			.filter { it.usesPin("Q31") || it.usesPin("Q15") }
 
 		q31SourceCells.forEach { source ->

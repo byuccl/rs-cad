@@ -52,6 +52,76 @@ class RamMaker(cellLibrary: CellLibrary) {
 
 private fun findCellPositions(ram: Ram, cells: List<Cell>) {
 	when (ram.type) {
+		"RAM32X1S" -> {
+			val positions = cells.associate { cell ->
+				val matched = Regex(".+/(.+)").matchEntire(cell.name)!!
+				val position = when (matched.groupValues[1]) {
+					"SP" -> "ABCD"
+					else -> error("Unknown type: ${matched.groupValues[1]}")
+				}
+				cell to position
+			}
+			ram._positions = positions
+		}
+		"RAM64X1S" -> {
+			val positions = cells.associate { cell ->
+				val matched = Regex(".+/(.+)").matchEntire(cell.name)!!
+				val position = when (matched.groupValues[1]) {
+					"SP" -> "ABCD"
+					else -> error("Unknown type: ${matched.groupValues[1]}")
+				}
+				cell to position
+			}
+			ram._positions = positions
+		}
+		"RAM128X1S" -> {
+			val positions = cells.associate { cell ->
+				val matched = Regex(".+/(.+)").matchEntire(cell.name)!!
+				val position = when (matched.groupValues[1]) {
+					"HIGH" -> "AC"
+					"LOW" -> "BD"
+					else -> error("Unknown type: ${matched.groupValues[1]}")
+				}
+				cell to position
+			}
+			ram._positions = positions
+		}
+		"RAM256X1S" -> {
+			val positions = cells.associate { cell ->
+				val matched = Regex(".+/(.+)").matchEntire(cell.name)!!
+				val position = when (matched.groupValues[1]) {
+					"RAMS64E_D" -> "D"
+					"RAMS64E_C" -> "C"
+					"RAMS64E_B" -> "B"
+					"RAMS64E_A" -> "A"
+					else -> error("Unknown type: ${matched.groupValues[1]}")
+				}
+				cell to position
+			}
+			ram._positions = positions
+		}
+		"RAM32X1D" -> {
+			val positions = cells.associate { cell ->
+				val matched = Regex(".+/(.+)").matchEntire(cell.name)!!
+				val position = when (matched.groupValues[1]) {
+					"SP", "DP" -> "ABCD"
+					else -> error("Unknown type: ${matched.groupValues[1]}")
+				}
+				cell to position
+			}
+			ram._positions = positions
+		}
+		"RAM64X1D" -> {
+			val positions = cells.associate { cell ->
+				val matched = Regex(".+/(.+)").matchEntire(cell.name)!!
+				val position = when (matched.groupValues[1]) {
+					"SP", "DP" -> "ABCD"
+					else -> error("Unknown type: ${matched.groupValues[1]}")
+				}
+				cell to position
+			}
+			ram._positions = positions
+		}
 		"RAM128X1D" -> {
 			val positions = cells.associate { cell ->
 				val matched = Regex(".+/(.+)").matchEntire(cell.name)!!
@@ -59,7 +129,30 @@ private fun findCellPositions(ram: Ram, cells: List<Cell>) {
 					"SP.HIGH", "DP.HIGH" -> "AC"
 					"SP.LOW" -> "D"
 					"DP.LOW" -> "B"
-					else -> error("Unknown type")
+					else -> error("Unknown type: ${matched.groupValues[1]}")
+				}
+				cell to position
+			}
+			ram._positions = positions
+		}
+		"RAM32M" -> {
+			val positions = cells.associate { cell ->
+				val matched = Regex(".+/(.+)").matchEntire(cell.name)!!
+				val position = when (matched.groupValues[1]) {
+					"RAMD", "RAMC", "RAMB", "RAMA",
+					"RAMD_D1", "RAMC_D1", "RAMB_D1", "RAMA_D1" -> "ABCD"
+					else -> error("Unknown type: ${matched.groupValues[1]}")
+				}
+				cell to position
+			}
+			ram._positions = positions
+		}
+		"RAM64M" -> {
+			val positions = cells.associate { cell ->
+				val matched = Regex(".+/(.+)").matchEntire(cell.name)!!
+				val position = when (matched.groupValues[1]) {
+					"RAMD", "RAMC", "RAMB", "RAMA" -> "ABCD"
+					else -> error("Unknown type: ${matched.groupValues[1]}")
 				}
 				cell to position
 			}
@@ -67,20 +160,4 @@ private fun findCellPositions(ram: Ram, cells: List<Cell>) {
 		}
 		else -> error("Unsupported RAM type: ${ram.type}")
 	}
-
-	// I developed these when I had to pull the locations from the names of the cells
-	// Might be useful for building this info
-//	val position: String?
-//	when (m.group(2)) {
-//		"/D" -> position = "D"
-//		"/C" -> position = "C"
-//		"/B" -> position = "B"
-//		"/A" -> position = "A"
-//		"/LOW", "/SP.LOW" -> position = "BD"
-//		"/DP.LOW" -> position = "B"
-//		"/HIGH", "/SP.HIGH", "/DP.HIGH" -> position = "AC"
-//		"/DP" -> position = "ABC"
-//		"/SP", "" -> position = "ABCD"
-//		"_RAMD", "_RAMC", "_RAMB", "_RAMA", "_RAMD_D1", "_RAMC_D1", "_RAMB_D1", "_RAMA_D1" -> position = "ABCD"
-//	}
 }

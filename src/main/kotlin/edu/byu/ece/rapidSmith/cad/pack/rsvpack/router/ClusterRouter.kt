@@ -5,6 +5,7 @@ import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import edu.byu.ece.rapidSmith.design.subsite.CellNet
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import edu.byu.ece.rapidSmith.design.subsite.RouteTree
+import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.device.BelPin
 
 /**
@@ -22,6 +23,7 @@ interface ClusterRouter<in T: PackUnit> {
 class ClusterRouterResult(
 	val success: Boolean,
 	val routeTreeMap: Map<CellNet, List<RouteTree>> = emptyMap(),
-	val belPinMap: Map<CellNet, Map<CellPin, BelPin>> = emptyMap()
+	val belPinMap: Map<CellNet, Map<CellPin, List<BelPin>>> = emptyMap()
 )
 
+typealias PinMapper = (CellPin, Bel) -> List<BelPin>

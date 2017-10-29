@@ -5,16 +5,16 @@ import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterResult
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.PinMapper
 import edu.byu.ece.rapidSmith.design.subsite.CellNet
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import edu.byu.ece.rapidSmith.design.subsite.RouteTree
-import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.device.BelPin
 import java.util.*
 import kotlin.collections.HashMap
 
 class DirectPathClusterRouterFactory<in T: PackUnit>(
-	private val preferredPin: (CellPin, Bel) -> BelPin
+	private val preferredPin: PinMapper
 ) : ClusterRouterFactory<T> {
 	private val routers = HashMap<T, ClusterRouter<T>>()
 
@@ -27,11 +27,11 @@ class DirectPathClusterRouterFactory<in T: PackUnit>(
 
 private class DirectPathClusterRouter<T: PackUnit>(
 	val packUnit: T,
-	val preferredPin: (CellPin, Bel) -> BelPin
+	val preferredPin: PinMapper
 ) : ClusterRouter<T> {
 	override fun route(cluster: Cluster<T, *>): ClusterRouterResult {
 		val routeTreeMap = HashMap<CellNet, ArrayList<RouteTree>>()
-		val belPinMap = HashMap<CellNet, HashMap<CellPin, BelPin>>()
+		val belPinMap = HashMap<CellNet, HashMap<CellPin, List<BelPin>>>()
 
 		for (cell in cluster.cells) {
 			val bel = cluster.getCellPlacement(cell)!!
@@ -40,10 +40,11 @@ private class DirectPathClusterRouter<T: PackUnit>(
 				.filter { it.isConnectedToNet }
 
 			for (cellPin in outputs) {
-				val belPin = preferredPin(cellPin, bel)
+				val belPins = preferredPin(cellPin, bel)
+				assert(belPins.size == 1)
 				val net = cellPin.net
-				val rt = routeToOutput(belPin) ?: return ClusterRouterResult(false)
-				belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPin)
+				val rt = routeToOutput(belPins[0]) ?: return ClusterRouterResult(false)
+				belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
 				routeTreeMap.computeIfAbsent(net){ ArrayList() }.add(rt)
 			}
 
@@ -52,10 +53,10 @@ private class DirectPathClusterRouter<T: PackUnit>(
 				.filter { it.isConnectedToNet }
 
 			for (cellPin in inputs) {
-				val belPin = preferredPin(cellPin, bel)
+				val belPins = preferredPin(cellPin, bel)
 				val net = cellPin.net
-				val rt = routeToInput(belPin) ?: return ClusterRouterResult(false)
-				belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPin)
+				val rt = routeToInput(belPins) ?: return ClusterRouterResult(false)
+				belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
 				routeTreeMap.computeIfAbsent(net) { ArrayList() }.add(rt)
 			}
 		}
@@ -79,10 +80,7 @@ private class DirectPathClusterRouter<T: PackUnit>(
 				break
 			}
 
-			for (c in wire.wireConnections) {
-				val sink = rt.addConnection(c)
-				q.add(sink)
-			}
+			wire.wireConnections.mapTo(q) { rt.addConnection(it) }
 		}
 
 		if (sinkTree == null)
@@ -92,33 +90,33 @@ private class DirectPathClusterRouter<T: PackUnit>(
 		return sourceTree
 	}
 
-	private fun routeToInput(belPin: BelPin): RouteTree? {
-		val site = belPin.bel.site
+	private fun routeToInput(belPins: List<BelPin>): RouteTree? {
+		val site = belPins[0].bel.site
 		val sourceTrees = ArrayList(site.sinkPins.map { it.internalWire }.map { RouteTree(it) })
 
 		val q: Queue<RouteTree> = ArrayDeque()
 		q.addAll(sourceTrees)
 
-		var sinkTree: RouteTree? = null
+		var foundSinks = 0
+		val sinkTrees = ArrayList<RouteTree>()
 		while (q.isNotEmpty()) {
 			val rt = q.poll()
 			val wire = rt.wire
 
-			if (wire.terminal == belPin) {
-				sinkTree = rt
-				break
+			if (wire.terminal in belPins) {
+				sinkTrees.add(rt)
+				foundSinks++
+				if (foundSinks == belPins.size)
+					break
 			}
 
-			for (c in wire.wireConnections) {
-				val sink = rt.addConnection(c)
-				q.add(sink)
-			}
+			wire.wireConnections.mapTo(q) { rt.addConnection(it) }
 		}
 
-		if (sinkTree == null)
+		if (sinkTrees.size < belPins.size)
 			return null
 
-		pruneSourceTrees(sourceTrees, setOf(sinkTree), false)
+		pruneSourceTrees(sourceTrees, sinkTrees.toSet(), false)
 		return sourceTrees.single()
 	}
 }

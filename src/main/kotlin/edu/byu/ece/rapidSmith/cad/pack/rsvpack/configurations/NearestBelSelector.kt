@@ -21,8 +21,8 @@ constructor(
 	private val HIGH_FANOUT_LIMIT: Int = 500,
 	private val LEAVE_SITE_PENALTY: Double = 0.5
 ) : BelSelector<PackUnit> {
-	private val sinksOfSources: Map<BelPin, List<ClusterConnection>>
-	private val sourcesOfSinks: Map<BelPin, List<ClusterConnection>>
+	private val sinksOfSources: Map<BelPin, Map<BelPin, CCList>>
+	private val sourcesOfSinks: Map<BelPin, Map<BelPin, CCList>>
 	private val reserveBelCostMap = StackedHashMap<Bel, Double>()
 	private val pqStack = ArrayDeque<PriorityQueue<BelCandidate>>()
 	private val filteredNets = HashSet<CellNet>()
@@ -127,22 +127,23 @@ constructor(
 
 	private fun getConnections(
 		candidatePin: CellPin, loc: Bel, placedPin: CellPin
-	): Collection<ClusterConnection> {
+	): List<ClusterConnection> {
 		val placedCell = placedPin.cell
 		val placedBel = placedCell.locationInCluster!!
-		return if (placedPin.isOutpin) {
+		val conns = if (placedPin.isOutpin) {
 			val sourcePin = getBelPinOfCellPin(placedPin, placedBel)
 			val sinkPins = getBelPinsOfCellPin(candidatePin, loc)
+			val sourceCCs = sinksOfSources[sourcePin]!!
 
-			sinksOfSources[sourcePin]!!
-				.filter { cc -> sinkPins.contains(cc.pin) }
+			sinkPins.flatMap { sourceCCs[it]!! }
 		} else {
 			val toPins = getBelPinsOfCellPin(placedPin, placedBel)
 			val fromPins = getBelPinsOfCellPin(candidatePin, loc)
 
-			toPins.flatMap { sourcesOfSinks[it]!! }
-				.filter { cc -> cc.pin in fromPins }
+			val sinkCCs = toPins.map { sourcesOfSinks[it]!! }
+			fromPins.flatMap { p -> sinkCCs.flatMap { it[p]!! } }
 		}
+		return conns
 	}
 
 	private fun getBelPinsOfCellPin(pin: CellPin, bel: Bel): Collection<BelPin> {
@@ -240,21 +241,19 @@ private class ClusterConnection(
  *
  */
 private class ClusterConnectionsBuilder {
-	val sourcesOfSinks: MutableMap<BelPin, List<ClusterConnection>> = HashMap()
-	val sinksOfSources: MutableMap<BelPin, List<ClusterConnection>> = HashMap()
+	val sourcesOfSinks: HashMap<BelPin, Map<BelPin, CCList>> = HashMap()
+	val sinksOfSources: HashMap<BelPin, Map<BelPin, CCList>> = HashMap()
 
 	fun build(
 		packUnit: PackUnit
 	): ClusterConnectionsBuilder {
 		val template = packUnit.template
 		for (bel in template.bels) {
-			for (sourcePin in bel.sources) {
-				val ccs = traverse(sourcePin, true)
-				sinksOfSources.put(sourcePin, ccs)
+			bel.sources.associateTo(sinksOfSources) {
+				it to traverse(it, true).groupBy { it.pin }
 			}
-			for (sinkPin in bel.sinks) {
-				val ccs = traverse(sinkPin, false)
-				sourcesOfSinks.put(sinkPin, ccs)
+			bel.sinks.associateTo(sourcesOfSinks) {
+				it to traverse(it, false).groupBy { it.pin }
 			}
 		}
 		return this
@@ -383,3 +382,5 @@ fun loadBelCostsFromFile(belCostsFiles: Path): BelCostMap {
 		BelId(type, name) to doublePool.add(cost)
 	}.toMap()
 }
+
+private typealias CCList = List<ClusterConnection>

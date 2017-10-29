@@ -20,12 +20,12 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 ) {
 	// Field getters and setters
 	var cost: Double = 0.toDouble()
-	protected var _chain: ClusterChain<*>? = null
-	protected var placementMap = HashMap<Bel, Cell>()
-	protected var cellLocationMap = HashMap<Cell, Bel>()
-	protected var pinMap = HashMap<CellPin, BelPin>()
-	protected var internalNets: MutableMap<CellNet, ArrayList<RouteTree>>? = null
-	protected var externalNets: MutableMap<CellNet, ArrayList<RouteTree>>? = null
+	private var _chain: ClusterChain<*>? = null
+	private var placementMap = HashMap<Bel, Cell>()
+	private var cellLocationMap = HashMap<Cell, Bel>()
+	private var pinMap = HashMap<CellPin, List<BelPin>>()
+	private var internalNets: MutableMap<CellNet, ArrayList<RouteTree>>? = null
+	private var externalNets: MutableMap<CellNet, ArrayList<RouteTree>>? = null
 
 	var placement: S? = null
 		protected set
@@ -229,14 +229,14 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	/**
 	 * Sets the pin mapping for [cellPin] in this cluster.
 	 */
-	fun setPinMapping(cellPin: CellPin, belPin: BelPin) {
+	fun setPinMapping(cellPin: CellPin, belPin: List<BelPin>) {
 		pinMap.put(cellPin, belPin)
 	}
 
 	/**
 	 * Removes the pin mapping for [cellPin] in this cluster.
 	 */
-	fun removePinMapping(cellPin: CellPin): BelPin? {
+	fun removePinMapping(cellPin: CellPin): List<BelPin>? {
 		return pinMap.remove(cellPin)
 	}
 
@@ -244,7 +244,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	 * Returns the pin mapping for [cellPin] in this cluster or `null` if the pin
 	 * is not mapped.
 	 */
-	fun getPinMapping(cellPin: CellPin): BelPin? {
+	fun getPinMapping(cellPin: CellPin): List<BelPin>? {
 		return pinMap[cellPin]
 	}
 
@@ -252,7 +252,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	 * Returns a map containing all mapped cell pins in this cluster and the
 	 * bel pin they are mapped to.
 	 */
-	fun getPinMap(): Map<CellPin, BelPin> {
+	fun getPinMap(): Map<CellPin, List<BelPin>> {
 		return pinMap
 	}
 
@@ -312,19 +312,17 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		placementMap = relocatedBelMap
 
 		cellLocationMap = HashMap()
-		for ((key, value) in placementMap)
-			cellLocationMap.put(value, key)
+		placementMap.entries.associateTo(cellLocationMap) { (k, v) -> v to k }
 
-		val relocatePinMap = HashMap<CellPin, BelPin>()
-		for ((key, value) in pinMap) {
-			relocatePinMap.put(key, relocatePin(value, newAnchor))
+		val relocatePinMap = HashMap<CellPin, List<BelPin>>()
+		pinMap.entries.associateTo(relocatePinMap) { (k, v) ->
+			k to v.map { relocatePin(it, newAnchor) }
 		}
 		pinMap = relocatePinMap
 
 		val relocateTreeMap = HashMap<CellNet, List<RouteTree>>()
-		for ((key, value) in routeTreeMap) {
-			val list = value.map { relocateRouteTree(it, newAnchor) }
-			relocateTreeMap.put(key, list)
+		routeTreeMap.entries.associateTo(relocateTreeMap) { (k, v) ->
+			k to v.map { relocateRouteTree(it, newAnchor) }
 		}
 		clearRouting()
 		relocateTreeMap.forEach { cell, list -> list.forEach { t -> addNetRouteTree(cell, t) } }

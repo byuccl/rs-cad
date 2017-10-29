@@ -13,6 +13,7 @@ import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.LibraryCell
 import edu.byu.ece.rapidSmith.device.SiteType
 import java.util.*
+import kotlin.streams.asSequence
 
 /**
  * Prevents mixing SLICEL and SLICEM carry chains.
@@ -30,7 +31,7 @@ override fun init(design: CellDesign) {
 	}
 
 	private fun getCarryChains(design: CellDesign): Set<CarryChain> {
-		return design.cells.asSequence()
+		return design.leafCells.asSequence()
 			.map { it.carryChain }
 			.filterNotNull()
 			.toSet()

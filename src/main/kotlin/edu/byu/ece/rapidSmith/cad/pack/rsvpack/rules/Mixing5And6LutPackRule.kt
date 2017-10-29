@@ -22,11 +22,11 @@ class Mixing5And6LutsRuleFactory : PackRuleFactory {
 	// TODO make this a parameter
 	companion object {
 		private val LUT6TYPES: Set<String> = setOf(
-			"LUT6", "SRLC32E"
+			"LUT6", "SRLC32E", "RAMS64E", "RAMD64E"
 		)
 		private val LUT5TYPES: Set<String> = setOf(
 			"LUT1", "LUT2", "LUT3", "LUT4", "LUT5",
-			"SRL16E"
+			"SRL16E", "RAMS32", "RAMD32"
 		)
 	}
 }
