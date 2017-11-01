@@ -9,8 +9,6 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.*
 import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.Bel
-import edu.byu.ece.rapidSmith.device.Site
-import java.util.*
 
 /**
  * Used to speed up the packing of LUTRAMs.  The getLocations method is
@@ -21,9 +19,12 @@ class LutramPrepackerFactory(private val ramMaker: RamMaker)
 	: PrepackerFactory<PackUnit>() {
 
 	private var rams: Map<Cell, Ram>? = null
+	private var heads = HashMap<Ram, Cell>()
 
 	override fun init(design: CellDesign) {
-		rams = ramMaker.make(design)
+		val rams = ramMaker.make(design)
+		this.rams = rams
+		heads.putAll(ramMaker.buildHeads(rams))
 	}
 
 	override fun make(): Prepacker<PackUnit> =
@@ -39,194 +40,201 @@ private class LutramPrepacker(
 	): PrepackStatus {
 		val changedRamCells = changedCells.keys.filter { it -> it in rams }
 		val incompleteRams = changedRamCells
-			.associateBy { it.ram!! }
+			.groupBy { it.ram!! }
 			.filter { !it.key.fullyPacked() }
 
 		if (incompleteRams.isEmpty())
 			return PrepackStatus.UNCHANGED
 
-		for ((ram, ramCell) in incompleteRams) {
-			val (possible, locations) = findLocationsForCells(ramCell, ram, cluster)
-			if (!possible)
-				return PrepackStatus.INFEASIBLE
+		var changed = false
+		for (ram in incompleteRams.keys) {
+			val mapping = when (ram.type) {
+				"RAM32X1S" -> {
+					val (_, i) = getBaseOffset(ram) ?:
+						return PrepackStatus.INFEASIBLE
+
+					mapOf("SP" to ram.cells.single().locationInCluster!!.name)
+				}
+				"RAM64X1S" -> {
+					mapOf("SP" to ram.cells.single().locationInCluster!!.name)
+				}
+				"RAM128X1S" -> {
+					val (c, _) = getBaseOffset(ram) ?:
+						return PrepackStatus.INFEASIBLE
+
+					mapOf("LOW" to "${c}6", "HIGH" to "${c-1}6")
+				}
+				"RAM256X1S" -> {
+					// based off of name, place cells
+					mapOf("RAMA" to "A6", "RAMB" to "B6", "RAMC" to "C6", "RAMD" to "D6")
+				}
+				"RAM32X1D" -> {
+					val (c, i) = getBaseOffset(ram) ?:
+						return PrepackStatus.INFEASIBLE
+
+					// check the names to indices map
+					mapOf("SP" to "$c$i", "DP" to "${c-1}$i")
+				}
+				"RAM64X1D" -> {
+					val (c, _) = getBaseOffset(ram) ?:
+						return PrepackStatus.INFEASIBLE
+
+					mapOf("SP" to "${c}6", "DP" to "${c-1}6")
+				}
+				"RAM128X1D" -> {
+					// check the names to indices map
+					mapOf("SP.LOW" to "A6", "DP.LOW" to "B6", "SP.HIGH" to "C6", "DP.HIGH" to "D6")
+				}
+				"RAM32M" -> {
+					mapOf("RAMD" to "D6", "RAMC" to "C6", "RAMB" to "B6", "RAMA" to "A6",
+						"RAMD_D1" to "D5", "RAMC_D1" to "C5", "RAMB_D1" to "B5", "RAMA_D1" to "A5")
+				}
+				"RAM64M" -> {
+					mapOf("RAMD" to "D6", "RAMC" to "C6", "RAMB" to "B6", "RAMA" to "A6",
+						"RAMD_D1" to "D5", "RAMC_D1" to "C5", "RAMB_D1" to "B5", "RAMA_D1" to "A5")
+				}
+
+				else -> error("Unsupported RAM type: ${ram.type}")
+			}
 
 			for (cell in ram.cells) {
-				val locInCluster = cell.locationInCluster
-				if (locInCluster == null) {
-					val bel = locations[cell]!!
-					val status = addCellToCluster(cluster, cell, bel)
-					if (status == PackStatus.VALID)
-						changedCells[cell] = bel
-					if (status == PackStatus.INFEASIBLE)
+				val ext = cell.name.substringAfterLast("/")
+				val expected = mapping[ext]!! + "LUT"
+				if (cell.locationInCluster == null) {
+					val bel = getBel(cluster, expected)
+					val res = addCellToCluster(cluster, cell, bel)
+					changedCells[cell] = bel
+					if (res == PackStatus.INFEASIBLE)
 						return PrepackStatus.INFEASIBLE
-				} else {
-					val le = locInCluster.name[0]
-					if (le !in cell.ramPosition)
-						return PrepackStatus.INFEASIBLE
+					changed = true
+				} else if (cell.locationInCluster!!.name != expected) {
+					return PrepackStatus.INFEASIBLE
 				}
 			}
+
+			if (ram.cells.any { it.locationInCluster!!.name[1] == '5'} && !dLUTOccupied(cluster, 5))
+				return PrepackStatus.INFEASIBLE
+			if (ram.cells.any { it.locationInCluster!!.name[1] == '6'} && !dLUTOccupied(cluster, 6))
+				return PrepackStatus.INFEASIBLE
 		}
 
-		return PrepackStatus.CHANGED
+		return if (changed) PrepackStatus.CHANGED else PrepackStatus.UNCHANGED
 	}
 
-	private fun findLocationsForCells(
-		ramCell: Cell, ram: Ram, cluster: Cluster<*, *>
-	) : Pair<Boolean, Map<Cell, Bel>> {
-		val baseBel = ramCell.locationInCluster!!
-		val baseSite = baseBel.site
-		val le = baseBel.name[0]
-		val num = baseBel.name[1]
+	private fun getBel(cluster: Cluster<*, *>, expected: String) =
+		cluster.type.template.bels.single { it.name == expected }
 
-		val ramSize = ram.cells.size
-		return when (ramSize) {
-			1 -> Pair(true, emptyMap())
-			2 -> matchRamPairs(baseSite, cluster, le, num, ram)
-			3,4 -> findLocationForFullUsage(baseSite, cluster, num, ram)
-			else -> throw AssertionError("too many rams in group")
-		}
-	}
-
-	private fun matchRamPairs(
-		baseSite: Site, cluster: Cluster<*, *>,
-		le: Char, num: Char, ram: Ram
-	) : Pair<Boolean, Map<Cell, Bel>> {
-		// Select the other location for this cell
-		val ole = when (le) {
-			'A' -> 'B'
-			'B' -> 'A'
-			'C' -> 'D'
-			'D' -> 'C'
-			else -> throw AssertionError("Illegal LE")
-		}
-
-		// validate the size of the RAM
-		val unplacedCells = ram.unpackedCells()
-		assert(unplacedCells.size <= 1)
-
-		// check if it's already packed
-		if (unplacedCells.isEmpty())
-			return Pair(true, emptyMap())
-
-		// make sure its a valid position for the cell
-		val unplacedCell = unplacedCells[0]
-		if (ole !in unplacedCell.ramPosition)
-			return Pair(false, emptyMap())
-
-		// make sure the BEL is available
-		val obel = baseSite.getBel("$ole${num}LUT")
-		if (cluster.isBelOccupied(obel))
-			return Pair(false, emptyMap())
-
-		val locations = HashMap<Cell, Bel>()
-		locations[unplacedCell] = obel
-		return Pair(true, locations)
-	}
-
-	private fun findLocationForFullUsage(
-		baseSite: Site, cluster: Cluster<*, *>,
-		num: Char, ram: Ram
-	): Pair<Boolean, Map<Cell, Bel>> {
-		val openBels = ('D' downTo 'A')
-			.map { baseSite.getBel("$it${num}LUT") }
-			.filter { !cluster.isBelOccupied(it) }
-
-		var foundValidPermutation = false
-		for (permutation in ram.unpackedCells().permutations()) {
-			assert(!foundValidPermutation)
-			foundValidPermutation = true
-			val locations = HashMap<Cell, Bel>()
-			val bels = ArrayList(openBels)
-			for (cell in permutation) {
-				var foundBelForCell = false
-				val it = bels.iterator()
-				while (it.hasNext()) {
-					val obel = it.next()
-					val ole = obel.name[0]
-					if (ole in cell.ramPosition) {
-						it.remove()
-						locations[cell] = obel
-						foundBelForCell = true
-						break
+	private fun getBaseOffset(ram: Ram): Pair<Char, Int>? {
+		return when (ram.type) {
+			"RAM32X1S" -> {
+				val cell = ram.cells.single()
+				val bel = cell.locationInCluster!!
+				val ch = bel.name[0]
+				val index = bel.name[1] - '0'
+				Pair(ch, index)
+			}
+			"RAM128X1S" -> {
+				val ch = arrayOfNulls<Char>(1)
+				for (cell in ram.cells) {
+					val bel = cell.locationInCluster
+					if (bel != null) {
+						when {
+							cell.name.endsWith(("LOW")) -> {
+								when (bel.name[0]) {
+									'B', 'D' -> ch.matchOrNull(bel.name[0]) ?: return null
+									else -> return null
+								}
+							}
+							cell.name.endsWith(("HIGH")) -> {
+								when (bel.name[0]) {
+									'A', 'C' -> ch.matchOrNull(bel.name[0] + 1) ?: return null
+									else -> return null
+								}
+							}
+							else -> error("bad name")
+						}
 					}
 				}
-
-				if (!foundBelForCell) {
-					foundValidPermutation = false
-					break
-				}
+				Pair(ch[0]!!, 6)
 			}
-			if (foundValidPermutation)
-				return Pair(true, locations)
+			"RAM32X1D" -> {
+				val ch = arrayOfNulls<Char>(1)
+				val index = arrayOfNulls<Char>(1)
+				for (cell in ram.cells) {
+					val bel = cell.locationInCluster
+					if (bel != null) {
+						when {
+							cell.name.endsWith(("SP")) -> {
+								when (bel.name[0]) {
+									'B', 'D' -> ch.matchOrNull(bel.name[0]) ?: return null
+									else -> return null
+								}
+								index.matchOrNull(bel.name[1]) ?: return null
+							}
+							cell.name.endsWith(("DP")) -> {
+								when (bel.name[0]) {
+									'A', 'C' -> ch.matchOrNull(bel.name[0] + 1) ?: return null
+									else -> return null
+								}
+								index.matchOrNull(bel.name[1]) ?: return null
+							}
+							else -> error("bad name")
+						}
+					}
+				}
+				Pair(ch[0]!!, index[0]!! - '0')
+			}
+			"RAM64X1D" -> {
+				val ch = arrayOfNulls<Char>(1)
+				for (cell in ram.cells) {
+					val bel = cell.locationInCluster
+					if (bel != null) {
+						when {
+							cell.name.endsWith(("SP")) -> {
+								when (bel.name[0]) {
+									'B', 'D' -> ch.matchOrNull(bel.name[0]) ?: return null
+									else -> return null
+								}
+							}
+							cell.name.endsWith(("DP")) -> {
+								when (bel.name[0]) {
+									'A', 'C' -> ch.matchOrNull(bel.name[0] + 1) ?: return null
+									else -> return null
+								}
+							}
+							else -> error("bad name")
+						}
+					}
+				}
+				Pair(ch[0]!!, 6)
+			}
+			else -> error("invalid type")
 		}
-		assert(!foundValidPermutation)
-		return Pair(false, emptyMap())
+	}
+
+	private fun dLUTOccupied(cluster: Cluster<*, *>, index: Int): Boolean {
+		val bel = if (index == 6) cluster.D6LUT else cluster.D5LUT
+		return cluster.isBelOccupied(bel)
+	}
+
+	private fun <T> Array<T>.matchOrNull(ch: T): Array<T>? {
+		if (this[0] == null)
+			this[0] = ch
+		else if (this[0] != ch)
+			return null
+
+		return this
 	}
 
 	private val Cell.ram : Ram?
 		get() {
 			return rams[this]
 		}
-
-	private val Cell.ramPosition : String
-		get() {
-			return rams[this]!!.positions[this]!!
-		}
 }
 
-private fun <T> List<T>.ringIterator() = RingIterator(this)
+private val Cluster<*, *>.D6LUT
+	get() = type.template.bels.single { it.name == "D6LUT" }
 
-private class RingIterator<out T>(private val of: List<T>) {
-	private var index = 0
-
-	val value: T
-		get() = of[index]
-
-	fun step(): Boolean {
-		if (++index == of.size) {
-			index = 0
-			return true
-		}
-		return false
-	}
-}
-
-private class Permutations<out T>(val of: List<T>) : Iterable<List<T>> {
-	override fun iterator(): Iterator<List<T>>  = PermutationIterator(of)
-}
-
-private class PermutationIterator<out T>(of: List<T>) : Iterator<List<T>> {
-	private val state = ArrayList<RingIterator<T>>()
-	private var cur: List<T>?
-
-	init {
-		for (i in state.size downTo 1) {
-			state += of.ringIterator()
-		}
-		cur = computeNext()
-	}
-
-	override fun hasNext(): Boolean = cur != null
-
-	override fun next(): List<T> {
-		val next = cur ?: throw NoSuchElementException()
-		cur = computeNext()
-		return next
-	}
-
-	private fun computeNext() : List<T>? {
-		val next = ArrayList<T>(state.size)
-		var step = true
-		for (i in state) {
-			if (step)
-				step = i.step()
-			next += i.value
-		}
-
-		return if (step) null else next
-	}
-}
-
-private fun <T> List<T>.permutations() = Permutations(this)
-
+private val Cluster<*, *>.D5LUT
+	get() = type.template.bels.single { it.name == "D5LUT" }
 

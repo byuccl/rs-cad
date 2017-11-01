@@ -48,6 +48,9 @@ class RamMaker(cellLibrary: CellLibrary) {
 			.flatMap { (parent, children) -> children.map { it to parent } } // reverse the mapping
 			.toMap() // collect
 	}
+
+	fun buildHeads(rams: Map<Cell, Ram>): Map<Ram, Cell> =
+		rams.values.distinct().associate { it to findHead(it) }
 }
 
 private fun findCellPositions(ram: Ram, cells: List<Cell>) {
@@ -158,6 +161,21 @@ private fun findCellPositions(ram: Ram, cells: List<Cell>) {
 			}
 			ram._positions = positions
 		}
+		else -> error("Unsupported RAM type: ${ram.type}")
+	}
+}
+
+private fun findHead(ram: Ram): Cell {
+	return when (ram.type) {
+		"RAM32X1S" -> ram.cells.single { it.name.endsWith("SP") }
+		"RAM64X1S" -> ram.cells.single { it.name.endsWith("SP") }
+		"RAM128X1S" -> ram.cells.single { it.name.endsWith("LOW") }
+		"RAM256X1S" -> ram.cells.single { it.name.endsWith("RAMS64E_D") }
+		"RAM32X1D" -> ram.cells.single { it.name.endsWith("SP") }
+		"RAM64X1D" -> ram.cells.single { it.name.endsWith("SP") }
+		"RAM128X1D" -> ram.cells.single { it.name.endsWith("SP.LOW") }
+		"RAM32M" -> ram.cells.single { it.name.endsWith("RAMD") }
+		"RAM64M" -> ram.cells.single { it.name.endsWith("RAMD") }
 		else -> error("Unsupported RAM type: ${ram.type}")
 	}
 }

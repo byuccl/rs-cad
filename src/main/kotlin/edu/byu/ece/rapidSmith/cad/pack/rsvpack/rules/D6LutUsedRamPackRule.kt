@@ -110,9 +110,12 @@ class D6LutUsedRamPackRuleFactory(
 					.toSet()
 			}
 
+		private val filteredNets = HashMap<CellNet, Boolean>()
 		private fun isFilteredNet(net: CellNet): Boolean {
-			return net.isClkNet || net.isStaticNet ||
-				net.pins.size > 100
+			return filteredNets.computeIfAbsent(net) {
+				net.isClkNet || net.isStaticNet ||
+					net.pins.size > 100
+			}
 		}
 
 		// the cell must be valid, a ram cell and placeable in the DLUT
