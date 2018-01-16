@@ -7,10 +7,7 @@ import java.util.*
 /**
  * A design comprised of clusters.
  */
-class ClusterDesign<T: PackUnit, S : ClusterSite>(
-	val cellDesign: CellDesign
-) {
-	/** This is a list of all the cells in the design  */
+class ClusterDesign<T: PackUnit, S : ClusterSite> {
 	private val clusterMap = HashMap<String, Cluster<T, S>>()
 	/** A map used to keep track of all used primitive sites used by the design  */
 	private val placementMap = HashMap<S, Cluster<T, S>>()
@@ -38,7 +35,6 @@ class ClusterDesign<T: PackUnit, S : ClusterSite>(
 	 * Returns the cluster placed at this [site] or null if [site] is unoccupied.
 	 */
 	fun getClusterAtLocation(site: S): Cluster<T, S>? {
-		Objects.requireNonNull(site)
 		return placementMap[site]
 	}
 
@@ -46,8 +42,6 @@ class ClusterDesign<T: PackUnit, S : ClusterSite>(
 	 * Returns `true` if a cluster is located at location [site] in this design.
 	 */
 	fun isLocationUsed(site: S): Boolean {
-		Objects.requireNonNull(site)
-
 		return placementMap.containsKey(site)
 	}
 
@@ -110,49 +104,47 @@ class ClusterDesign<T: PackUnit, S : ClusterSite>(
 
 	/** Unplaces [cluster]. */
 	fun unplaceCluster(cluster: Cluster<T, S>) {
-		Objects.requireNonNull<Any>(cluster)
 		placementMap.remove(cluster.placement)
 		cluster.unplace()
 	}
 
 	/** Flattens the design.  The returned design contains no cluster hierarchy. */
-	fun flatten(): CellDesign {
-		val cellDesign = CellDesign(cellDesign.name, cellDesign.partName)
-//      TODO
-//		for (cluster in clusters) {
-//			require(cluster.isPlaced)
-//			cluster.commitPlacement()
+	fun commitPlacement(cellDesign: CellDesign) {
+		for (cluster in clusters) {
+			require(cluster.isPlaced)
+			cluster.commitPlacement()
 //			for (cell in cluster.cells) {
-//				val copy = cell.deepCopy()
-//				cellDesign.addCell(copy)
-//				cellDesign.placeCell(copy, cell.locationInCluster)
+//				val copyCell = cellDesign.getCell(cell.name)
+//				val cellPlacement = cluster.getCellPlacement(cell)
+//				cellDesign.placeCell(copyCell, cellPlacement)
 //			}
-//		}
 //
-//		for (net in design.nets) {
-//			val copy = net.deepCopy()
-//			cellDesign.addNet(copy)
-//			for (pin in net.pins) {
-//				val cellName = pin.cell.name
-//				val copyPin = cellDesign.getCell(cellName).getPin(pin.name)
-//				copy.connectToPin(copyPin)
-//			}
-//		}
-//
-//		for (cluster in clusters) {
-//			for ((oldPin, belPin) in cluster.getPinMap()) {
-//				val newCell = cellDesign.getCell(oldPin.cell.name)
-//				val newPin = newCell.getPin(oldPin.name)
-//				newPin.mapToBelPin(belPin)
+//			for ((cellPin, belPin) in cluster.getPinMap()) {
+//				val copyCell = cellDesign.getCell(cellPin.cell.name)
+//				val copyPin = copyCell.getPin(cellPin.name)
+//				copyPin.mapToBelPins(belPin)
+//				if (copyPin.isInpin) {
+//					val copyNet = copyPin.net
+//					copyNet.addRoutedSink(copyPin)
+//				}
 //			}
 //
 //			for ((oldNet, tree) in cluster.routeTreeMap) {
-//				val newNet = cellDesign.getNet(oldNet.name)
-//				for (rt in tree)
-//					newNet.addRouteTree(rt)
+//				val copyNet = cellDesign.getNet(oldNet.name)
+//				for (rt in tree) {
+//					copyNet.addIntersiteRouteTree(rt)
+//					rt.wire.source?.let { copyNet.sourceRouteTree = rt }
+//					rt.wire.reverseConnectedPin?.let { copyNet.addSinkRouteTree(it, rt) }
+//					for (t in rt) {
+//						if (t.isLeaf && t.connectingSitePin != null) {
+//							copyNet.addSourceSitePin(t.connectingSitePin!!)
+//						}
+//						if (t.isLeaf && t.connectingBelPin != null) {
+//							copyNet.addSinkRouteTree(t.connectingBelPin!!, t)
+//						}
+//					}
+//				}
 //			}
-//		}
-
-		return cellDesign
+		}
 	}
 }

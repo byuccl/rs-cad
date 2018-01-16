@@ -30,16 +30,15 @@ class SiteCadFlow {
 //	var placer: Placer<SiteClusterSite>? = null
 //	var placer: RouteR? = null
 
-	fun run(design: CellDesign, device: Device): ClusterDesign<SitePackUnit, SiteClusterSite> {
+	fun run(design: CellDesign, device: Device) {
 		val packer = getSitePacker(device)
 		@Suppress("UNCHECKED_CAST")
-		val packedDesign = packer.pack<ClusterDesign<SitePackUnit, SiteClusterSite>>(design)
+		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
 		val placer = SimulatedAnnealingPlacer(
 			SiteClusterGridFactory(device),
 			MoveValidator(listOf(MismatchedRAMBValidator()))
 		)
-		placer.place(packedDesign, device)
-		return packedDesign
+		placer.place(design, clusters, device)
 	}
 
 	companion object {
@@ -309,9 +308,9 @@ private class SitePackerFactory(
 		}
 
 		override fun finish(
-			design: ClusterDesign<SitePackUnit, *>
+			clusters: List<Cluster<SitePackUnit, *>>
 		) {
-			for (cluster in design.clusters) {
+			for (cluster in clusters) {
 //				upgradeRAM32s(cluster)  Many of these can be upgraded to ram64s
 				addPseudoPins(cluster)
 				cluster.constructNets()
@@ -468,7 +467,7 @@ private fun <T: PackUnit> finalRoute(
 	removeTileWires(routeTrees.values)
 	trimUnsunkStaticNetRoutes(routeTrees)
 
-	for ((net, rts) in routeTreeMap) {
+	for ((net, rts) in routeTrees) {
 		rts.forEach { v -> cluster.addNetRouteTree(net, v) }
 	}
 	belPinMap.forEach(cluster::setPinMapping)
@@ -486,7 +485,7 @@ private fun removeTileWires(routeTrees: Collection<ArrayList<RouteTree>>) {
 					rt.sourceTree.removeConnection(rt.connection)
 				for (sink in ArrayList(rt.sinkTrees)) {
 					rt.removeConnection(sink.connection)
-					if (!treesToRemove.contains(sink)) {
+					if (sink !in treesToRemove) {
 						newSourceTrees.add(sink)
 					}
 				}

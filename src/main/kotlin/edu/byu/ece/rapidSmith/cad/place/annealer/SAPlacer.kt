@@ -1,10 +1,12 @@
 package edu.byu.ece.rapidSmith.cad.place.annealer
 
-import edu.byu.ece.rapidSmith.cad.cluster.ClusterDesign
+import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.CadException
 import edu.byu.ece.rapidSmith.cad.place.Placer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.DisplacementRandomInitialPlacer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.HPWLCostFunctionFactory
+import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.Device
 import java.util.*
 
@@ -20,7 +22,7 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 	private val costFunctionFactory: CostFunctionFactory<S> = HPWLCostFunctionFactory(),
 	private val random: Random = Random(),
 	private val initPlacer: InitialPlacer<S> = DisplacementRandomInitialPlacer(validator, random)
-) : Placer<ClusterDesign<*, S>>() {
+) : Placer<S>() {
 	/**
 	 * The placer starts out with a random placement. At the beginning of the
 	 * anneal, most moves are accepted even if they increase the system cost.
@@ -30,21 +32,20 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 	 * "VPR: A New Packing, Placement and Routing Tool for FPGA Research"
 	 * by Betz and Rose.
 	 */
-	override fun place(design: ClusterDesign<*, S>, device: Device): Boolean {
-		val pdesign = PlacerDesign(design)
+	override fun place(design: CellDesign, clusters: List<Cluster<*, S>>, device: Device) {
+		val pdesign = PlacerDesign(clusters)
 		val pdevice = PlacerDevice(csgFactory, pdesign.clustersToPlace)
 		val state = PlacerState(pdesign, pdevice, random, costFunctionFactory.make(pdesign))
 		val coolingSchedule = coolingScheduleFactory.make(state, random)
 
 			// Perform initial placement
-		System.out.println("Instances: " + design.clusters.size)
+		System.out.println("Instances: " + clusters.size)
 		val allGroups = ArrayList(pdesign.groups)
 		val initialPlaceSuccessful = initPlacer.initialPlace(pdesign, pdevice, state)
 
 		// Check to see if the initial placer was successful or not
 		if (!initialPlaceSuccessful) {
-			println("Unsuccesful initial place")
-			return false
+			throw CadException("Unsuccesful initial place")
 		}
 
 		coolingSchedule.initialize(pdesign, pdevice, validator)
@@ -126,7 +127,6 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 		println("Final cost: " + currCost + " (" + currCost / initialCost * 100 + "% of initial cost:" +
 			initialCost + ")")
 		println(numMoves.toString() + " Moves in " + timeInMiliSeconds.toDouble() / 1000 + " seconds (" + movesPerSecond + " moves per second)")
-		finalizePlacement(state, pdesign, design)
-		return true
+		finalizePlacement(state, pdesign)
 	}
 }

@@ -18,7 +18,7 @@ import kotlin.streams.toList
  * @property clusterCostCalculator tool to determine the cost of a cluster.  See [ClusterCostCalculator].
  * @param T type of [PackUnit]s used in this packer.
  */
-class RSVPack<T: PackUnit>(
+class RSVPack<out T: PackUnit>(
 	val cellLibrary: CellLibrary,
 	private val clusterFactory: ClusterFactory<T, *>,
 	private val seedSelector: SeedSelector<T>,
@@ -26,12 +26,12 @@ class RSVPack<T: PackUnit>(
 	private val utils: PackingUtils<T>,
 	private val clusterCostCalculator: ClusterCostCalculator<T>
 ) : Packer<T> {
-	override fun <D: ClusterDesign<T, *>> pack(design: CellDesign): D {
+	override fun pack(design: CellDesign): List<Cluster<T, *>> {
 		// creates a new packer instance and packs the design.
 		val packer = _RSVPack(clusterFactory, clusterCostCalculator,
 			seedSelector, packStrategies, utils, design)
 		@Suppress("UNCHECKED_CAST")
-		return packer.pack() as D
+		return packer.pack()
 	}
 }
 
@@ -63,51 +63,52 @@ fun <T: PackUnit> addCellToCluster(
 	}
 }
 
-private class _RSVPack<T: PackUnit>(
+private class _RSVPack<out T: PackUnit>(
 	private val clusterFactory: ClusterFactory<T, *>,
 	private val clusterCostCalculator: ClusterCostCalculator<T>,
 	private val seedSelector: SeedSelector<T>,
 	private val packStrategies: Map<PackUnitType, PackStrategy<T>>,
 	private val utils: PackingUtils<T>,
-	design: CellDesign
+	private val design: CellDesign
 ) {
-	private val design = createClusterDesign<T>(design)
+	private val clusters = ArrayList<Cluster<T, ClusterSite>>()
 	private val unclusteredCells = HashSet<Cell>(
-		(this.design.cellDesign.leafCells.count() * 1.5).toInt())
+		(design.leafCells.count() * 1.5).toInt())
 
-	fun pack(): ClusterDesign<T, *> {
+	fun pack(): List<Cluster<T, *>> {
 		init()
 		packNetlist()
-		cleanupClusters(design)
-		return design
+		cleanupClusters(clusters)
+		return clusters
 	}
 
 	private fun init() {
 		// perform any needed modifications to the design prior to packing
-		utils.prepareDesign(design.cellDesign)
+		utils.prepareDesign(design)
 
 		// set the unclustered cells to all cells in the design
-		unclusteredCells += this.design.cellDesign.leafCells.toList()
-		unclusteredCells -= design.cellDesign.vccNet.sourcePin.cell
-		unclusteredCells -= design.cellDesign.gndNet.sourcePin.cell
+		unclusteredCells += design.leafCells.toList()
+		// remove the shared gnd and vcc cells
+		unclusteredCells -= design.vccNet.sourcePin.cell
+		unclusteredCells -= design.gndNet.sourcePin.cell
 
 		// initialize the packing info for all cells in the design
 		initCellPackingInformation()
 
 		CarryChainFinder().findCarryChains(
-			clusterFactory.supportedPackUnits, design.cellDesign)
+			clusterFactory.supportedPackUnits, design)
 
 		// Initialize all of the configurations
-		packStrategies.values.forEach { it.init(design.cellDesign) }
-		seedSelector.init(clusterFactory.supportedPackUnits, design.cellDesign)
+		packStrategies.values.forEach { it.init(design) }
+		seedSelector.init(clusterFactory.supportedPackUnits, design)
 		clusterFactory.init()
 		clusterCostCalculator.init(clusterFactory)
 	}
 
 	private fun initCellPackingInformation() {
 		unclusteredCells.forEach { it.initPackingInfo() }
-		design.cellDesign.vccNet.sourcePin.cell.initPackingInfo()
-		design.cellDesign.gndNet.sourcePin.cell.initPackingInfo()
+		design.vccNet.sourcePin.cell.initPackingInfo()
+		design.gndNet.sourcePin.cell.initPackingInfo()
 	}
 
 	private fun packNetlist() {
@@ -182,8 +183,7 @@ private class _RSVPack<T: PackUnit>(
 	@Suppress("UNCHECKED_CAST")
 	private fun addClusterToDesign(cluster: Cluster<T, *>) {
 		val typedCluster = cluster as Cluster<T, ClusterSite>
-		val typedDesign = design as ClusterDesign<T, ClusterSite>
-		typedDesign.addCluster(typedCluster)
+		clusters.add(typedCluster)
 	}
 
 	private fun buildClusterChains(cluster: Cluster<T, *>) {
@@ -215,33 +215,14 @@ private class _RSVPack<T: PackUnit>(
 			clusterChain, it.second + Offset(1, 0)) }
 	}
 
-	private fun cleanupClusters(clusterDesign: ClusterDesign<T, *>) {
-		utils.finish(clusterDesign)
+	private fun cleanupClusters(clusters: List<Cluster<T, *>>) {
+		utils.finish(clusters)
 	}
 }
 
 private fun cellCanBePlacedAt(cluster: Cluster<*, *>, cell: Cell, anchor: Bel): Boolean {
 	return !cell.getRequiredBels(anchor)
 		.any { cluster.isBelOccupied(it) }
-}
-
-// Creates a new ClusterDesign with a clean copy of the netlist
-private fun <T: PackUnit> createClusterDesign(netlist: CellDesign): ClusterDesign<T, *> {
-	val designCopy = CellDesign(netlist.name, netlist.partName)
-	netlist.cells.forEach { c -> designCopy.addCell(c.deepCopy()) }
-	netlist.nets.filter { !it.isInternal }.forEach { net ->
-		val newNet = net.deepCopy()
-		designCopy.addNet(newNet)
-		net.pins.forEach { pin ->
-			check(!pin.isPseudoPin) { "All pseudo pins must be removed" }
-			val newCell = designCopy.getCell(pin.cell.name)
-			val newPin = newCell.getPin(pin.name)
-			newNet.connectToPin(newPin)
-		}
-	}
-
-	@Suppress("UNCHECKED_CAST")
-	return ClusterDesign<T, ClusterSite>(designCopy)
 }
 
 /**

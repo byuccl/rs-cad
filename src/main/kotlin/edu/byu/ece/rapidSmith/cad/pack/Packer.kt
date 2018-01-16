@@ -6,6 +6,6 @@ import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 /**
 
  */
-interface Packer<T: PackUnit> {
-	fun <D: ClusterDesign<T, *>> pack(design: CellDesign): D
+interface Packer<out T: PackUnit> {
+	fun pack(design: CellDesign): List<Cluster<T, *>>
 }

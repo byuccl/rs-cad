@@ -1,7 +1,6 @@
 package edu.byu.ece.rapidSmith.cad.place.annealer
 
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
-import edu.byu.ece.rapidSmith.cad.cluster.ClusterDesign
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import edu.byu.ece.rapidSmith.util.Dimensions
@@ -163,23 +162,26 @@ class MultipleClusterPlacementGroup<S: ClusterSite>(
  */
 class PlacementGroupFinder<S : ClusterSite> {
 	fun findMultiSitePlacementGroups(
-		design: ClusterDesign<*, S>
+		clusters: List<Cluster<*, S>>
 	): Set<PlacementGroup<S>> {
-		val shapes = findShapes<Cluster<*, S>>(design)
+		val shapes = findShapes<Cluster<*, S>>(clusters)
 		return shapes.map {constructPlacementGroup(it) }.toSet()
 	}
 
 	/** Finds carry chains and builds into shapes */
-	private fun <C: Cluster<*, *>> findShapes(design: ClusterDesign<*, S>): Collection<Shape<C>> {
-		val chains = design.clusters.mapNotNull { it.getChain<C>() }.distinct()
+	private fun <C: Cluster<*, *>> findShapes(clusters: List<Cluster<*, S>>): Collection<Shape<C>> {
+		val chains = clusters.mapNotNull { it.getChain<C>() }.distinct()
 		return chains.map { chain ->
 			val offsets = chain.clusters.map { it to chain.getOffsetOf(it) }
 			val low = offsets.map { it.second.rows }.min()!!
 			val high = offsets.map { it.second.rows }.max()!!
-			val clusters = arrayOfNulls<Cluster<*, *>>(high - low + 1)
-			offsets.forEach { clusters[it.second.rows] = it.first }
-			assert(clusters.all { it != null })
-			assert (clusters.all { it!!.isPlaceable })
+
+			// just error checking?
+			val arrayOfClusters = arrayOfNulls<Cluster<*, *>>(high - low + 1)
+			offsets.forEach { arrayOfClusters[it.second.rows] = it.first }
+			assert(arrayOfClusters.all { it != null })
+			assert (arrayOfClusters.all { it!!.isPlaceable })
+
 			Shape(offsets.toMap())
 		}
 	}

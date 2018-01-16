@@ -1,7 +1,6 @@
 package edu.byu.ece.rapidSmith.cad.place.annealer
 
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
-import edu.byu.ece.rapidSmith.cad.cluster.ClusterDesign
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
 import edu.byu.ece.rapidSmith.design.subsite.CellNet
 import edu.byu.ece.rapidSmith.util.putTo
@@ -24,23 +23,21 @@ import edu.byu.ece.rapidSmith.util.putTo
  * @author Mike Wirthlin
  * Created on: May 30, 2012
  */
-class PlacerDesign<S : ClusterSite>(val design: ClusterDesign<*, S>) {
+class PlacerDesign<S : ClusterSite>(val clusters: List<Cluster<*, S>>) {
 	/** The placement groups that can be placed by the placer */
 	val groups: Set<PlacementGroup<S>>
 
-	/** Clusters that should not be placed by the placer */
+	// separation of placeable and nonplaceable clusters
 	val clustersNotToPlace: Set<Cluster<*, S>>
-
-	/** Clusters to be placed by the placer */
 	val clustersToPlace: Set<Cluster<*, S>>
 
 	private val clusterGroupMap: Map<Cluster<*, S>, PlacementGroup<S>>
 
 	init {
-		val (toNotPlace, toPlace) = identifyPlaceableClusters(design)
+		val (toNotPlace, toPlace) = identifyPlaceableClusters(clusters)
 		clustersToPlace = toPlace
 		clustersNotToPlace = toNotPlace
-		clusterGroupMap = createPlacementGroups(design, toNotPlace)
+		clusterGroupMap = createPlacementGroups(clusters, toNotPlace)
 		groups = clusterGroupMap.values.toSet()
 	}
 
@@ -53,7 +50,7 @@ class PlacerDesign<S : ClusterSite>(val design: ClusterDesign<*, S>) {
 	}
 
 	val nets: Collection<CellNet>
-		get() = design.clusters.flatMap { it.getExternalNets() }.toSet()
+		get() = clusters.flatMap { it.getExternalNets() }.toSet()
 }
 
 /**
@@ -61,12 +58,12 @@ class PlacerDesign<S : ClusterSite>(val design: ClusterDesign<*, S>) {
  * saved for special consideration.
  */
 private fun <S: ClusterSite> identifyPlaceableClusters(
-	design: ClusterDesign<*, S>
+	clusters: List<Cluster<*, S>>
 ): Pair<HashSet<Cluster<*, S>>, HashSet<Cluster<*, S>>> {
 	val clustersThatCannotBePlaced = HashSet<Cluster<*, S>>()
 	val clustersToPlace = HashSet<Cluster<*, S>>()
 
-	for (i in design.clusters) {
+	for (i in clusters) {
 		if (i.isPlaceable) {
 			clustersToPlace.add(i)
 		} else {
@@ -82,15 +79,15 @@ private fun <S: ClusterSite> identifyPlaceableClusters(
  * data structure for each group.
  */
 private fun <S: ClusterSite> createPlacementGroups(
-	design: ClusterDesign<*, S>, clustersNotToPlace: Set<Cluster<*, S>>
+	clusters: List<Cluster<*, S>>, clustersNotToPlace: Set<Cluster<*, S>>
 ): Map<Cluster<*, S>, PlacementGroup<S>> {
 	val clusterGroupMap = HashMap<Cluster<*, S>, PlacementGroup<S>>()
-	val remainingClusters = HashSet(design.clusters)
+	val remainingClusters = HashSet(clusters)
 	remainingClusters -= clustersNotToPlace
 
 	// Step 1: Go through the remaining clusters and see if they match any of the known
 	// patterns.
-	val multiGroups = PlacementGroupFinder<S>().findMultiSitePlacementGroups(design)
+	val multiGroups = PlacementGroupFinder<S>().findMultiSitePlacementGroups(clusters)
 	multiGroups.forEach {
 		it.clusters.forEach { c -> clusterGroupMap[c] = it }
 		remainingClusters.removeAll(it.clusters)

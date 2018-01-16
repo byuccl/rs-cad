@@ -1,14 +1,15 @@
 package edu.byu.ece.rapidSmith.cad.cluster.site
 
-import edu.byu.ece.rapidSmith.cad.cluster.Cluster
-import edu.byu.ece.rapidSmith.cad.cluster.ClusterFactory
-import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
-import edu.byu.ece.rapidSmith.cad.cluster.PackUnitList
+import edu.byu.ece.rapidSmith.RSEnvironment
+import edu.byu.ece.rapidSmith.cad.cluster.*
 import edu.byu.ece.rapidSmith.cad.place.annealer.ClusterSiteGrid
 import edu.byu.ece.rapidSmith.cad.place.annealer.Coordinates
 import edu.byu.ece.rapidSmith.design.subsite.Cell
+import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.*
+import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
 import edu.byu.ece.rapidSmith.util.Exceptions.DesignAssemblyException
+import java.nio.file.Path
 
 /**
  *
@@ -148,3 +149,44 @@ class SiteClusterFactory(
 	}
 }
 
+fun CellDesign.convertToSiteClusterDesign(packUnits: PackUnitList<SitePackUnit>)
+	: List<Cluster<SitePackUnit, SiteClusterSite>> {
+
+	val puMap = packUnits.packUnits.associateBy { it.siteType }
+	val clusterDesign = ClusterDesign<SitePackUnit, SiteClusterSite>()
+
+	val clusters = HashMap<Site, SiteCluster>()
+	for (cell in leafCells) {
+		if (!cell.isGndSource && !cell.isVccSource) {
+			val bel = requireNotNull(cell.bel) { "Unplaced cells not allowed" }
+			val site = bel.site
+
+			val cluster = clusters.computeIfAbsent(site) {
+				val pu = requireNotNull(puMap[site.type]) { "No pack unit for site: ${site.type}" }
+				SiteCluster(site.name, pu)
+			}
+			val puBel = cluster.type.template.bels.single { bel.name == it.name }
+			cluster.addCell(puBel, cell)
+		}
+	}
+
+	for (net in nets) {
+		for ((_, sourceTree) in net.belPinRouteTrees) {
+			println(sourceTree)
+		}
+	}
+
+	return clusterDesign.clusters.toList()
+}
+
+fun main(args: Array<String>) {
+	val design = VivadoInterface.loadRSCP(args[0]).design
+	val device = design.device
+	val family = device.family
+
+	val partsFolder = RSEnvironment.defaultEnv().getPartFolderPath(family)
+	val packUnitsPath: Path = partsFolder.resolve("packunits-site.rpu")
+
+	val packUnits = loadPackUnits<SitePackUnit>(packUnitsPath)
+	design.convertToSiteClusterDesign(packUnits)
+}

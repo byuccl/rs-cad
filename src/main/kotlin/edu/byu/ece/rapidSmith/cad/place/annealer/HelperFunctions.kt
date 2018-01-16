@@ -1,9 +1,7 @@
 package edu.byu.ece.rapidSmith.cad.place.annealer
 
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
-import edu.byu.ece.rapidSmith.cad.cluster.ClusterDesign
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
-import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import java.util.*
 
 /**
@@ -250,17 +248,17 @@ private fun withinRange(oldP: Coordinates, newP: Coordinates, range: Int): Boole
  * should be called AFTER completing the placement process.
  */
 @Suppress("UNCHECKED_CAST")
-fun <T: PackUnit, S: ClusterSite> finalizePlacement(
-	state: PlacerState<S>, design: PlacerDesign<S>,
-	clusterDesign: ClusterDesign<T, S>
+fun <S: ClusterSite> finalizePlacement(
+	state: PlacerState<S>, design: PlacerDesign<S>
 ) {
 	for (group in design.groups) {
 		val instances = group.clusters
 		for (i in instances) {
-			i as Cluster<T, S>
 			val site = state.getSiteOfCluster(i, group)
-			if (site != null)
-				clusterDesign.placeCluster(i, site)
+			if (site != null) {
+				i.place(site)
+				i.commitPlacement()
+			}
 		}
 	}
 }
