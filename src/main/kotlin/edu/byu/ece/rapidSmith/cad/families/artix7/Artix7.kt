@@ -218,7 +218,7 @@ private class SitePackerFactory(
 			cellLibrary["RAMS32"],
 			cellLibrary["RAMD32"],
 			cellLibrary["RAMS64E"],
-			cellLibrary["RAMD32E"],
+			cellLibrary["RAMD64E"],
 			cellLibrary["SRL16E"],
 			cellLibrary["SRLC16E"],
 			cellLibrary["SRLC32E"]
