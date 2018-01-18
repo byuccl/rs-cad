@@ -90,7 +90,7 @@ private class SitePackerFactory(
 	private val ramPositionsPackRuleFactory = RamPositionsPackRuleFactory(ramMaker)
 	private val reserveFFForSourcePackRuleFactory = ReserveFFForSourcePackRuleFactory(cellLibrary)
 	private val carryChainLookAheadRuleFactory = CarryChainLookAheadRuleFactory(
-		listOf("S0", "S1", "S2", "S3"),
+		listOf("S[0]", "S[1]", "S[2]", "S[3]"),
 		ramMaker.leafRamCellTypes,
 		Artix7.SiteTypes.SLICEM
 	)
