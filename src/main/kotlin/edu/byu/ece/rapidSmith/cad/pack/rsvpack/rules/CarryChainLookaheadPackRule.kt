@@ -44,7 +44,7 @@ override fun init(design: CellDesign) {
 	}
 
 	private fun doesSourceRequireSLICEM(cell: Cell): Boolean {
-		return CarryChainSPins.map { cell.getPin(it) }
+		return CarryChainSPins.map { cell.getPin(it)!! }
 			.map { it.net }
 			.filter { it != null && !it.isStaticNet }
 			.map { it.sourcePin }
