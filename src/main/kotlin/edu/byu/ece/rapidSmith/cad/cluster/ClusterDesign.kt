@@ -107,44 +107,4 @@ class ClusterDesign<T: PackUnit, S : ClusterSite> {
 		placementMap.remove(cluster.placement)
 		cluster.unplace()
 	}
-
-	/** Flattens the design.  The returned design contains no cluster hierarchy. */
-	fun commitPlacement(cellDesign: CellDesign) {
-		for (cluster in clusters) {
-			require(cluster.isPlaced)
-			cluster.commitPlacement()
-//			for (cell in cluster.cells) {
-//				val copyCell = cellDesign.getCell(cell.name)
-//				val cellPlacement = cluster.getCellPlacement(cell)
-//				cellDesign.placeCell(copyCell, cellPlacement)
-//			}
-//
-//			for ((cellPin, belPin) in cluster.getPinMap()) {
-//				val copyCell = cellDesign.getCell(cellPin.cell.name)
-//				val copyPin = copyCell.getPin(cellPin.name)
-//				copyPin.mapToBelPins(belPin)
-//				if (copyPin.isInpin) {
-//					val copyNet = copyPin.net
-//					copyNet.addRoutedSink(copyPin)
-//				}
-//			}
-//
-//			for ((oldNet, tree) in cluster.routeTreeMap) {
-//				val copyNet = cellDesign.getNet(oldNet.name)
-//				for (rt in tree) {
-//					copyNet.addIntersiteRouteTree(rt)
-//					rt.wire.source?.let { copyNet.sourceRouteTree = rt }
-//					rt.wire.reverseConnectedPin?.let { copyNet.addSinkRouteTree(it, rt) }
-//					for (t in rt) {
-//						if (t.isLeaf && t.connectingSitePin != null) {
-//							copyNet.addSourceSitePin(t.connectingSitePin!!)
-//						}
-//						if (t.isLeaf && t.connectingBelPin != null) {
-//							copyNet.addSinkRouteTree(t.connectingBelPin!!, t)
-//						}
-//					}
-//				}
-//			}
-		}
-	}
 }

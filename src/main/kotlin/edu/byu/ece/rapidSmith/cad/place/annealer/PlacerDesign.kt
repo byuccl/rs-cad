@@ -2,6 +2,7 @@ package edu.byu.ece.rapidSmith.cad.place.annealer
 
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
+import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellNet
 import edu.byu.ece.rapidSmith.util.putTo
 
@@ -23,7 +24,10 @@ import edu.byu.ece.rapidSmith.util.putTo
  * @author Mike Wirthlin
  * Created on: May 30, 2012
  */
-class PlacerDesign<S : ClusterSite>(val clusters: List<Cluster<*, S>>) {
+class PlacerDesign<S : ClusterSite>(
+	val clusters: List<Cluster<*, S>>,
+	val design: CellDesign
+) {
 	/** The placement groups that can be placed by the placer */
 	val groups: Set<PlacementGroup<S>>
 
@@ -51,6 +55,42 @@ class PlacerDesign<S : ClusterSite>(val clusters: List<Cluster<*, S>>) {
 
 	val nets: Collection<CellNet>
 		get() = clusters.flatMap { it.getExternalNets() }.toSet()
+
+	fun commit() {
+		for (cluster in clusters) {
+			require(cluster.isPlaced)
+			for (cell in cluster.cells) {
+				val cellPlacement = cluster.getCellPlacement(cell)
+				design.placeCell(cell, cellPlacement)
+			}
+
+			for ((cellPin, belPin) in cluster.getPinMap()) {
+				cellPin.mapToBelPins(belPin)
+				if (cellPin.isInpin) {
+					val net = cellPin.net
+					net.addRoutedSink(cellPin)
+				}
+			}
+
+			for ((net, tree) in cluster.routeTreeMap) {
+				for (rt in tree) {
+					if (rt.wire.source != null) {
+						net.sourceRouteTree = rt
+						net.setIsIntrasite(rt.none { it.isLeaf && it.connectingSitePin != null })
+					}
+					rt.wire.reverseConnectedPin?.let { net.addSinkRouteTree(it, rt) }
+					for (t in rt) {
+						if (t.isLeaf && t.connectingSitePin != null) {
+							net.addSourceSitePin(t.connectingSitePin!!)
+						}
+						if (t.isLeaf && t.connectingBelPin != null) {
+							net.addSinkRouteTree(t.connectingBelPin!!, t)
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 /**

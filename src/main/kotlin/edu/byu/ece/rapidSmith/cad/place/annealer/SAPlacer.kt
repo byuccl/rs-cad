@@ -33,7 +33,7 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 	 * by Betz and Rose.
 	 */
 	override fun place(design: CellDesign, clusters: List<Cluster<*, S>>, device: Device) {
-		val pdesign = PlacerDesign(clusters)
+		val pdesign = PlacerDesign(clusters, design)
 		val pdevice = PlacerDevice(csgFactory, pdesign.clustersToPlace)
 		val state = PlacerState(pdesign, pdevice, random, costFunctionFactory.make(pdesign))
 		val coolingSchedule = coolingScheduleFactory.make(state, random)
@@ -128,5 +128,6 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 			initialCost + ")")
 		println(numMoves.toString() + " Moves in " + timeInMiliSeconds.toDouble() / 1000 + " seconds (" + movesPerSecond + " moves per second)")
 		finalizePlacement(state, pdesign)
+		pdesign.commit()
 	}
 }

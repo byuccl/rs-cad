@@ -39,6 +39,7 @@ class SiteCadFlow {
 			MoveValidator(listOf(MismatchedRAMBValidator()))
 		)
 		placer.place(design, clusters, device)
+		println(design)
 	}
 
 	companion object {
@@ -46,6 +47,7 @@ class SiteCadFlow {
 		fun main(args: Array<String>) {
 			val design = VivadoInterface.loadRSCP(args[0]).design
 			val device = design.device
+			design.unrouteDesignFull()
 			design.unplaceDesign()
 			design.leafCells.forEach { it.removePseudoPins() }
 			design.nets.forEach { it.disconnectFromPins(
