@@ -25,10 +25,9 @@ class MismatchedRAMBValidator : PlacerRule<SiteClusterSite> {
 		groupToPlace: PlacementGroup<SiteClusterSite>,
 		newSite: SiteClusterSite, against: SiteType
 	): Boolean {
-		val grid = state.getGridForGroup(groupToPlace)
 		val stateHelper = StateHelper(state)
 		val relocatedTiles = stateHelper.getRelocatedTiles(groupToPlace, newSite)
-		return !stateHelper.anyOfTypeUsed(grid, against, relocatedTiles)
+		return !stateHelper.anyOfTypeUsed(state.device, against, relocatedTiles)
 	}
 }
 
@@ -39,8 +38,7 @@ private class StateHelper(
 		group: PlacementGroup<SiteClusterSite>,
 		newSite: SiteClusterSite
 	): Set<SiteClusterSite> {
-		val grid = state.getGridForGroup(group)
-		return grid.getSitesForGroup(group, newSite)!!
+		return state.getSitesForGroup(group, newSite)!!
 	}
 
 	internal fun getRelocatedTiles(
@@ -52,12 +50,12 @@ private class StateHelper(
 	}
 
 	fun getAdjacentSitesOfType(
-		grid: ClusterSiteGrid<SiteClusterSite>, siteType: SiteType, tiles: Set<Tile>
+		device: PlacerDevice<SiteClusterSite>, siteType: SiteType, tiles: Set<Tile>
 	): List<SiteClusterSite> {
 		return tiles.asSequence()
 			.flatMap { it.sites?.asSequence() ?: emptySequence() }
 			.filter { siteType in it.possibleTypes }
-			.flatMap { grid.getRelatedClusterSites(it).asSequence() }
+			.flatMap { device.getRelatedClusterSites(it).asSequence() }
 			.toList()
 	}
 
@@ -66,10 +64,10 @@ private class StateHelper(
 	}
 
 	fun anyOfTypeUsed(
-		grid: ClusterSiteGrid<SiteClusterSite>,
+		device: PlacerDevice<SiteClusterSite>,
 		type: SiteType, tiles: Set<Tile>
 	): Boolean {
-		val relocatedSites = getAdjacentSitesOfType(grid, type, tiles)
+		val relocatedSites = getAdjacentSitesOfType(device, type, tiles)
 		return anySitesOccupied(relocatedSites)
 	}
 }

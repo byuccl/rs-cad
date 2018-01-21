@@ -2,7 +2,6 @@ package edu.byu.ece.rapidSmith.cad.cluster.site
 
 import edu.byu.ece.rapidSmith.RSEnvironment
 import edu.byu.ece.rapidSmith.cad.cluster.*
-import edu.byu.ece.rapidSmith.cad.place.annealer.ClusterSiteGrid
 import edu.byu.ece.rapidSmith.cad.place.annealer.Coordinates
 import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
@@ -66,27 +65,22 @@ class SiteCluster(
 
 class SiteClusterSite(
 	val site: Site,
-	override val grid: ClusterSiteGrid<*>,
-	location: Coordinates,
+	override val location: Coordinates,
 	override val tileLocation: Coordinates
-) : ClusterSite(location) {
+) : ClusterSite() {
 	constructor(
-		site: Site, grid: ClusterSiteGrid<SiteClusterSite>, location: Coordinates
-	) : this(site, grid, location, getTileIndex(site))
+		site: Site, location: Coordinates
+	) : this(site, location, getTileIndex(site))
 
 	override fun toString(): String {
 		return "SiteClusterSite{$site}"
 	}
 
-	override fun equals(other: Any?): Boolean {
-		if (this === other) return true
-		if (other !is SiteClusterSite) return false
-		if (site != other.site) return false
+	override fun isCompatibleWith(packUnit: PackUnit): Boolean {
+		if (packUnit !is SitePackUnit) return false
 
-		return true
+		return packUnit.siteType in site.compatibleTypes
 	}
-
-	override fun hashCode(): Int = site.hashCode()
 
 	companion object {
 		private fun getTileIndex(site: Site): Coordinates {

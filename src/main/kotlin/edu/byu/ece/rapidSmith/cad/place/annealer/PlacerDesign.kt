@@ -4,7 +4,6 @@ import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellNet
-import edu.byu.ece.rapidSmith.util.putTo
 
 /**
  * Creates all of the "static" information necessary for a Design to be placed on a particular
@@ -119,7 +118,8 @@ private fun <S: ClusterSite> identifyPlaceableClusters(
  * data structure for each group.
  */
 private fun <S: ClusterSite> createPlacementGroups(
-	clusters: List<Cluster<*, S>>, clustersNotToPlace: Set<Cluster<*, S>>
+	clusters: List<Cluster<*, S>>,
+	clustersNotToPlace: Set<Cluster<*, S>>
 ): Map<Cluster<*, S>, PlacementGroup<S>> {
 	val clusterGroupMap = HashMap<Cluster<*, S>, PlacementGroup<S>>()
 	val remainingClusters = HashSet(clusters)
@@ -127,14 +127,18 @@ private fun <S: ClusterSite> createPlacementGroups(
 
 	// Step 1: Go through the remaining clusters and see if they match any of the known
 	// patterns.
+	var numGroups = 0
 	val multiGroups = PlacementGroupFinder<S>().findMultiSitePlacementGroups(clusters)
-	multiGroups.forEach {
-		it.clusters.forEach { c -> clusterGroupMap[c] = it }
-		remainingClusters.removeAll(it.clusters)
+	multiGroups.forEach { (packUnit, clusters) ->
+		val group = MultipleClusterPlacementGroup(numGroups++, packUnit, clusters)
+		clusters.keys.forEach { c -> clusterGroupMap[c] = group }
+		remainingClusters.removeAll(clusters.keys)
 	}
 
 	// Step 2: take care of single cluster groups
-	remainingClusters.putTo(clusterGroupMap) { it to SingleClusterPlacementGroup(it) }
+	remainingClusters.associateTo(clusterGroupMap) {
+		it to SingleClusterPlacementGroup(numGroups++, it)
+	}
 
 	return clusterGroupMap
 }

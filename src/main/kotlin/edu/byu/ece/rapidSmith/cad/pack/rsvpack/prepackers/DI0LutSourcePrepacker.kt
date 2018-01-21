@@ -7,8 +7,6 @@ import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellLibrary
 import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.device.Site
-import edu.byu.ece.rapidSmith.util.put
-import edu.byu.ece.rapidSmith.util.putTo
 import java.util.HashMap
 import kotlin.streams.toList
 
@@ -30,8 +28,8 @@ class DI0LutSourcePrepackerFactory(
 			.filter { !it.second.isStaticNet }
 			.map { it.first to it.second.sourcePin.cell!! }
 			.toList()
-		pairs.putTo(c4ToLutMap) { it.first to it.second }
-		pairs.putTo(lutToC4Map) { it.second to it.first }
+		pairs.associateTo(c4ToLutMap) { it.first to it.second }
+		pairs.associateTo(lutToC4Map) { it.second to it.first }
 	}
 
 	override fun make(): Prepacker<PackUnit> =
@@ -56,7 +54,7 @@ class DI0LutSourcePrepacker(
 	): PrepackStatus {
 		val cellsToCheck = changedCells.keys
 			.filter { it in lutToC4Map }
-			.put { lutToC4Map[it]!! to it.locationInCluster!!.site }
+			.associate { lutToC4Map[it]!! to it.locationInCluster!!.site }
 
 		var status = PrepackStatus.UNCHANGED
 		for ((carryCell, site) in cellsToCheck) {

@@ -1,6 +1,5 @@
 package edu.byu.ece.rapidSmith.cad.cluster
 
-import edu.byu.ece.rapidSmith.cad.place.annealer.ClusterSiteGrid
 import edu.byu.ece.rapidSmith.cad.place.annealer.Coordinates
 import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellNet
@@ -397,16 +396,25 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
  *
  * @property location the index in the type grid for this site
  */
-abstract class ClusterSite(
-	val location: Coordinates
-) {
-	abstract val grid: ClusterSiteGrid<*>
-
+abstract class ClusterSite{
+	/** The coordinates of this site */
+	abstract val location: Coordinates
 	/** The tile coordinates of this site */
 	abstract val tileLocation: Coordinates
 
-	override abstract fun equals(other: Any?): Boolean
-	override abstract fun hashCode(): Int
+	abstract fun isCompatibleWith(packUnit: PackUnit): Boolean
+	override fun equals(other: Any?): Boolean {
+		if (this === other)
+			return true
+		if (other == null || other.javaClass != javaClass)
+			return false
+		other as ClusterSite
+		return location == other.location
+	}
+
+	override fun hashCode(): Int {
+		return location.hashCode()
+	}
 }
 
 /**

@@ -35,10 +35,11 @@ class SiteCadFlow {
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
 		val placer = SimulatedAnnealingPlacer(
-			SiteClusterGridFactory(device),
+			SiteClusterGridFactory(),
+			SiteGroupPlacementRegionFactory(),
 			MoveValidator(listOf(MismatchedRAMBValidator()))
 		)
-		placer.place(design, clusters, device)
+		placer.place(design, clusters)
 		println(design)
 	}
 

@@ -1,108 +1,97 @@
 package edu.byu.ece.rapidSmith.cad.cluster.site
 
-import edu.byu.ece.rapidSmith.cad.place.annealer.ClusterSiteGrid
-import edu.byu.ece.rapidSmith.cad.place.annealer.ClusterSiteGridFactory
-import edu.byu.ece.rapidSmith.cad.place.annealer.Coordinates
+import edu.byu.ece.rapidSmith.cad.place.annealer.*
 import edu.byu.ece.rapidSmith.device.Device
 import edu.byu.ece.rapidSmith.device.Site
 import edu.byu.ece.rapidSmith.device.Tile
+import edu.byu.ece.rapidSmith.device.families.FamilyInfos
 import edu.byu.ece.rapidSmith.util.ArrayGrid
-import edu.byu.ece.rapidSmith.util.Dimensions
-import edu.byu.ece.rapidSmith.util.Rectangle
+import edu.byu.ece.rapidSmith.util.Grid
 import java.util.*
-import kotlin.collections.ArrayList
 
-/**
- *
- */
-class SiteClusterGridFactory(
-	private val device: Device
-) : ClusterSiteGridFactory<SitePackUnit, SiteClusterSite>() {
-	override fun make(type: SitePackUnit): SiteClusterGrid {
-		val locations = device.getAllCompatibleSites(type.siteType)
-		return SiteClusterGrid(type, locations)
-	}
+class SiteClusterGridFactory() : ClusterSiteGridFactory<SiteClusterSite> {
+	override fun makeClusterSiteGrid(device: Device): ClusterSiteGrid<SiteClusterSite> =
+		SiteClusterGrid(device)
 }
 
-/**
- *
- */
-class SiteClusterGrid(packUnit: SitePackUnit, validSites: List<Site>) :
-	ClusterSiteGrid<SiteClusterSite>(packUnit) {
-	/**
-	 * A two dimensional representation of the coordinate system. This is
-	 * handy for getting coordinates based on the x,y locations.
-	 */
-	private val rowRelocationMap: Map<Int, Int>
-	private val colRelocationMap: Map<Int, Int>
-	private val grid: ArrayGrid<SiteClusterSite?>
-	override val validSites: List<SiteClusterSite>
+class SiteClusterGrid(device: Device) : ClusterSiteGrid<SiteClusterSite>() {
+	private val grid : Grid<SiteClusterSite?>
+	private val coordinates : Map<SiteIndex, Coordinates>
 
 	init {
-		// Create a set of these sites and keep track of the maximum height and width
-		val rowLocations = HashSet<Int>()
-		val colLocations = HashSet<Int>()
-		for (site in validSites) {
-			rowLocations.add(site.instanceY)
-			colLocations.add(site.instanceX)
+		val fi = FamilyInfos.get(device.family)
+		val sbTypes = fi.switchboxTiles()
+
+		val sites = device.sites.values
+			.filter { it.tile.type in sbTypes } // TODO replace with SiteType.Tieoff check
+			.associate { SiteIndex(it) to it }
+
+
+		val xlocs = sites.keys
+			.map { SiteColumnIndex(it.col, it.index) }
+			.toSortedSet()
+			.withIndex()
+			.map { it.value!! to it.index }
+			.toMap()
+		val ylocs = sites.keys
+			.map { it.row }
+			.toSortedSet()
+			.withIndex()
+			.map { it.value!! to it.index }
+			.toMap()
+
+		coordinates = sites.keys.associate { it to
+			Coordinates(xlocs[it.columnIndex]!!, ylocs[it.row]!!)
 		}
-
-		val sortedRows = ArrayList(rowLocations).sorted()
-		val sortedCols = ArrayList(colLocations).sorted()
-
-		rowRelocationMap = sortedRows.withIndex().map { it.value to it.index }.toMap()
-		colRelocationMap = sortedCols.withIndex().map { it.value to it.index }.toMap()
-
-		// Populate the coordinate system with the sites
-		val dimensions = Dimensions(rowLocations.size, colLocations.size)
-		grid = ArrayGrid(dimensions) { null }
-		val validClusterSites = ArrayList<SiteClusterSite>()
-		for (site in validSites) {
-			val siteCoordinates = getSiteCoordinates(site)!!
-			val clusterSite = SiteClusterSite(site, this, siteCoordinates)
-			grid[siteCoordinates] = clusterSite
-			validClusterSites += clusterSite
+		grid = ArrayGrid<SiteClusterSite?>(ylocs.size, xlocs.size) { null }
+		sites.forEach {
+			val coord = coordinates[it.key]!!
+			grid[coord] = SiteClusterSite(it.value, coord)
 		}
-		validClusterSites.trimToSize()
-		this.validSites = validClusterSites
 	}
-
-	override val rectangle: Rectangle
-		get() = grid.rectangle
-	override val absolute: Rectangle
-		get() = grid.absolute
-
-	override fun get(row: Int, column: Int): SiteClusterSite? = grid[row, column]
-
-	private fun getSiteCoordinates(site: Site): Coordinates? {
-		val row = rowRelocationMap[site.instanceY]
-		val col = colRelocationMap[site.instanceX]
-		return if (row == null || col == null) null
-		else Coordinates(row, col)
-	}
-
-	override fun getSiteCoordinates(site: SiteClusterSite): Coordinates? {
-		val row = rowRelocationMap[site.site.instanceY]
-		val col = colRelocationMap[site.site.instanceX]
-		return if (row == null || col == null) null else Coordinates(row, col)
+	override fun getSiteAt(location: Coordinates): SiteClusterSite? {
+		return if (location in grid.rectangle) grid[location] else null
 	}
 
 	override fun getRelatedClusterSites(site: Site): List<SiteClusterSite> {
-		val coordinates = getSiteCoordinates(site) ?: return emptyList()
-		val clusterSite = get(coordinates)!!
-		return listOf(clusterSite)
+		val wrapped = grid[coordinates[SiteIndex(site)]!!] ?: return emptyList()
+		return listOf(wrapped)
 	}
+
 
 	override fun getRelatedClusterSites(tile: Tile): List<SiteClusterSite> {
-		return tile.sites.flatMap { getRelatedClusterSites(it) }
+		return tile.sites.flatMap {
+			val wrapped = grid[coordinates[SiteIndex(it)]!!]
+			if (wrapped == null) emptyList() else listOf(wrapped)
+		}
 	}
 
-	override fun contains(anchorSite: SiteClusterSite): Boolean {
-		return if (anchorSite.grid === this)
-			anchorSite.location in grid.rectangle
-		else
-			getSiteCoordinates(anchorSite) in grid.rectangle
+	override val sites: List<SiteClusterSite>
+		get() = grid.filterNotNull()
+
+	override val rows: Int
+		get() = grid.dimensions.rows
+
+	override val columns: Int
+		get() = grid.dimensions.columns
+
+	private data class SiteIndex(
+		val row: Int, val col: Int, val index: Int
+	) {
+		constructor(site: Site) : this(site.tile.row, site.tile.column, site.index)
+
+		val columnIndex: SiteColumnIndex
+			get() = SiteColumnIndex(col, index)
 	}
 
+	private data class SiteColumnIndex(
+		val col: Int, val index: Int
+	) : Comparable<SiteColumnIndex> {
+		override fun compareTo(other: SiteColumnIndex): Int {
+			return Comparator.comparingInt<SiteColumnIndex> { it.col }
+				.thenComparingInt { it -> it.index }
+				.compare(this, other)
+		}
+	}
 }
 

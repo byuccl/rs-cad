@@ -2,7 +2,6 @@ package edu.byu.ece.rapidSmith.cad.place.annealer.configurations
 
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
 import edu.byu.ece.rapidSmith.cad.place.annealer.*
-import edu.byu.ece.rapidSmith.util.putTo
 import java.util.*
 
 /**
@@ -80,18 +79,18 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 		// try to place everything else around it.
 		val g = unplacedGroupQueue.remove()
 		groupReplacementCountMap.compute(g) { _, v -> v?.plus(1) ?: 1 }
-		val grid = state.getGridForGroup(g)
+		val grid = state.getPlacementRegionForGroup(g)
 
 		val (movesToConsider, displacementRequired) = getMovesToConsider(g, grid, state)
 
-		val moveCostMap = calculateMovePriorities(movesToConsider, grid, siteCost)
+		val moveCostMap = calculateMovePriorities(movesToConsider, state, siteCost)
 
 		// Select a site randomly using this probability map.
 		val selectedMove = chooseRandomMove(moveCostMap)
 
 		// Build the move the move
 		val (moveList, toDisplace) = buildDisplaceMove(
-			selectedMove, grid, state, displacementRequired)
+			selectedMove, state, displacementRequired)
 
 		// perform the move
 		val move = PlacerMove(moveList)
@@ -109,12 +108,12 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 	}
 
 	private fun getMovesToConsider(
-		g: PlacementGroup<S>, grid: ClusterSiteGrid<S>, state: PlacerState<S>
+		g: PlacementGroup<S>, region: GroupPlacementRegion<S>, state: PlacerState<S>
 	): Pair<List<MoveComponent<S>>, Boolean> {
 		// Determine all of the valid placement sites for this group
-		val anchorSites = grid.validSites
+		val anchorSites = region.validSites
 		val validAnchorSites = anchorSites
-			.filter { g.fitsAt(it) }
+			.filter { g.fitsAt(state.device, it) }
 			.map { MoveComponent(g, null, it) }
 			.filter { moveValidator.validate(state, it) }
 
@@ -134,17 +133,16 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 
 	private fun calculateMovePriorities(
 		movesToConsider: List<MoveComponent<S>>,
-		grid: ClusterSiteGrid<S>, siteCost: SiteCost
+		state: PlacerState<S>, siteCost: SiteCost
 	): Map<MoveComponent<S>, Double> {
 		// Determine the probabilities of each site considered for placement. This probability
 		//  map is used to influence the displacement placer to chose those that are more likely
 		//  going to lead to a successful placement.
 		return movesToConsider.map {
 			// Find the cost of placing this group at this site
-			var anchorSiteCost = 0.0
+			var anchorSiteCost = state.getSitesForGroup(it.group, it.newAnchor!!)!!
+				.sumByDouble { siteCost.getSiteCost(it).toDouble() }
 			// we've already confirmed it is placeable at this location
-			for (possibleUsedSite in grid.getSitesForGroup(it.group, it.newAnchor!!)!!)
-				anchorSiteCost += siteCost.getSiteCost(possibleUsedSite)
 			if (anchorSiteCost == 0.0)
 				anchorSiteCost = 1.0
 			it to anchorSiteCost
@@ -174,7 +172,7 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 
 	private fun buildDisplaceMove(
 		initial: MoveComponent<S>,
-		grid: ClusterSiteGrid<S>, s: PlacerState<S>,
+		s: PlacerState<S>,
 		displacementRequired: Boolean
 	): Pair<ArrayList<MoveComponent<S>>, HashSet<PlacementGroup<S>>> {
 		val moveList = ArrayList<MoveComponent<S>>()
@@ -183,7 +181,7 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 		val toDisplace = HashSet<PlacementGroup<S>>()
 		// add moves for displacement
 		if (displacementRequired) {
-			val targetSites = grid.getSitesForGroup(initial.group, initial.newAnchor!!)!!
+			val targetSites = s.getSitesForGroup(initial.group, initial.newAnchor!!)!!
 			val movedGroups = HashSet<PlacementGroup<S>>()
 			for (targetSite in targetSites) {
 				// Check for an overlapping group at this site
@@ -204,11 +202,12 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 	}
 }
 
+// TODO make ClusterSite have an index
 private class SiteCost(state: PlacerState<*>) {
 	private val siteUseMap = HashMap<ClusterSite, Int>()
 
 	init {
-		state.usedSites.putTo(siteUseMap) { it to 1}
+		state.usedSites.associateTo(siteUseMap) { it to 1}
 	}
 
 	fun incrementSiteCost(s: ClusterSite) {
@@ -235,8 +234,8 @@ private class PlacementGroupPlacementComparator<S : ClusterSite>(
 	init {
 		groupProbabilities = HashMap(2 * s.placedGroups.size)
 		for (g in s.placedGroups) {
-			val grid = s.getGridForGroup(g)
-			val possibleAnchorSites = grid.validSites.filter { g.fitsAt(it) }
+			val grid = s.getPlacementRegionForGroup(g)
+			val possibleAnchorSites = grid.validSites.filter { g.fitsAt(s.device, it) }
 			val placementProbability: Double
 			placementProbability = if (possibleAnchorSites.isEmpty()) {
 				println("Warning: no placement sites f or group " + g)

@@ -17,7 +17,9 @@ import edu.byu.ece.rapidSmith.util.Offset
  * This class does not maintain any placement information. All of the
  * placement information is stored in the PlacerShapeState.
  */
-abstract class PlacementGroup<S : ClusterSite> {
+abstract class PlacementGroup<S : ClusterSite>(
+	val index: Int
+) {
 	abstract val name: String
 
 	/** The type of the group.  */
@@ -48,7 +50,7 @@ abstract class PlacementGroup<S : ClusterSite> {
 	 * Returns true if this placement group can full fit in the grid when
 	 * anchored at [anchor].
 	 */
-	abstract fun fitsAt(anchor: S): Boolean
+	abstract fun fitsAt(device: PlacerDevice<S>, anchor: S): Boolean
 
 	/**
 	 * Indicates whether the group's placement is fixed.
@@ -64,8 +66,9 @@ abstract class PlacementGroup<S : ClusterSite> {
  * A placement group that consists of a single instance.
  */
 class SingleClusterPlacementGroup<S : ClusterSite>(
+	index: Int,
 	val cluster: Cluster<*, S>
-) : PlacementGroup<S>() {
+) : PlacementGroup<S>(index) {
 	override val clusters: Set<Cluster<*, S>> = setOf(cluster)
 
 	override val name: String
@@ -89,8 +92,10 @@ class SingleClusterPlacementGroup<S : ClusterSite>(
 	override val usedOffsets: Set<Offset>
 		get() = setOf(ZERO_OFFSET)
 
-	override fun fitsAt(anchor: S): Boolean {
-		return anchor.grid.getOrNull(anchor.location) != null
+	override fun fitsAt(device: PlacerDevice<S>, anchor: S): Boolean {
+		val site = device.grid.getSiteAt(anchor.location)
+		return site != null && site.isCompatibleWith(cluster.type)
+
 	}
 
 	override fun toString(): String {
@@ -107,9 +112,10 @@ class SingleClusterPlacementGroup<S : ClusterSite>(
  * each other. All of the instances are of the same type.
  */
 class MultipleClusterPlacementGroup<S: ClusterSite>(
+	index: Int,
 	override var type: PackUnit,
 	private val clusterOffsetMap: Map<Cluster<*, S>, Offset>
-) : PlacementGroup<S>() {
+) : PlacementGroup<S>(index) {
 	override val name: String
 		get() = anchor.name
 
@@ -141,11 +147,11 @@ class MultipleClusterPlacementGroup<S: ClusterSite>(
 	override val usedOffsets: Set<Offset>
 		get() = clusterOffsetMap.values.toSet()
 
-	override fun fitsAt(anchor: S): Boolean {
+	override fun fitsAt(device: PlacerDevice<S>, anchor: S): Boolean {
 		val anchorLoc = anchor.location
-		return clusterOffsetMap.values.all {
-			val index = it + anchorLoc
-			anchor.grid.getOrNull(index) != null
+		return clusterOffsetMap.all { (c, offset) ->
+			val site = device.grid.getSiteAt(offset + anchorLoc)
+			site != null && site.isCompatibleWith(c.type)
 		}
 	}
 
@@ -163,13 +169,15 @@ class MultipleClusterPlacementGroup<S: ClusterSite>(
 class PlacementGroupFinder<S : ClusterSite> {
 	fun findMultiSitePlacementGroups(
 		clusters: List<Cluster<*, S>>
-	): Set<PlacementGroup<S>> {
+	): List<Pair<PackUnit, Map<Cluster<*, S>, Offset>>> {
 		val shapes = findShapes<Cluster<*, S>>(clusters)
-		return shapes.map {constructPlacementGroup(it) }.toSet()
+		return shapes.map {constructPlacementGroup(it) }
 	}
 
 	/** Finds carry chains and builds into shapes */
-	private fun <C: Cluster<*, *>> findShapes(clusters: List<Cluster<*, S>>): Collection<Shape<C>> {
+	private fun <C: Cluster<*, *>> findShapes(
+		clusters: List<Cluster<*, S>>
+	): Collection<PlacementGroupShape<C>> {
 		val chains = clusters.mapNotNull { it.getChain<C>() }.distinct()
 		return chains.map { chain ->
 			val offsets = chain.clusters.map { it to chain.getOffsetOf(it) }
@@ -182,11 +190,13 @@ class PlacementGroupFinder<S : ClusterSite> {
 			assert(arrayOfClusters.all { it != null })
 			assert (arrayOfClusters.all { it!!.isPlaceable })
 
-			Shape(offsets.toMap())
+			PlacementGroupShape(offsets.toMap())
 		}
 	}
 
-	private fun constructPlacementGroup(shape: Shape<Cluster<*, S>>): PlacementGroup<S> {
+	private fun constructPlacementGroup(
+		shape: PlacementGroupShape<Cluster<*, S>>
+	): Pair<PackUnit, Map<Cluster<*, S>, Offset>> {
 		val clusters = shape.clusters.keys
 		
 		// Determine the placeable sites of this shape based on its type.
@@ -206,10 +216,10 @@ class PlacementGroupFinder<S : ClusterSite> {
 			}
 		}
 
-		return MultipleClusterPlacementGroup(groupType, shape.clusters)
+		return Pair(groupType, shape.clusters)
 	}
+}
 
-	class Shape<C: Cluster<*, *>>(val clusters: Map<C, Offset>) {
-		val anchor: C = clusters.entries.single { it.value == Offset(0, 0) }.key
-	}
+class PlacementGroupShape<C: Cluster<*, *>>(val clusters: Map<C, Offset>) {
+	val anchor: C = clusters.entries.single { it.value == Offset(0, 0) }.key
 }

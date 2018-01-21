@@ -10,7 +10,7 @@ import edu.byu.ece.rapidSmith.device.Device
  *
  */
 abstract class Placer<S: ClusterSite> {
-	abstract fun place(design: CellDesign, clusters: List<Cluster<*, S>>, device: Device)
+	abstract fun place(design: CellDesign, clusters: List<Cluster<*, S>>)
 }
 
 

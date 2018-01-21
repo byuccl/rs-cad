@@ -19,9 +19,7 @@ class SimpleRandomInitialPlacer<S: ClusterSite>(
 	private val random: Random
 ) : InitialPlacer<S>() {
 	override fun initialPlace(
-		design: PlacerDesign<S>,
-		device: PlacerDevice<S>,
-		state: PlacerState<S>
+		design: PlacerDesign<S>, device: PlacerDevice<S>, state: PlacerState<S>
 	): Boolean {
 		val groupsToPlace = state.unplacedGroups
 
@@ -37,11 +35,11 @@ class SimpleRandomInitialPlacer<S: ClusterSite>(
 		var allGroupsPlaced = true
 		for (group in orderedGroupsToPlace) {
 			// Determine the number of possible placement anchors and thus the placement probability
-			val grid = state.getGridForGroup(group)
-			val possibleAnchorSites = grid.getValidAnchorSitesForGroup(group)
+			val placementRegion = state.getPlacementRegionForGroup(group)
+			val possibleAnchorSites = placementRegion.getValidAnchorSitesForGroup(state, group)
 			if (possibleAnchorSites.isEmpty()) {
 				println("Warning: no placeable sites for group " + group)
-				println("Constraint:" + grid.toString())
+				println("Constraint:" + placementRegion.toString())
 				allGroupsPlaced = false
 				continue
 			}
@@ -78,11 +76,12 @@ class SimpleRandomInitialPlacer<S: ClusterSite>(
 	private fun validatePlacement(
 		state: PlacerState<S>, component: MoveComponent<S>
 	): Boolean {
-		return component.group.fitsAt(component.newAnchor!!) &&
+		return component.group.fitsAt(state.device, component.newAnchor!!) &&
 			!state.willGroupOverlap(component.group, component.newAnchor) &&
 			moveValidator.validate(state, component)
 	}
 }
 
-private fun <S: ClusterSite> ClusterSiteGrid<S>.getValidAnchorSitesForGroup(group: PlacementGroup<S>) =
-	validSites.filter { group.fitsAt(it) }
+private fun <S: ClusterSite> GroupPlacementRegion<S>.getValidAnchorSitesForGroup(
+	state: PlacerState<S>, group: PlacementGroup<S>
+) = validSites.filter { group.fitsAt(state.device, it) }

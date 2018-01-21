@@ -7,7 +7,6 @@ import edu.byu.ece.rapidSmith.cad.place.Placer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.DisplacementRandomInitialPlacer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.HPWLCostFunctionFactory
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
-import edu.byu.ece.rapidSmith.device.Device
 import java.util.*
 
 /**
@@ -16,7 +15,8 @@ import java.util.*
  * are accepted.
  */
 class SimulatedAnnealingPlacer<S : ClusterSite>(
-	private val csgFactory: ClusterSiteGridFactory<*, S>,
+	private val csgFactory: ClusterSiteGridFactory<S>,
+	private val gprFactory: GroupPlacementRegionFactory<*, S>,
 	private val validator: MoveValidator<S>,
 	private val coolingScheduleFactory: CoolingScheduleFactory<S> = DefaultCoolingScheduleFactory(),
 	private val costFunctionFactory: CostFunctionFactory<S> = HPWLCostFunctionFactory(),
@@ -32,9 +32,9 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 	 * "VPR: A New Packing, Placement and Routing Tool for FPGA Research"
 	 * by Betz and Rose.
 	 */
-	override fun place(design: CellDesign, clusters: List<Cluster<*, S>>, device: Device) {
+	override fun place(design: CellDesign, clusters: List<Cluster<*, S>>) {
 		val pdesign = PlacerDesign(clusters, design)
-		val pdevice = PlacerDevice(csgFactory, pdesign.clustersToPlace)
+		val pdevice = PlacerDevice(design.device, csgFactory, gprFactory, pdesign.clustersToPlace)
 		val state = PlacerState(pdesign, pdevice, random, costFunctionFactory.make(pdesign))
 		val coolingSchedule = coolingScheduleFactory.make(state, random)
 
@@ -61,7 +61,6 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 		var lastTime: Long
 		var prevNumMoves = 0
 
-
 		// Flag that indicates whether another temperature iteration should proceed
 		var numMoves = 0
 
@@ -78,6 +77,7 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 					// placed, it looks at a different group.
 					val toSwapIdx = random.nextInt(allGroups.size)
 					val toSwap = allGroups[toSwapIdx]!!
+					// TODO factor the rangeLimit into the placement regions
 					val rangeLimit = coolingSchedule.rangeLimit
 					move = proposeSwap(state, toSwap, rangeLimit, pdesign, validator)
 				}

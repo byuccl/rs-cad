@@ -14,9 +14,9 @@ import kotlin.collections.HashMap
  * "finalizePlacement" method.
  *
  * The state of the placement (i.e., the locations where the groups are placed)
- * is managed by two objects that must be consistent. The first is the groupAnchorMap:
+ * is managed by two objects that must be consistent. The first is the groupAnchorList:
  *
- * protected Map<PlacementGroup></PlacementGroup>, PrimitiveSite> groupAnchorMap;
+ * protected Map<PlacementGroup></PlacementGroup>, PrimitiveSite> groupAnchorList;
  *
  * This stores the anchor location of each group in the design. A group is
  * considered "unplaced" when it does not have an entry in this map. This object
@@ -26,7 +26,7 @@ import kotlin.collections.HashMap
  *
  * This provides the ability to go from groups to sites or from
  * sites to groups(instances). This object must be consistent with the
- * groupAnchorMap.
+ * groupAnchorList.
  *
  * This object does NOT own the placement groups involved with placement. This
  * information is obtained in the placementGroups (DesignPlacementGroups) object
@@ -48,21 +48,23 @@ import kotlin.collections.HashMap
  *   the current circuit
  */
 class PlacerState<S : ClusterSite>(
-	private val design: PlacerDesign<S>,
-	private val device: PlacerDevice<S>,
+	val design: PlacerDesign<S>,
+	val device: PlacerDevice<S>,
 	val random: Random,
 	private val costFunction: CostFunction<S>
 ) {
-	private val groupAnchorMap = HashMap<PlacementGroup<S>, S>()
+	private val groupAnchorList = MutableList<S?>(design.groups.size) { null }
 	private val siteInstanceMap = HashMap<S, Cluster<*, S>>()
-	private val _unplacedGroups = HashSet(design.groups)
-	private val typeGridMap = createAreaConstraints(design, device)
+	private val _placedGroups = ArrayList<PlacementGroup<S>>()
+	private val _unplacedGroups = ArrayList(design.groups)
+	// TODO make this unique for each group
+	private val groupRegions = createPlacementRegions(design, device)
 
 	/** Groups that are currently placed */
-	val placedGroups: Set<PlacementGroup<S>> get() = groupAnchorMap.keys
+	val placedGroups: List<PlacementGroup<S>> get() = _placedGroups
 
 	/** Groups that are currently unplaced */
-	val unplacedGroups: Set<PlacementGroup<S>> get() = _unplacedGroups
+	val unplacedGroups: List<PlacementGroup<S>> get() = _unplacedGroups
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Methods for querying the basic current state of placement. None of these methods change
@@ -81,7 +83,7 @@ class PlacerState<S : ClusterSite>(
 	val canBePlaced: Boolean
 
 	init {
-		val utilizations = calculateUtilizations(design.groups, typeGridMap)
+		val utilizations = calculateUtilizations(design.groups, groupRegions)
 		val overutilized = utilizations.filter { it.validSites < it.siteUsage }
 		overutilized.forEach {
 			println("\tWarning: over utilized - cannot place " +
@@ -94,19 +96,18 @@ class PlacerState<S : ClusterSite>(
 	 * Returns the anchor site of a placement group [g].
 	 */
 	fun getAnchorOfGroup(g: PlacementGroup<S>): S? {
-		return groupAnchorMap[g]
+		return groupAnchorList[g.index]
 	}
 
 	/** Return the current site of the given instance.  */
 	fun getSiteOfCluster(i: Cluster<*, S>, g: PlacementGroup<S>): S? {
 		val anchor = getAnchorOfGroup(g) ?: return null
-		val grid = typeGridMap[g.type]!!
-		return grid.getOffsetSite(anchor, g.getClusterOffset(i))
+		return device.getOffsetSite(anchor, g.getClusterOffset(i))
 	}
 
 	/** Returns the area constraint for the placement group [g].  */
-	fun getGridForGroup(g: PlacementGroup<S>): ClusterSiteGrid<S> {
-		return typeGridMap[g.type]!!
+	fun getPlacementRegionForGroup(g: PlacementGroup<S>): GroupPlacementRegion<S> {
+		return groupRegions[g.type]!!
 	}
 
 	/** Returns the cluster that is placed at a cluster site [site]. */
@@ -134,18 +135,16 @@ class PlacerState<S : ClusterSite>(
 	 *
 	 * This method will update both placement state objects to keep them
 	 * consistent:
-	 * - groupAnchorMap
+	 * - groupAnchorList
 	 * - siteInstanceMap.
 	 */
 	fun placeGroup(group: PlacementGroup<S>, newSite: S) {
-		val grid = getGridForGroup(group)
-
 		// Update the new anchor location of the group
-		groupAnchorMap[group] = newSite
+		groupAnchorList[group.index] = newSite
 
 		// Update the siteInstanceMap with the Instances of the group
 		for (i in group.clusters) {
-			val s = grid.getOffsetSite(newSite, group.getClusterOffset(i))!!
+			val s = device.getOffsetSite(newSite, group.getClusterOffset(i))!!
 			siteInstanceMap[s] = i
 			currentCost += costFunction.place(i, s)
 		}
@@ -155,24 +154,23 @@ class PlacerState<S : ClusterSite>(
 	 * Remove the placement information for a given group. The group is
 	 * considered "unplaced" with no location after calling this method.
 	 *
-	 * Both placement state objects are updated in this method: the groupAnchorMap
+	 * Both placement state objects are updated in this method: the groupAnchorList
 	 * and the siteInstanceMap.
 	 */
 	fun unplaceGroup(group: PlacementGroup<S>) {
 		// get the old location.  If the group was not already placed, just return
 		val oldAnchor = getAnchorOfGroup(group) ?: return
-		val grid = getGridForGroup(group)
 
 		// unplace each of the clusters in the group
 		for (i in group.clusters) {
 			val offset = group.getClusterOffset(i)
-			val s = grid.getOffsetSite(oldAnchor, offset)!!
+			val s = device.getOffsetSite(oldAnchor, offset)!!
 			siteInstanceMap.remove(s)
 			currentCost += costFunction.unplace(i, s)
 		}
 
 		// Remove group anchor
-		groupAnchorMap.remove(group)
+		groupAnchorList[group.index] = null
 	}
 
 	/**
@@ -180,31 +178,58 @@ class PlacerState<S : ClusterSite>(
 	 */
 	fun getGroupSites(g: PlacementGroup<S>): Set<S>? {
 		val anchor = getAnchorOfGroup(g) ?: return null
-		return getGridForGroup(g).getSitesForGroup(g, anchor)!!
+		return getSitesForGroup(g, anchor)!!
 	}
+
+	/**
+	 * Returns a set of groups that overlap with group [g] if it is placed at site [anchor].
+	 */
+	fun getOverlappingGroups(
+		g: PlacementGroup<S>, anchor: S
+	): Set<PlacementGroup<S>> {
+		val targetSites = requireNotNull(getSitesForGroup(g, anchor)) { "Invalid anchor for g" }
+		return targetSites.mapNotNull { getGroupAt(it) }.toSet()
+	}
+
+	/** Determines whether there is an overlapping group if the given group is
+	 * placed at the given anchor.
+	 */
+	fun willGroupOverlap(g: PlacementGroup<S>, anchor: S): Boolean {
+		val targetSites = requireNotNull(getSitesForGroup(g, anchor)) { "Invalid anchor for g" }
+		return targetSites.any { getGroupAt(it) != null }
+	}
+
+	/**
+	 * Returns the sites that group [g] will use if placed at site [anchor] or null
+	 * if [g] will not fit within this grid if placed at [anchor].
+	 */
+	fun getSitesForGroup(g: PlacementGroup<S>, anchor: S): Set<S>? {
+		return g.usedOffsets.map { device.getOffsetSite(anchor, it) ?: return null }.toSet()
+	}
+
 }
 
-private fun <S: ClusterSite> createAreaConstraints(
+private fun <S: ClusterSite> createPlacementRegions(
 	design: PlacerDesign<S>,
 	device: PlacerDevice<S>
-): Map<PackUnit, ClusterSiteGrid<S>> {
+): Map<PackUnit, GroupPlacementRegion<S>> {
 	// A temporary map between each type and the constraint used for that type
 	return design.groups.asSequence()
 		.map { it.type }
 		.distinct()
-		.map { it to device.getGrid(it) }
+		.map { it to device.getGlobalRegion(it) }
 		.toMap()
 }
 
 private fun <S: ClusterSite> calculateUtilizations(
 	groups: Iterable<PlacementGroup<S>>,
-	typeGridMap: Map<PackUnit, ClusterSiteGrid<S>>
+	placementRegion: Map<PackUnit, GroupPlacementRegion<S>>
 ): List<Utilization> {
 	val groupedGroups = groups.groupBy { it.type }
 
 	// Check to see if the constraints are ok
 	return groupedGroups.map { (type, g) ->
-		val grid = typeGridMap[type]!!
+		val grid = placementRegion[type]!!
 		// Figure out how many instances are allocated to this grid
 		val siteUsage = g.sumBy { it.clusters.size }
 		val validSites = grid.validSites.size
@@ -214,24 +239,4 @@ private fun <S: ClusterSite> calculateUtilizations(
 
 private data class Utilization(
 	val siteUsage: Int, val validSites: Int)
-
-/**
- * Returns a set of groups that overlap with group [g] if it is placed at site [anchor].
- */
-fun <S: ClusterSite> PlacerState<S>.getOverlappingGroups(
-	g: PlacementGroup<S>, anchor: S
-): Set<PlacementGroup<S>> {
-	val r = getGridForGroup(g)
-	val targetSites = requireNotNull(r.getSitesForGroup(g, anchor)) { "Invalid anchor for g" }
-	return targetSites.mapNotNull { getGroupAt(it) }.toSet()
-}
-
-/** Determines whether there is an overlapping group if the given group is
- * placed at the given anchor.
- */
-fun <S: ClusterSite> PlacerState<S>.willGroupOverlap(g: PlacementGroup<S>, anchor: S): Boolean {
-	val r = getGridForGroup(g)
-	val targetSites = requireNotNull(r.getSitesForGroup(g, anchor)) { "Invalid anchor for g" }
-	return targetSites.any { getGroupAt(it) != null }
-}
 

@@ -7,7 +7,6 @@ import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellLibrary
 import edu.byu.ece.rapidSmith.design.subsite.LibraryCell
 import edu.byu.ece.rapidSmith.device.Bel
-import edu.byu.ece.rapidSmith.util.putTo
 import java.util.HashMap
 import kotlin.streams.toList
 
@@ -60,8 +59,8 @@ class Artix7LutFFPrepackerFactory(
 			.filter { it.second != null }
 			.map { it.first to it.second!!}
 			.toList()
-		pairs.putTo(pairedCells) { it.first to it.second }
-		pairs.putTo(pairedCells) { it.second to it.first }
+		pairs.associateTo(pairedCells) { it.first to it.second }
+		pairs.associateTo(pairedCells) { it.second to it.first }
 	}
 
 	private fun getFFSource(ffCell: Cell): Cell? {
