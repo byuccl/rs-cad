@@ -63,6 +63,9 @@ class SiteClusterGrid(device: Device) : ClusterSiteGrid<SiteClusterSite>() {
 		return if (location in grid.rectangle) grid[location] else null
 	}
 
+	fun getClusterSite(site: Site): SiteClusterSite =
+		grid[coordinates[SiteIndex(site)]!!]!!
+
 	override fun getRelatedClusterSites(site: Site): List<SiteClusterSite> {
 		val wrapped = grid[coordinates[SiteIndex(site)]!!] ?: return emptyList()
 		return listOf(wrapped)

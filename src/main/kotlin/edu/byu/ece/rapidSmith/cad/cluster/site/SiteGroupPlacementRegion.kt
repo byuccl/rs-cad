@@ -34,7 +34,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 					if (locs == null) {
 						locs = device.grid.sites
 							.filter { it.isCompatibleWith(type) }
-							.mapNotNull { getIOPair(device.grid, it) }
+							.mapNotNull { getIOPair(device.grid as SiteClusterGrid, it) }
 						ioGroupsCache = locs
 					}
 					locs
@@ -68,7 +68,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 	}
 
 	private fun getIOPair(
-		grid: ClusterSiteGrid<SiteClusterSite>,
+		grid: SiteClusterGrid,
 		anchor: SiteClusterSite
 	): List<SiteClusterSite>? {
 		val sites = ArrayList<SiteClusterSite>()
@@ -80,22 +80,20 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 		while (stack.isNotEmpty()) {
 			val (wire, distance) = stack.pop()
 			val pin = wire.connectedPin
-			if (pin != null)
-				println(pin)
-
 			if (pin != null && pin.site.isCompatibleWith(Artix7.SiteTypes.BUFG)) {
-//				sites += grid.
-				break
+				sites += grid.getClusterSite(pin.site)
+				return sites
 			}
 
-			val sinks = wire.wireConnections.map { it.sinkWire }
-			for (sink in sinks) {
-				val d = distance + 1
-				if (d < 8)
-					stack.push(WireDistancePair(sink, d))
+			if (distance < 24) {
+				val sinks = wire.wireConnections.map { it.sinkWire }
+					.filter { it.tile.type !in Artix7.SWITCHBOX_TILES }
+				for (sink in sinks) {
+					stack.push(WireDistancePair(sink, distance + 1))
+				}
 			}
 		}
-		return if (sites.isEmpty()) null else sites
+		return null
 	}
 
 	private fun getCCChain(
@@ -125,8 +123,7 @@ private data class WireDistancePair(
 private fun Site.isCompatibleWith(siteType: SiteType): Boolean {
 	if (this.defaultType == siteType)
 		return true
-	val compatTypes = compatibleTypes
-	if (compatTypes != null && siteType in compatTypes)
+	if (this.possibleTypes != null && siteType in this.possibleTypes)
 		return true
 	return false
 }
