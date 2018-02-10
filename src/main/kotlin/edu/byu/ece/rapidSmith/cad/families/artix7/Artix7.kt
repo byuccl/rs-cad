@@ -19,6 +19,7 @@ import edu.byu.ece.rapidSmith.device.families.Artix7
 import edu.byu.ece.rapidSmith.device.families.Artix7.SiteTypes.*
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.*
 import kotlin.streams.toList
 
@@ -46,8 +47,9 @@ class SiteCadFlow {
 	companion object {
 		@JvmStatic
 		fun main(args: Array<String>) {
-			val design = VivadoInterface.loadRSCP(args[0]).design
-			val device = design.device
+			val rscp = VivadoInterface.loadRSCP(args[0])
+			val design = rscp.design
+			val device = rscp.device
 			design.unrouteDesignFull()
 			design.unplaceDesign()
 			design.leafCells.forEach { it.removePseudoPins() }
@@ -58,6 +60,10 @@ class SiteCadFlow {
 				.filter { it.name == "CI"  }
 			design.gndNet.disconnectFromPins(ciPins)
 			SiteCadFlow().run(design, device)
+			val rscpFile = Paths.get(args[0]).toFile()
+			val tcp = rscpFile.absolutePath + rscpFile.nameWithoutExtension + ".tcp"
+			println("writing to $tcp")
+			VivadoInterface.writeTCP(tcp, design, device, rscp.libCells)
 		}
 	}
 }
