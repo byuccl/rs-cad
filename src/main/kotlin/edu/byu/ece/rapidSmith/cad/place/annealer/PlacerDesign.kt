@@ -28,7 +28,7 @@ class PlacerDesign<S : ClusterSite>(
 	val design: CellDesign
 ) {
 	/** The placement groups that can be placed by the placer */
-	val groups: Set<PlacementGroup<S>>
+	val groups: List<PlacementGroup<S>>
 
 	// separation of placeable and nonplaceable clusters
 	val clustersNotToPlace: Set<Cluster<*, S>>
@@ -41,7 +41,8 @@ class PlacerDesign<S : ClusterSite>(
 		clustersToPlace = toPlace
 		clustersNotToPlace = toNotPlace
 		clusterGroupMap = createPlacementGroups(clusters, toNotPlace)
-		groups = clusterGroupMap.values.toSet()
+		groups = clusterGroupMap.values.distinct().sortedBy { it.index }
+		assert(groups.withIndex().all { it.index == it.value.index })
 	}
 
 	/**
@@ -129,10 +130,10 @@ private fun <S: ClusterSite> createPlacementGroups(
 	// patterns.
 	var numGroups = 0
 	val multiGroups = PlacementGroupFinder<S>().findMultiSitePlacementGroups(clusters)
-	multiGroups.forEach { (packUnit, clusters) ->
-		val group = MultipleClusterPlacementGroup(numGroups++, packUnit, clusters)
-		clusters.keys.forEach { c -> clusterGroupMap[c] = group }
-		remainingClusters.removeAll(clusters.keys)
+	multiGroups.forEach { (pu, cs) ->
+		val group = MultipleClusterPlacementGroup(numGroups++, pu, cs)
+		cs.keys.forEach { c -> clusterGroupMap[c] = group }
+		remainingClusters.removeAll(cs.keys)
 	}
 
 	// Step 2: take care of single cluster groups

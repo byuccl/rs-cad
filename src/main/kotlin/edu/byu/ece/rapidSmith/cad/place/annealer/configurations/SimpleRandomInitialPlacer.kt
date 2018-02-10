@@ -36,7 +36,7 @@ class SimpleRandomInitialPlacer<S: ClusterSite>(
 		for (group in orderedGroupsToPlace) {
 			// Determine the number of possible placement anchors and thus the placement probability
 			val placementRegion = state.getPlacementRegionForGroup(group)
-			val possibleAnchorSites = placementRegion.getValidAnchorSitesForGroup(state, group)
+			val possibleAnchorSites = placementRegion.validSites
 			if (possibleAnchorSites.isEmpty()) {
 				println("Warning: no placeable sites for group " + group)
 				println("Constraint:" + placementRegion.toString())
@@ -76,12 +76,11 @@ class SimpleRandomInitialPlacer<S: ClusterSite>(
 	private fun validatePlacement(
 		state: PlacerState<S>, component: MoveComponent<S>
 	): Boolean {
-		return component.group.fitsAt(state.device, component.newAnchor!!) &&
-			!state.willGroupOverlap(component.group, component.newAnchor) &&
+		val region = state.getPlacementRegionForGroup(component.group)
+		val newAnchor = component.newAnchor!!
+		val locations = region.getLocations(newAnchor)
+		return locations != null &&
+			!state.willGroupOverlap(component.group, newAnchor) &&
 			moveValidator.validate(state, component)
 	}
 }
-
-private fun <S: ClusterSite> GroupPlacementRegion<S>.getValidAnchorSitesForGroup(
-	state: PlacerState<S>, group: PlacementGroup<S>
-) = validSites.filter { group.fitsAt(state.device, it) }

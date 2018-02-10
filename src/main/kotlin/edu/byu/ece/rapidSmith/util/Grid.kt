@@ -2,6 +2,8 @@ package edu.byu.ece.rapidSmith.util
 
 /** Constant for Index(0, 0) */
 val ZERO_INDEX = Index(0, 0)
+/** Constant for Offset(0, 0) */
+val ZERO_OFFSET = Offset(0, 0)
 
 /**
  * Size of a grid as defined by the number of rows and columns in the grid.

@@ -79,7 +79,15 @@ class SiteClusterSite(
 	override fun isCompatibleWith(packUnit: PackUnit): Boolean {
 		if (packUnit !is SitePackUnit) return false
 
-		return packUnit.siteType in site.compatibleTypes
+		if (packUnit.siteType == site.defaultType)
+			return true
+
+		val device = site.tile.device
+		val siteTemplate = device.getSiteTemplate(packUnit.siteType)
+		return if (siteTemplate.compatibleTypes != null)
+			site.defaultType in siteTemplate.compatibleTypes
+		else
+			false
 	}
 
 	companion object {

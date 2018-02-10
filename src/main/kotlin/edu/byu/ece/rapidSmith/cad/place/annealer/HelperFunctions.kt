@@ -68,7 +68,7 @@ fun <S: ClusterSite> buildSwapMove(
 	// TODO: cache this member so that it doesn't have to be continually created
 	// and destroyed.
 	val displacedMainGroups = HashMap<PlacementGroup<S>, MoveComponent<S>>()
-	val newMainPlacementSitesMap = HashMap<PlacementGroup<S>, Set<S>>()
+	val newMainPlacementSitesMap = HashMap<PlacementGroup<S>, Collection<S>>()
 
 	val canDisplace = displaceOverlappingElements(displacedMainGroups,
 		newMainPlacementSitesMap, state, initialGroup, initialMove.newAnchor,
@@ -116,16 +116,17 @@ fun <S: ClusterSite> buildSwapMove(
 // (19,31).
 private fun <S : ClusterSite> displaceOverlappingElements(
 	displacedMainGroups: HashMap<PlacementGroup<S>, MoveComponent<S>>,
-	newMainPlacementSitesMap: HashMap<PlacementGroup<S>, Set<S>>,
+	newMainPlacementSitesMap: HashMap<PlacementGroup<S>, Collection<S>>,
 	state: PlacerState<S>,
-	initialGroup: PlacementGroup<S>, newAnchor: S, igTargetSites: Set<S>,
+	initialGroup: PlacementGroup<S>, newAnchor: S, igTargetSites: Collection<S>,
 	design: PlacerDesign<S>,
 	validator: MoveValidator<S>
 ): Boolean {
 	for (cluster in initialGroup.clusters) {
 		// target site of this instance. This is where we want the instance to go
-		val igSiteOffset = initialGroup.getClusterOffset(cluster)
-		val igSite = state.device.getOffsetSite(newAnchor, igSiteOffset)!!
+		val igSiteIndex = initialGroup.getClusterIndex(cluster)
+		val igRegion = state.getPlacementRegionForGroup(initialGroup)
+		val igSite = igRegion.getLocations(newAnchor)!![igSiteIndex]
 
 		// Now find all of the conflicts of the new site for this instance.
 		val overlapCluster = state.getClusterAt(igSite)
@@ -139,12 +140,15 @@ private fun <S : ClusterSite> displaceOverlappingElements(
 
 			// Determine location of this displaced group.
 			val displaceMove = getDisplacementMove(state, overlapGroup, overlapCluster, igSite)
+			displaceMove ?: return false
+
+			val overlapRegion = state.getPlacementRegionForGroup(overlapGroup)
+			val overlapLocations = overlapRegion.getLocations(displaceMove.newAnchor!!)
+			overlapLocations ?: return false
 
 			// Check to see if the proposed site for the displaced group is valid.
 			// If not, this move cannot happen.
-			if (displaceMove == null ||
-				!overlapGroup.fitsAt(state.device, displaceMove.newAnchor!!) ||
-				!validator.validate(state, displaceMove))
+			if (!validator.validate(state, displaceMove))
 				return false
 
 			// Determine the new sites of this main move.
@@ -155,8 +159,8 @@ private fun <S : ClusterSite> displaceOverlappingElements(
 				return false
 
 			// Create the displacement move and save the information for later checking
-			displacedMainGroups.put(overlapGroup, displaceMove)
-			newMainPlacementSitesMap.put(overlapGroup, newSitesForDisplaced)
+			displacedMainGroups[overlapGroup] = displaceMove
+			newMainPlacementSitesMap[overlapGroup] = newSitesForDisplaced
 		}
 	}
 
@@ -171,7 +175,7 @@ private fun <S : ClusterSite> displaceOverlappingElements(
 // were placed without conflict previously).
 private fun <S : ClusterSite> doesMoveAffectUnassociatedGroup(
 	displacedMainGroups: Map<PlacementGroup<S>, MoveComponent<S>>,
-	newMainPlacementSitesMap: Map<PlacementGroup<S>, Set<S>>,
+	newMainPlacementSitesMap: Map<PlacementGroup<S>, Collection<S>>,
 	state: PlacerState<S>, design: PlacerDesign<S>, initialGroup: PlacementGroup<S>
 ): Boolean {
 	for (mainGroup in displacedMainGroups.keys) {
@@ -197,12 +201,11 @@ private fun <S : ClusterSite> getDisplacementMove(
 	state: PlacerState<S>, overlapGroup: PlacementGroup<S>,
 	overlapCluster: Cluster<*, S>, igSite: S
 ): MoveComponent<S>? {
-	val overlapSiteOffset = overlapGroup.getClusterOffset(overlapCluster)
+	val overlapSiteIndex = overlapGroup.getClusterIndex(overlapCluster)
 	val overlapAnchor = state.getAnchorOfGroup(overlapGroup)
-	val newSiteCoordinates = igSite.location
-	val newOverlapAnchorCoords = newSiteCoordinates - overlapSiteOffset
-	val newOverlapAnchor = state.device.grid.getSiteAt(newOverlapAnchorCoords) ?: return null
-	// TODO move getSiteAt method to device, make grid private
+	val overlapRegion = state.getPlacementRegionForGroup(overlapGroup)
+	val newOverlapLocations = overlapRegion.getLocations(igSite) ?: return null
+	val newOverlapAnchor = newOverlapLocations[overlapSiteIndex]
 
 	return MoveComponent(overlapGroup, overlapAnchor, newOverlapAnchor)
 }
@@ -212,14 +215,14 @@ fun <S: ClusterSite> getValidRandomSite(
 ): S? {
 	val oldCoord = center.location
 
-	val grid = state.getPlacementRegionForGroup(g)
-	val validSites = ArrayList(grid.validSites)
+	val region = state.getPlacementRegionForGroup(g)
+	val validSites = ArrayList(region.validSites)
 	while (validSites.isNotEmpty()) {
 		val i = rand.nextInt(validSites.size)
 		val site = validSites[i]
 		val newCoord = site.location
 
-		if (withinRange(oldCoord, newCoord, range) && g.fitsAt(state.device, site))
+		if (withinRange(oldCoord, newCoord, range))
 			return site
 
 		validSites.removeAt(i)

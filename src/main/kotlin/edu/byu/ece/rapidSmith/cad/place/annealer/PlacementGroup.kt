@@ -3,8 +3,6 @@ package edu.byu.ece.rapidSmith.cad.place.annealer
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
-import edu.byu.ece.rapidSmith.util.Dimensions
-import edu.byu.ece.rapidSmith.util.Offset
 
 /**
  * Represents the atomic unit for placement. Because of placement constraints
@@ -17,7 +15,7 @@ import edu.byu.ece.rapidSmith.util.Offset
  * This class does not maintain any placement information. All of the
  * placement information is stored in the PlacerShapeState.
  */
-abstract class PlacementGroup<S : ClusterSite>(
+sealed class PlacementGroup<S : ClusterSite>(
 	val index: Int
 ) {
 	abstract val name: String
@@ -26,31 +24,16 @@ abstract class PlacementGroup<S : ClusterSite>(
 	abstract val type: PackUnit
 
 	/** All clusters associated with the group */
-	abstract val clusters: Set<Cluster<*, S>>
+	abstract val clusters: List<Cluster<*, S>>
 
 	/** The anchor cluster of the group */
 	abstract val anchor: Cluster<*, S>
 
-	/** The dimensions of the group (size in x and y coordinates) */
-	abstract val dimensions: Dimensions
-
 	/** The number of clusters in the group */
 	abstract val size: Int
 
-	/** The offset of cluster [i] within the group */
-	abstract fun getClusterOffset(i: Cluster<*, S>): Offset
-
-	/**
-	 * Returns the set of all offsets of an anchor site (including of the anchor itself)
-	 * that the group will occupy.
-	 */
-	abstract val usedOffsets: Set<Offset>
-
-	/**
-	 * Returns true if this placement group can full fit in the grid when
-	 * anchored at [anchor].
-	 */
-	abstract fun fitsAt(device: PlacerDevice<S>, anchor: S): Boolean
+	/** The index of cluster [i] within the group */
+	abstract fun getClusterIndex(i: Cluster<*, S>): Int
 
 	/**
 	 * Indicates whether the group's placement is fixed.
@@ -69,7 +52,7 @@ class SingleClusterPlacementGroup<S : ClusterSite>(
 	index: Int,
 	val cluster: Cluster<*, S>
 ) : PlacementGroup<S>(index) {
-	override val clusters: Set<Cluster<*, S>> = setOf(cluster)
+	override val clusters: List<Cluster<*, S>> = listOf(cluster)
 
 	override val name: String
 		get() = cluster.name
@@ -77,33 +60,19 @@ class SingleClusterPlacementGroup<S : ClusterSite>(
 	override val size: Int
 		get() = 1
 
-	override val dimensions: Dimensions = Dimensions(1, 1)
-
 	override val type: PackUnit
 		get() = cluster.type
 
 	override val anchor: Cluster<*, S>
 		get() = cluster
 
-	override fun getClusterOffset(i: Cluster<*, S>): Offset {
-		return ZERO_OFFSET
-	}
-
-	override val usedOffsets: Set<Offset>
-		get() = setOf(ZERO_OFFSET)
-
-	override fun fitsAt(device: PlacerDevice<S>, anchor: S): Boolean {
-		val site = device.grid.getSiteAt(anchor.location)
-		return site != null && site.isCompatibleWith(cluster.type)
-
+	override fun getClusterIndex(i: Cluster<*, S>): Int {
+		require(i == cluster)
+		return 0
 	}
 
 	override fun toString(): String {
 		return cluster.name
-	}
-
-	private companion object {
-		val ZERO_OFFSET = Offset(0, 0)
 	}
 }
 
@@ -114,49 +83,26 @@ class SingleClusterPlacementGroup<S : ClusterSite>(
 class MultipleClusterPlacementGroup<S: ClusterSite>(
 	index: Int,
 	override var type: PackUnit,
-	private val clusterOffsetMap: Map<Cluster<*, S>, Offset>
+	private val clusterIndexMap: Map<Cluster<*, S>, Int>
 ) : PlacementGroup<S>(index) {
 	override val name: String
 		get() = anchor.name
 
-	override val clusters: Set<Cluster<*, S>>
-		get() = clusterOffsetMap.keys
+	override val clusters: List<Cluster<*, S>>
+		get() = clusterIndexMap.entries.sortedBy { it.value }.map { it.key }
 
 	override val size: Int
-		get() = clusterOffsetMap.size
+		get() = clusterIndexMap.size
 	
 	override val anchor: Cluster<*, S> =
-		clusterOffsetMap.entries.first { it.value == Offset(0, 0) }.key
+		clusterIndexMap.entries.first { it.value == 0 }.key
 
-	/**
-	 * Indicates the dimensions of the group in both the x and y locations.
-	 */
-	override var dimensions: Dimensions = let {
-		// Determine the shape of the group. This involves searching through the
-		// list and finding the largest x value and the largest y value.
-		val offsets = clusterOffsetMap.values
-		val rows = offsets.maxBy { it.rows }!!.rows + 1
-		val columns = offsets.maxBy { it.columns }!!.columns + 1
-		Dimensions(rows, columns)
-	}
-
-	override fun getClusterOffset(i: Cluster<*, S>): Offset {
-		return requireNotNull(clusterOffsetMap[i]) { "Cluster $i not in group."}
-	}
-
-	override val usedOffsets: Set<Offset>
-		get() = clusterOffsetMap.values.toSet()
-
-	override fun fitsAt(device: PlacerDevice<S>, anchor: S): Boolean {
-		val anchorLoc = anchor.location
-		return clusterOffsetMap.all { (c, offset) ->
-			val site = device.grid.getSiteAt(offset + anchorLoc)
-			site != null && site.isCompatibleWith(c.type)
-		}
+	override fun getClusterIndex(i: Cluster<*, S>): Int {
+		return requireNotNull(clusterIndexMap[i]) { "Cluster $i not in group."}
 	}
 
 	override fun toString(): String {
-		return "${anchor.name} (${clusterOffsetMap.size})"
+		return "${anchor.name} (${clusterIndexMap.size})"
 	}
 }
 
@@ -169,7 +115,7 @@ class MultipleClusterPlacementGroup<S: ClusterSite>(
 class PlacementGroupFinder<S : ClusterSite> {
 	fun findMultiSitePlacementGroups(
 		clusters: List<Cluster<*, S>>
-	): List<Pair<PackUnit, Map<Cluster<*, S>, Offset>>> {
+	): List<Pair<PackUnit, Map<Cluster<*, S>, Int>>> {
 		val shapes = findShapes<Cluster<*, S>>(clusters)
 		return shapes.map {constructPlacementGroup(it) }
 	}
@@ -180,23 +126,25 @@ class PlacementGroupFinder<S : ClusterSite> {
 	): Collection<PlacementGroupShape<C>> {
 		val chains = clusters.mapNotNull { it.getChain<C>() }.distinct()
 		return chains.map { chain ->
-			val offsets = chain.clusters.map { it to chain.getOffsetOf(it) }
-			val low = offsets.map { it.second.rows }.min()!!
-			val high = offsets.map { it.second.rows }.max()!!
+			val indices = chain.clusters.map {
+				val offset = chain.getOffsetOf(it)
+				val index = if (offset.rows > 0 && offset.columns > 0)
+					error("Cannot handle multicolumn shapes")
+				else if (offset.rows > 0)
+					offset.rows
+				else
+					offset.columns
 
-			// just error checking?
-			val arrayOfClusters = arrayOfNulls<Cluster<*, *>>(high - low + 1)
-			offsets.forEach { arrayOfClusters[it.second.rows] = it.first }
-			assert(arrayOfClusters.all { it != null })
-			assert (arrayOfClusters.all { it!!.isPlaceable })
+				it to index
+			}
 
-			PlacementGroupShape(offsets.toMap())
+			PlacementGroupShape(indices.toMap())
 		}
 	}
 
 	private fun constructPlacementGroup(
 		shape: PlacementGroupShape<Cluster<*, S>>
-	): Pair<PackUnit, Map<Cluster<*, S>, Offset>> {
+	): Pair<PackUnit, Map<Cluster<*, S>, Int>> {
 		val clusters = shape.clusters.keys
 		
 		// Determine the placeable sites of this shape based on its type.
@@ -220,6 +168,6 @@ class PlacementGroupFinder<S : ClusterSite> {
 	}
 }
 
-class PlacementGroupShape<C: Cluster<*, *>>(val clusters: Map<C, Offset>) {
-	val anchor: C = clusters.entries.single { it.value == Offset(0, 0) }.key
+class PlacementGroupShape<C: Cluster<*, *>>(val clusters: Map<C, Int>) {
+	val anchor: C = clusters.entries.single { it.value == 0 }.key
 }

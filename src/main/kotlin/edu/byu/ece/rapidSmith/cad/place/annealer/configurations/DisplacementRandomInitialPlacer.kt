@@ -113,7 +113,6 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 		// Determine all of the valid placement sites for this group
 		val anchorSites = region.validSites
 		val validAnchorSites = anchorSites
-			.filter { g.fitsAt(state.device, it) }
 			.map { MoveComponent(g, null, it) }
 			.filter { moveValidator.validate(state, it) }
 
@@ -235,7 +234,7 @@ private class PlacementGroupPlacementComparator<S : ClusterSite>(
 		groupProbabilities = HashMap(2 * s.placedGroups.size)
 		for (g in s.placedGroups) {
 			val grid = s.getPlacementRegionForGroup(g)
-			val possibleAnchorSites = grid.validSites.filter { g.fitsAt(s.device, it) }
+			val possibleAnchorSites = grid.validSites
 			val placementProbability: Double
 			placementProbability = if (possibleAnchorSites.isEmpty()) {
 				println("Warning: no placement sites f or group " + g)

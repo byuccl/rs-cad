@@ -37,7 +37,7 @@ private class StateHelper(
 	fun getRelocatedSites(
 		group: PlacementGroup<SiteClusterSite>,
 		newSite: SiteClusterSite
-	): Set<SiteClusterSite> {
+	): Collection<SiteClusterSite> {
 		return state.getSitesForGroup(group, newSite)!!
 	}
 

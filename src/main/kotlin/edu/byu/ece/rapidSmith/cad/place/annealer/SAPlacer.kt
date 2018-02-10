@@ -16,7 +16,7 @@ import java.util.*
  */
 class SimulatedAnnealingPlacer<S : ClusterSite>(
 	private val csgFactory: ClusterSiteGridFactory<S>,
-	private val gprFactory: GroupPlacementRegionFactory<*, S>,
+	private val gprFactory: GroupPlacementRegionFactory<S>,
 	private val validator: MoveValidator<S>,
 	private val coolingScheduleFactory: CoolingScheduleFactory<S> = DefaultCoolingScheduleFactory(),
 	private val costFunctionFactory: CostFunctionFactory<S> = HPWLCostFunctionFactory(),
@@ -34,8 +34,8 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 	 */
 	override fun place(design: CellDesign, clusters: List<Cluster<*, S>>) {
 		val pdesign = PlacerDesign(clusters, design)
-		val pdevice = PlacerDevice(design.device, csgFactory, gprFactory, pdesign.clustersToPlace)
-		val state = PlacerState(pdesign, pdevice, random, costFunctionFactory.make(pdesign))
+		val pdevice = PlacerDevice(design.device, csgFactory)
+		val state = PlacerState(pdesign, pdevice, gprFactory, random, costFunctionFactory.make(pdesign))
 		val coolingSchedule = coolingScheduleFactory.make(state, random)
 
 			// Perform initial placement

@@ -7,9 +7,10 @@ import edu.byu.ece.rapidSmith.device.Tile
 import edu.byu.ece.rapidSmith.device.families.FamilyInfos
 import edu.byu.ece.rapidSmith.util.ArrayGrid
 import edu.byu.ece.rapidSmith.util.Grid
+import edu.byu.ece.rapidSmith.util.Rectangle
 import java.util.*
 
-class SiteClusterGridFactory() : ClusterSiteGridFactory<SiteClusterSite> {
+class SiteClusterGridFactory : ClusterSiteGridFactory<SiteClusterSite> {
 	override fun makeClusterSiteGrid(device: Device): ClusterSiteGrid<SiteClusterSite> =
 		SiteClusterGrid(device)
 }
@@ -23,7 +24,7 @@ class SiteClusterGrid(device: Device) : ClusterSiteGrid<SiteClusterSite>() {
 		val sbTypes = fi.switchboxTiles()
 
 		val sites = device.sites.values
-			.filter { it.tile.type in sbTypes } // TODO replace with SiteType.Tieoff check
+			.filter { it.tile.type !in sbTypes } // TODO replace with SiteType.Tieoff check
 			.associate { SiteIndex(it) to it }
 
 
@@ -41,7 +42,7 @@ class SiteClusterGrid(device: Device) : ClusterSiteGrid<SiteClusterSite>() {
 			.toMap()
 
 		coordinates = sites.keys.associate { it to
-			Coordinates(xlocs[it.columnIndex]!!, ylocs[it.row]!!)
+			Coordinates(ylocs[it.row]!!, xlocs[it.columnIndex]!!)
 		}
 		grid = ArrayGrid<SiteClusterSite?>(ylocs.size, xlocs.size) { null }
 		sites.forEach {
@@ -49,6 +50,15 @@ class SiteClusterGrid(device: Device) : ClusterSiteGrid<SiteClusterSite>() {
 			grid[coord] = SiteClusterSite(it.value, coord)
 		}
 	}
+
+	override val rectangle: Rectangle
+		get() = grid.rectangle
+
+	override val absolute: Rectangle
+		get() = grid.absolute
+
+	override fun get(row: Int, column: Int): SiteClusterSite = requireNotNull(grid[row, column])
+
 	override fun getSiteAt(location: Coordinates): SiteClusterSite? {
 		return if (location in grid.rectangle) grid[location] else null
 	}
@@ -57,7 +67,6 @@ class SiteClusterGrid(device: Device) : ClusterSiteGrid<SiteClusterSite>() {
 		val wrapped = grid[coordinates[SiteIndex(site)]!!] ?: return emptyList()
 		return listOf(wrapped)
 	}
-
 
 	override fun getRelatedClusterSites(tile: Tile): List<SiteClusterSite> {
 		return tile.sites.flatMap {
@@ -68,12 +77,6 @@ class SiteClusterGrid(device: Device) : ClusterSiteGrid<SiteClusterSite>() {
 
 	override val sites: List<SiteClusterSite>
 		get() = grid.filterNotNull()
-
-	override val rows: Int
-		get() = grid.dimensions.rows
-
-	override val columns: Int
-		get() = grid.dimensions.columns
 
 	private data class SiteIndex(
 		val row: Int, val col: Int, val index: Int

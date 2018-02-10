@@ -1,74 +1,160 @@
 package edu.byu.ece.rapidSmith.cad.cluster.site
 
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
-import edu.byu.ece.rapidSmith.cad.place.annealer.ClusterSiteGrid
-import edu.byu.ece.rapidSmith.cad.place.annealer.GroupPlacementRegion
-import edu.byu.ece.rapidSmith.cad.place.annealer.GroupPlacementRegionFactory
-import edu.byu.ece.rapidSmith.cad.place.annealer.PlacerDevice
+import edu.byu.ece.rapidSmith.cad.place.annealer.*
 import edu.byu.ece.rapidSmith.device.Site
-import edu.byu.ece.rapidSmith.device.Tile
-import edu.byu.ece.rapidSmith.util.ArrayGrid
-import edu.byu.ece.rapidSmith.util.Dimensions
-import edu.byu.ece.rapidSmith.util.Rectangle
-import java.util.HashSet
+import edu.byu.ece.rapidSmith.device.SiteType
+import edu.byu.ece.rapidSmith.device.Wire
+import edu.byu.ece.rapidSmith.device.families.Artix7
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.List
+import kotlin.collections.filter
+import kotlin.collections.map
+import kotlin.collections.plusAssign
 
 /**
  *
  */
-class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SitePackUnit, SiteClusterSite>() {
+class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterSite>() {
+	private val singleClusterCache = HashMap<PackUnit, List<List<SiteClusterSite>>>()
+	private val sliceLGroupsCache = HashMap<Int, List<List<SiteClusterSite>>>()
+	private val sliceMGroupsCache = HashMap<Int, List<List<SiteClusterSite>>>()
+	private var ioGroupsCache: List<List<SiteClusterSite>>? = null
+
 	override fun make(
-		type: SitePackUnit,
+		group: PlacementGroup<SiteClusterSite>,
 		device: PlacerDevice<SiteClusterSite>
 	): SiteGroupPlacementRegion {
-		val locations = device.grid.sites.filter { it.isCompatibleWith(type) }
-		return SiteGroupPlacementRegion(type, locations)
+		if (group is MultipleClusterPlacementGroup<*>) {
+			val type = group.type as SitePackUnit
+			val locations = when(type.siteType) { // TODO support IOB33S and IOB33M?
+				Artix7.SiteTypes.IOB33 -> {
+					var locs = ioGroupsCache
+					if (locs == null) {
+						locs = device.grid.sites
+							.filter { it.isCompatibleWith(type) }
+							.mapNotNull { getIOPair(device.grid, it) }
+						ioGroupsCache = locs
+					}
+					locs
+				}
+				Artix7.SiteTypes.SLICEL -> {
+					sliceLGroupsCache.computeIfAbsent(group.size) {
+						device.grid.sites
+							.filter { it.isCompatibleWith(type) }
+							.mapNotNull { getCCChain(device.grid, it, group.size) }
+					}
+				}
+				Artix7.SiteTypes.SLICEM -> {
+					sliceMGroupsCache.computeIfAbsent(group.size) {
+						device.grid.sites
+							.filter { it.isCompatibleWith(type) }
+							.mapNotNull { getCCChain(device.grid, it, group.size) }
+					}
+				}
+				else -> error("unsupported groupt type")
+			}
+
+			return SiteGroupPlacementRegion(locations)
+		} else {
+			val locations = singleClusterCache.computeIfAbsent(group.type) { type ->
+				device.grid.sites
+					.filter { it.isCompatibleWith(type) }
+					.map { listOf(it) }
+			}
+			return SiteGroupPlacementRegion(locations)
+		}
 	}
+
+	private fun getIOPair(
+		grid: ClusterSiteGrid<SiteClusterSite>,
+		anchor: SiteClusterSite
+	): List<SiteClusterSite>? {
+		val sites = ArrayList<SiteClusterSite>()
+		sites += anchor
+
+		val source = anchor.site.getSitePin("I").externalWire
+		val stack = ArrayDeque<WireDistancePair>()
+		stack.push(WireDistancePair(source, 1))
+		while (stack.isNotEmpty()) {
+			val (wire, distance) = stack.pop()
+			val pin = wire.connectedPin
+			if (pin != null)
+				println(pin)
+
+			if (pin != null && pin.site.isCompatibleWith(Artix7.SiteTypes.BUFG)) {
+//				sites += grid.
+				break
+			}
+
+			val sinks = wire.wireConnections.map { it.sinkWire }
+			for (sink in sinks) {
+				val d = distance + 1
+				if (d < 8)
+					stack.push(WireDistancePair(sink, d))
+			}
+		}
+		return if (sites.isEmpty()) null else sites
+	}
+
+	private fun getCCChain(
+		grid: ClusterSiteGrid<SiteClusterSite>,
+		anchor: SiteClusterSite, length: Int
+	): List<SiteClusterSite>? {
+		val slices = ArrayList<SiteClusterSite>()
+		slices += anchor
+
+		var i = 1
+		var s = anchor
+		while (i < length) {
+			val cout = s.site.getSitePin("COUT")
+//			if (!drivesCin(cout))
+				return null
+			i += 1
+		}
+		return slices
+	}
+}
+
+private data class WireDistancePair(
+	val wire: Wire,
+	val distance: Int
+)
+
+private fun Site.isCompatibleWith(siteType: SiteType): Boolean {
+	if (this.defaultType == siteType)
+		return true
+	val compatTypes = compatibleTypes
+	if (compatTypes != null && siteType in compatTypes)
+		return true
+	return false
 }
 
 /**
  *
  */
 class SiteGroupPlacementRegion(
-	private val packUnit: SitePackUnit,
-	validSites: List<SiteClusterSite>
-) : GroupPlacementRegion<SiteClusterSite>(packUnit) {
+	validAreas: List<List<SiteClusterSite>>
+) : GroupPlacementRegion<SiteClusterSite>() {
+
+	val validAreas: Map<SiteClusterSite, List<SiteClusterSite>> =
+		validAreas.associateBy { it.first() }
 
 	/**
 	 * A two dimensional representation of the coordinate system. This is
 	 * handy for getting coordinates based on the x,y locations.
 	 */
-	private val rowRelocationMap: Map<Int, Int>
-	private val colRelocationMap: Map<Int, Int>
-	override val validSites: List<SiteClusterSite>
-
-	init {
-		// Create a set of these sites and keep track of the maximum height and width
-		val rowLocations = HashSet<Int>()
-		val colLocations = HashSet<Int>()
-		for (site in validSites) {
-			rowLocations.add(site.location.row)
-			colLocations.add(site.location.column)
-		}
-
-		val sortedRows = ArrayList(rowLocations).sorted()
-		val sortedCols = ArrayList(colLocations).sorted()
-
-		rowRelocationMap = sortedRows.withIndex().map { it.value to it.index }.toMap()
-		colRelocationMap = sortedCols.withIndex().map { it.value to it.index }.toMap()
-
-		// Populate the coordinate system with the sites
-		val validClusterSites = ArrayList<SiteClusterSite>()
-		for (site in validSites) {
-			validClusterSites += site
-		}
-		validClusterSites.trimToSize()
-		this.validSites = validClusterSites
-	}
+	override val validSites: List<SiteClusterSite> = validAreas.map { it.first() }
 
 	override val area: Int
 		get() = Int.MAX_VALUE
 
+	override fun getLocations(newAnchor: SiteClusterSite): List<SiteClusterSite>? {
+		return validAreas[newAnchor]
+	}
+
 	override fun toString(): String {
-		return "PlacementGrid[$packUnit]: (all)"
+		return "PlacementGrid: (all)"
 	}
 }

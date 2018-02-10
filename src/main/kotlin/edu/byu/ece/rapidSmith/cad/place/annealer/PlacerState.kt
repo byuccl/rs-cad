@@ -2,7 +2,6 @@ package edu.byu.ece.rapidSmith.cad.place.annealer
 
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
-import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import java.util.*
 import kotlin.collections.HashMap
 
@@ -50,6 +49,7 @@ import kotlin.collections.HashMap
 class PlacerState<S : ClusterSite>(
 	val design: PlacerDesign<S>,
 	val device: PlacerDevice<S>,
+	gprFactory: GroupPlacementRegionFactory<S>,
 	val random: Random,
 	private val costFunction: CostFunction<S>
 ) {
@@ -57,8 +57,8 @@ class PlacerState<S : ClusterSite>(
 	private val siteInstanceMap = HashMap<S, Cluster<*, S>>()
 	private val _placedGroups = ArrayList<PlacementGroup<S>>()
 	private val _unplacedGroups = ArrayList(design.groups)
-	// TODO make this unique for each group
-	private val groupRegions = createPlacementRegions(design, device)
+
+	private val groupRegions = createPlacementRegions(design, device, gprFactory)
 
 	/** Groups that are currently placed */
 	val placedGroups: List<PlacementGroup<S>> get() = _placedGroups
@@ -102,12 +102,13 @@ class PlacerState<S : ClusterSite>(
 	/** Return the current site of the given instance.  */
 	fun getSiteOfCluster(i: Cluster<*, S>, g: PlacementGroup<S>): S? {
 		val anchor = getAnchorOfGroup(g) ?: return null
-		return device.getOffsetSite(anchor, g.getClusterOffset(i))
+		val region = groupRegions[g.index]
+		return region.getLocations(anchor)!![g.getClusterIndex(i)]
 	}
 
 	/** Returns the area constraint for the placement group [g].  */
 	fun getPlacementRegionForGroup(g: PlacementGroup<S>): GroupPlacementRegion<S> {
-		return groupRegions[g.type]!!
+		return groupRegions[g.index]
 	}
 
 	/** Returns the cluster that is placed at a cluster site [site]. */
@@ -143,10 +144,12 @@ class PlacerState<S : ClusterSite>(
 		groupAnchorList[group.index] = newSite
 
 		// Update the siteInstanceMap with the Instances of the group
-		for (i in group.clusters) {
-			val s = device.getOffsetSite(newSite, group.getClusterOffset(i))!!
-			siteInstanceMap[s] = i
-			currentCost += costFunction.place(i, s)
+		val region = groupRegions[group.index]
+		val locations = requireNotNull(region.getLocations(newSite)) { "Illegal site for group" }
+		for ((i, site) in locations.withIndex()) {
+			val cluster = group.clusters[i]
+			siteInstanceMap[site] = cluster
+			currentCost += costFunction.place(cluster, site)
 		}
 	}
 
@@ -162,11 +165,12 @@ class PlacerState<S : ClusterSite>(
 		val oldAnchor = getAnchorOfGroup(group) ?: return
 
 		// unplace each of the clusters in the group
-		for (i in group.clusters) {
-			val offset = group.getClusterOffset(i)
-			val s = device.getOffsetSite(oldAnchor, offset)!!
-			siteInstanceMap.remove(s)
-			currentCost += costFunction.unplace(i, s)
+		val region = groupRegions[group.index]
+		val locations = region.getLocations(oldAnchor)!!
+		for ((i, site) in locations.withIndex()) {
+			val cluster = group.clusters[i]
+			siteInstanceMap.remove(site)
+			currentCost += costFunction.unplace(cluster, site)
 		}
 
 		// Remove group anchor
@@ -176,7 +180,7 @@ class PlacerState<S : ClusterSite>(
 	/**
 	 * Returns a set of all sites used by this group or null if the group is not placed.
 	 */
-	fun getGroupSites(g: PlacementGroup<S>): Set<S>? {
+	fun getGroupSites(g: PlacementGroup<S>): Collection<S>? {
 		val anchor = getAnchorOfGroup(g) ?: return null
 		return getSitesForGroup(g, anchor)!!
 	}
@@ -203,37 +207,36 @@ class PlacerState<S : ClusterSite>(
 	 * Returns the sites that group [g] will use if placed at site [anchor] or null
 	 * if [g] will not fit within this grid if placed at [anchor].
 	 */
-	fun getSitesForGroup(g: PlacementGroup<S>, anchor: S): Set<S>? {
-		return g.usedOffsets.map { device.getOffsetSite(anchor, it) ?: return null }.toSet()
+	fun getSitesForGroup(g: PlacementGroup<S>, anchor: S): Collection<S>? {
+		val region = groupRegions[g.index]
+		return region.getLocations(anchor)
 	}
-
 }
 
 private fun <S: ClusterSite> createPlacementRegions(
 	design: PlacerDesign<S>,
-	device: PlacerDevice<S>
-): Map<PackUnit, GroupPlacementRegion<S>> {
+	device: PlacerDevice<S>,
+	gprFactory: GroupPlacementRegionFactory<S>
+): Array<GroupPlacementRegion<S>> {
 	// A temporary map between each type and the constraint used for that type
-	return design.groups.asSequence()
-		.map { it.type }
-		.distinct()
-		.map { it to device.getGlobalRegion(it) }
-		.toMap()
+	return design.groups.map { gprFactory.make(it, device) }.toTypedArray()
 }
 
 private fun <S: ClusterSite> calculateUtilizations(
 	groups: Iterable<PlacementGroup<S>>,
-	placementRegion: Map<PackUnit, GroupPlacementRegion<S>>
+	placementRegion: Array<GroupPlacementRegion<S>>
 ): List<Utilization> {
 	val groupedGroups = groups.groupBy { it.type }
 
 	// Check to see if the constraints are ok
-	return groupedGroups.map { (type, g) ->
-		val grid = placementRegion[type]!!
+	return groupedGroups.map { (_, gs) ->
+		val sites = gs.asSequence()
+			.flatMap { placementRegion[it.index].validSites.asSequence() }
+			.distinct()
+			.count()
 		// Figure out how many instances are allocated to this grid
-		val siteUsage = g.sumBy { it.clusters.size }
-		val validSites = grid.validSites.size
-		Utilization(siteUsage, validSites)
+		val siteUsage = gs.sumBy { it.clusters.size }
+		Utilization(siteUsage, sites)
 	}
 }
 
