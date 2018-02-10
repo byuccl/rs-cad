@@ -9,8 +9,16 @@ version '2.1-SNAPSHOT'
 sourceCompatibility = '1.8'
 assemble.dependsOn(installDist)
 
+compileKotlin {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
 buildscript {
-    ext.kotlin_version = '1.1.4-3'
+    ext.kotlin_version = '1.2.0'
     repositories {
         mavenCentral()
     }
@@ -29,7 +37,7 @@ repositories {
 dependencies {
     compile fileTree(dir: 'jars', include: ['*.jar'])
     runtime fileTree(dir: 'jars', include: ['*.jar'])
-    compile 'com.github.trharoldsen:RapidSmith2-public:0.1.01'
+    compile 'com.github.trharoldsen:RapidSmith2-public:1.1.0'
     compile 'com.caucho:hessian:4.0.38'
     compile 'org.antlr:antlr4-runtime:4.6'
     compile 'org.jdom:jdom2:2.0.6'
