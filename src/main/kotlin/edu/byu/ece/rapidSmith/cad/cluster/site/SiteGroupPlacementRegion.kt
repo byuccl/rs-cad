@@ -74,7 +74,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 		val sites = ArrayList<SiteClusterSite>()
 		sites += anchor
 
-		val source = anchor.site.getSitePin("I").externalWire
+		val source = anchor.site.getPin("I").externalWire
 		val stack = ArrayDeque<WireDistancePair>()
 		stack.push(WireDistancePair(source, 1))
 		while (stack.isNotEmpty()) {
@@ -106,7 +106,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 		var i = 1
 		var s = anchor
 		while (i < length) {
-			val cout = s.site.getSitePin("COUT")
+			val cout = s.site.getPin("COUT")
 //			if (!drivesCin(cout))
 				return null
 			i += 1

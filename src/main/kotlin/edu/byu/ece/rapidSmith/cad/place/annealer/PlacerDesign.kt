@@ -76,15 +76,15 @@ class PlacerDesign<S : ClusterSite>(
 				for (rt in tree) {
 					if (rt.wire.source != null) {
 						net.sourceRouteTree = rt
-						net.setIsIntrasite(rt.none { it.isLeaf && it.connectingSitePin != null })
+						net.setIsIntrasite(rt.none { it.isLeaf && it.connectedSitePin != null })
 					}
 					rt.wire.reverseConnectedPin?.let { net.addSinkRouteTree(it, rt) }
 					for (t in rt) {
-						if (t.isLeaf && t.connectingSitePin != null) {
-							net.addSourceSitePin(t.connectingSitePin!!)
+						if (t.isLeaf && t.connectedSitePin != null) {
+							net.addSourceSitePin(t.connectedSitePin!!)
 						}
-						if (t.isLeaf && t.connectingBelPin != null) {
-							net.addSinkRouteTree(t.connectingBelPin!!, t)
+						if (t.isLeaf && t.connectedBelPin != null) {
+							net.addSinkRouteTree(t.connectedBelPin!!, t)
 						}
 					}
 				}
