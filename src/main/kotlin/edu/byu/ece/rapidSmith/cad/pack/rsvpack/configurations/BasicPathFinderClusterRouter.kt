@@ -529,7 +529,7 @@ private fun buildWireCosts(template: PackUnitTemplate): Map<Wire, Int> {
 
 	sites.asSequence()
 		.flatMap { it.wires.asSequence() }
-		.filter { it.wireName.matches(".*[A-D]OUTMUX\\.OUT".toRegex()) }
+		.filter { it.name.matches(".*[A-D]OUTMUX\\.OUT".toRegex()) }
 		.associateTo(wireCosts) { it to 3 }
 	return wireCosts
 }

@@ -30,10 +30,10 @@ class ClusterRoutingBuilder(val SWITCH_MATRIX_TILES: Set<TileType>) {
 		// use the actual to get the pins of interest, template should have all
 		// matching pins
 		actual.sinkPins
-			.map { template.getSitePin(it.name) }
+			.map { template.getPin(it.name) }
 			.forEach { sourceTraverser.run(it) }
 		actual.sourcePins
-			.map { template.getSitePin(it.name) }
+			.map { template.getPin(it.name) }
 			.forEach { sinkTraverser.run(it) }
 
 		translateConnections(sinkTraverser, tileMap, wireConnectionsMap)

@@ -62,7 +62,7 @@ fun findSitePins(
 
 	val pins = if (forward) siteTemplate.sources else siteTemplate.sinks
 	val pinsMap = pins.map { it.value.internalWire to it.value }.toMap()
-	val whm = if (forward) siteTemplate.routing else siteTemplate.reversedWireHashMap
+	val whm = if (forward) siteTemplate.routing else siteTemplate.reversedRouting
 
 	val sitePins = ArrayList<SitePinTemplate>()
 	while (q.isNotEmpty()) {
