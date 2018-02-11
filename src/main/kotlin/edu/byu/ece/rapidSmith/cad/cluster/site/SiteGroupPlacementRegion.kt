@@ -43,14 +43,16 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 					sliceLGroupsCache.computeIfAbsent(group.size) {
 						device.grid.sites
 							.filter { it.isCompatibleWith(type) }
-							.mapNotNull { getCCChain(device.grid, it, group.size) }
+							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
+								Artix7.SiteTypes.SLICEL, it, group.size) }
 					}
 				}
 				Artix7.SiteTypes.SLICEM -> {
 					sliceMGroupsCache.computeIfAbsent(group.size) {
 						device.grid.sites
 							.filter { it.isCompatibleWith(type) }
-							.mapNotNull { getCCChain(device.grid, it, group.size) }
+							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
+								Artix7.SiteTypes.SLICEM, it, group.size) }
 					}
 				}
 				else -> error("unsupported groupt type")
@@ -96,22 +98,39 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 		return null
 	}
 
+	// TODO checking site compatibility is still an issue
 	private fun getCCChain(
-		grid: ClusterSiteGrid<SiteClusterSite>,
+		grid: SiteClusterGrid,
+		siteType: SiteType,
 		anchor: SiteClusterSite, length: Int
 	): List<SiteClusterSite>? {
-		val slices = ArrayList<SiteClusterSite>()
-		slices += anchor
+		val sites = ArrayList<SiteClusterSite>()
+		sites += anchor
 
-		var i = 1
-		var s = anchor
-		while (i < length) {
-			val cout = s.site.getPin("COUT")
-//			if (!drivesCin(cout))
-				return null
-			i += 1
+		outer@for (i in 1 until length) {
+			val source = anchor.site.getPin("COUT").externalWire
+			val stack = ArrayDeque<WireDistancePair>()
+			stack.push(WireDistancePair(source, 1))
+			while (stack.isNotEmpty()) {
+				val (wire, distance) = stack.pop()
+				val pin = wire.connectedPin
+				if (pin != null && pin.site.isCompatibleWith(siteType)) {
+					sites += grid.getClusterSite(pin.site)
+					continue@outer
+				}
+
+				if (distance < 8) {
+					val sinks = wire.wireConnections.map { it.sinkWire }
+						.filter { it.tile.type !in Artix7.SWITCHBOX_TILES }
+					for (sink in sinks) {
+						stack.push(WireDistancePair(sink, distance + 1))
+					}
+				}
+			}
+			return null
 		}
-		return slices
+
+		return sites
 	}
 }
 
