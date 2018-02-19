@@ -43,29 +43,43 @@ class SitePackUnitTemplate(
 		assert(curAnchor.id == anchor.id)
 
 		val newSite = newAnchor.site
-		return newSite.getBel(curBel.id)
+		return if (curBel.id.siteType in newSite.possibleTypes) {
+			newSite.getBel(curBel.id)
+		} else {
+			assert(newSite.possibleTypes.size == 1)
+			newSite.getBel(curBel.name)
+		}
 	}
 
-	fun relocateBelPin(belPin: BelPin, curAnchor: Bel, newAnchor: Bel): BelPin {
-		assert(newAnchor.id == anchor.id)
-		assert(curAnchor.id == anchor.id)
-
+	fun relocateBelPin(belPin: BelPin, newAnchor: Bel): BelPin {
 		val curBel = belPin.bel
-		val rSite = newAnchor.site
-		val rBel = rSite.getBel(curBel.id)
-		return rBel.getBelPin(belPin.name)
+		val newSite = newAnchor.site
+		val newBel = if (curBel.id.siteType in newSite.possibleTypes) {
+			newSite.getBel(curBel.id)
+		} else {
+			assert(newSite.possibleTypes.size == 1)
+			newSite.getBel(curBel.name)
+		}
+
+		return newBel.getBelPin(belPin.name)
 	}
 
 	fun relocateWire(oldWire: Wire, curAnchor: Bel, newAnchor: Bel): Wire {
-		assert(newAnchor.id == anchor.id)
-		assert(curAnchor.id == anchor.id)
+		fun Bel.defaultType() = this.site.defaultType.name()
 
-		if (oldWire is SiteWire) {
-			return SiteWire(newAnchor.site, oldWire.wireEnum)
-		} else if (oldWire is TileWire) {
-			throw AssertionError("This doesn't support tile wires")
-		} else {
-			throw AssertionError("Unknown wire class")
+		when (oldWire) {
+			is SiteWire -> {
+				val newSite = newAnchor.site
+				return if (oldWire.siteType in newSite.possibleTypes) {
+					SiteWire(newAnchor.site, oldWire.wireEnum)
+				} else {
+					val newWireName = oldWire.name.replace(
+						curAnchor.defaultType(), newAnchor.defaultType())
+					newSite.getWire(newWireName)
+				}
+			}
+			is TileWire -> throw AssertionError("This doesn't support tile wires")
+			else -> throw AssertionError("Unknown wire class")
 		}
 	}
 
@@ -73,10 +87,22 @@ class SitePackUnitTemplate(
 		sourceWire: Wire, conn: Connection,
 		curAnchor: Bel, newAnchor: Bel
 	): Connection {
-		assert(newAnchor.id == anchor.id)
-		assert(curAnchor.id == anchor.id)
-		return sourceWire.wireConnections
-			.first { c -> c.sinkWire.wireEnum == conn.sinkWire.wireEnum }
+		require(sourceWire.site == newAnchor.site)
+
+		fun Bel.defaultType() = this.site.defaultType.name()
+
+		// TODO is there a better way to do this?  Maybe do routing after placement?
+		val newSite = newAnchor.site
+		val sinkName = conn.sinkWire.name
+		val expectedName = if (curAnchor.id.siteType in newSite.possibleTypes) {
+			sinkName
+		} else {
+			sinkName.replace(curAnchor.defaultType(), newAnchor.defaultType())
+		}
+
+		return sourceWire.wireConnections.first {
+			c -> c.sinkWire.name == expectedName
+		}
 	}
 
 	override fun getInputsOfSink(sinkPin: BelPin): List<Wire>? {

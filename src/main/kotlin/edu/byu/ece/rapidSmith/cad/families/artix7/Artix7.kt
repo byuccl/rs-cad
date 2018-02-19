@@ -11,6 +11,7 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.*
 import edu.byu.ece.rapidSmith.cad.place.annealer.MoveValidator
 import edu.byu.ece.rapidSmith.cad.place.annealer.SimulatedAnnealingPlacer
+import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.BondedIOBPlacerRule
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.MismatchedRAMBValidator
 import edu.byu.ece.rapidSmith.design.NetType
 import edu.byu.ece.rapidSmith.design.subsite.*
@@ -35,11 +36,7 @@ class SiteCadFlow {
 		val packer = getSitePacker(device)
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
-		val placer = SimulatedAnnealingPlacer(
-			SiteClusterGridFactory(),
-			SiteGroupPlacementRegionFactory(),
-			MoveValidator(listOf(MismatchedRAMBValidator()))
-		)
+		val placer = getGroupSAPlacer()
 		placer.place(design, clusters)
 		println(design)
 	}
@@ -79,6 +76,16 @@ fun getSitePacker(
 	val cellLibrary = CellLibrary(cellLibraryPath)
 
 	return SitePackerFactory(device, packUnits, belCosts, cellLibrary).make()
+}
+
+fun getGroupSAPlacer(): SimulatedAnnealingPlacer<SiteClusterSite> {
+	return SimulatedAnnealingPlacer(
+		SiteClusterGridFactory(),
+		SiteGroupPlacementRegionFactory(),
+		MoveValidator(listOf(
+			MismatchedRAMBValidator(),
+			BondedIOBPlacerRule()))
+	)
 }
 
 private class SitePackerFactory(

@@ -32,7 +32,7 @@ class SiteCluster(
 	}
 
 	override fun getRelocatedBelPin(belPin: BelPin, newAnchor: Bel): BelPin {
-		return template.relocateBelPin(belPin, anchor, newAnchor)
+		return template.relocateBelPin(belPin, newAnchor)
 	}
 
 	override fun getRelocatedWire(wire: Wire, newAnchor: Bel): Wire {

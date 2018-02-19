@@ -332,7 +332,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	private fun relocateBel(newAnchor: Bel, relocatedMap: HashMap<Bel, Cell>, e: Map.Entry<Bel, Cell>) {
 		val cell = e.value
 		val relocatedBel = getRelocatedBel(e.key, newAnchor)
-		relocatedBel.site.type = e.key.id.siteType
+		relocatedBel.site.type = relocatedBel.id.siteType
 		relocatedMap.put(relocatedBel, cell)
 	}
 
@@ -348,8 +348,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 				val newWire = getRelocatedWire(rt.wire, newAnchor)
 				map.put(rt, RouteTree(newWire))
 			} else {
-				if (rt.wire is TileWire)
-					throw AssertionError("Tile Wire found")
+				check(rt.wire !is TileWire)
 
 				val sourceTree = map[rt.sourceTree]!!
 				val newConn = getRelocatedConnection(
