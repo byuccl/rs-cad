@@ -60,7 +60,9 @@ private class Mixing5And6LutsRule(
 			val cellAtLut6 = cluster.getCellAtBel(lut6)!!
 			if (cellAtLut6.libCell.name in LUT6TYPES) {
 				val cellAtLut5 = cluster.getCellAtBel(lut5)!!
-				return areEquationsCompatible(cellAtLut6, cellAtLut5)
+				return false
+				// TODO See if we can do a 5UT and 6LUT together
+				// return areEquationsCompatible(cellAtLut6, cellAtLut5)
 			} else {
 				assert(cellAtLut6.libCell.name in LUT5TYPES) { "LUT type is: ${cellAtLut6.libCell.name}" }
 			}

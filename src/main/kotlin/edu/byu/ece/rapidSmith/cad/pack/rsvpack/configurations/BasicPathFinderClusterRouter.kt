@@ -444,9 +444,12 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 					val wireCost = lowestCost.cost + calculateWireCost(sinkWire)
 					if (wireCost < wireCosts.getOrDefault(sinkWire, Integer.MAX_VALUE)) {
-						val sinkTree = lowestCost.addConnection(c)
-						sinkTree.cost = wireCost
-						pq.add(sinkTree)
+						// TODO Support route throughs?
+						if (!c.isRouteThrough) {
+							val sinkTree = lowestCost.addConnection(c)
+							sinkTree.cost = wireCost
+							pq.add(sinkTree)
+						}
 					}
 				}
 
