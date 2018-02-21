@@ -12,6 +12,7 @@ class SitePackUnit(
 	override val template: SitePackUnitTemplate
 ) : PackUnit(type, template), Serializable {
 	val siteType: SiteType get() = type.type
+	val site: Site get() = template.anchor.site
 	override fun toString(): String {
 		return "SitePackUnit(${type.type})"
 	}

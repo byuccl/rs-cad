@@ -10,9 +10,7 @@ import edu.byu.ece.rapidSmith.design.NetType
 import edu.byu.ece.rapidSmith.design.subsite.CellNet
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import edu.byu.ece.rapidSmith.design.subsite.RouteTree
-import edu.byu.ece.rapidSmith.device.BelPin
-import edu.byu.ece.rapidSmith.device.Site
-import edu.byu.ece.rapidSmith.device.Wire
+import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.getSitePinConnection
 import java.util.*
 
@@ -444,8 +442,8 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 					val wireCost = lowestCost.cost + calculateWireCost(sinkWire)
 					if (wireCost < wireCosts.getOrDefault(sinkWire, Integer.MAX_VALUE)) {
-						// TODO Support route throughs?
-						if (!c.isRouteThrough) {
+						// TODO Support BEL route throughs?
+						if (wire is TileWire || !c.isRouteThrough) {
 							val sinkTree = lowestCost.addConnection(c)
 							sinkTree.cost = wireCost
 							pq.add(sinkTree)
