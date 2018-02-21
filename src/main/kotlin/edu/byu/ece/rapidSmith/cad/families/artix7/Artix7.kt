@@ -58,9 +58,9 @@ class SiteCadFlow {
 			design.gndNet.disconnectFromPins(ciPins)
 			SiteCadFlow().run(design, device)
 			val rscpFile = Paths.get(args[0]).toFile()
-			val tcp = rscpFile.absolutePath + rscpFile.nameWithoutExtension + ".tcp"
+			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
 			println("writing to $tcp")
-			VivadoInterface.writeTCP(tcp, design, device, rscp.libCells)
+			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells)
 		}
 	}
 }
@@ -324,9 +324,9 @@ private class SitePackerFactory(
 		}
 
 		override fun finish(
-			clusters: List<Cluster<SitePackUnit, *>>
+			design: List<Cluster<SitePackUnit, *>>
 		) {
-			for (cluster in clusters) {
+			for (cluster in design) {
 //				upgradeRAM32s(cluster)  Many of these can be upgraded to ram64s
 				addPseudoPins(cluster)
 				cluster.constructNets()
@@ -464,8 +464,9 @@ private fun driveSink(sourceTree: RouteTree): Boolean {
 	return sourceTree.any { it.wire.terminal != null }
 }
 
-private fun <T: PackUnit> finalRoute(
-	routerFactory: ClusterRouterFactory<T>, cluster: Cluster<T, *>
+private fun finalRoute(
+	routerFactory: ClusterRouterFactory<SitePackUnit>,
+	cluster: Cluster<SitePackUnit, *>
 ) {
 	// Reached the end of clustering, verify it and choose
 	// whether to commit it or roll it back
@@ -481,6 +482,7 @@ private fun <T: PackUnit> finalRoute(
 
 	val routeTrees = routeTreeMap.mapValues { ArrayList(it.value) }
 	removeTileWires(routeTrees.values)
+	removeOtherSiteWires(cluster.type, routeTrees.values)
 	trimUnsunkStaticNetRoutes(routeTrees)
 
 	for ((net, rts) in routeTrees) {
@@ -509,6 +511,17 @@ private fun removeTileWires(routeTrees: Collection<ArrayList<RouteTree>>) {
 		}
 		sourceTrees.clear()
 		sourceTrees.addAll(newSourceTrees)
+	}
+}
+
+private fun removeOtherSiteWires(
+	packUnit: SitePackUnit,
+	routeTrees: Collection<ArrayList<RouteTree>>
+) {
+	val site = packUnit.site
+	for (sourceTrees in routeTrees) {
+		sourceTrees.retainAll { it.wire.site == site }
+		check(sourceTrees.isNotEmpty())
 	}
 }
 
