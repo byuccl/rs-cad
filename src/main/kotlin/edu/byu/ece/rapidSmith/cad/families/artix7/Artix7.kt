@@ -9,8 +9,7 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.*
-import edu.byu.ece.rapidSmith.cad.place.annealer.MoveValidator
-import edu.byu.ece.rapidSmith.cad.place.annealer.SimulatedAnnealingPlacer
+import edu.byu.ece.rapidSmith.cad.place.annealer.*
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.BondedIOBPlacerRule
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.MismatchedRAMBValidator
 import edu.byu.ece.rapidSmith.design.NetType
@@ -84,7 +83,8 @@ fun getGroupSAPlacer(): SimulatedAnnealingPlacer<SiteClusterSite> {
 		SiteGroupPlacementRegionFactory(),
 		MoveValidator(listOf(
 			MismatchedRAMBValidator(),
-			BondedIOBPlacerRule()))
+			BondedIOBPlacerRule())),
+		DefaultCoolingScheduleFactory(EffortLevel.HIGH_H)
 	)
 }
 
@@ -521,7 +521,6 @@ private fun removeOtherSiteWires(
 	val site = packUnit.site
 	for (sourceTrees in routeTrees) {
 		sourceTrees.retainAll { it.wire.site == site }
-		check(sourceTrees.isNotEmpty())
 	}
 }
 

@@ -107,8 +107,9 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 		val sites = ArrayList<SiteClusterSite>()
 		sites += anchor
 
+		var site = anchor.site
 		outer@for (i in 1 until length) {
-			val source = anchor.site.getPin("COUT").externalWire
+			val source = site.getPin("COUT").externalWire
 			val stack = ArrayDeque<WireDistancePair>()
 			stack.push(WireDistancePair(source, 1))
 			while (stack.isNotEmpty()) {
@@ -116,6 +117,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 				val pin = wire.connectedPin
 				if (pin != null && pin.site.isCompatibleWith(siteType)) {
 					sites += grid.getClusterSite(pin.site)
+					site = pin.site
 					continue@outer
 				}
 
