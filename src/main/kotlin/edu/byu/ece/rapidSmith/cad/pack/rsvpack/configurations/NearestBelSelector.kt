@@ -88,7 +88,7 @@ constructor(
 
 	private fun calcCost(cell: Cell, cluster: Cluster<*, *>, anchor: Bel): Double? {
 		var cost = 0.0
-		val bels = cell.getRequiredBels(anchor)
+		val bels = listOf(anchor)
 		for (bel in bels) {
 			if (cluster.isBelOccupied(bel))
 				return null

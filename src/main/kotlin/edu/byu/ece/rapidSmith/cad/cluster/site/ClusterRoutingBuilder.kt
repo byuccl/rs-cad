@@ -156,7 +156,7 @@ class ClusterRoutingBuilder(val SWITCH_MATRIX_TILES: Set<TileType>) {
 			val sinkWire = c.sinkWire
 			if (sinkWire.tile in tileMap) {
 				if (sinkWire !in source) {
-					val sinkTree = source.addConnection(c)
+					val sinkTree = source.connect<RouteTree>(c)
 					if (source.goesThroughSwitchBox || sinkWire.isSwitchMatrixWire())
 						goesThroughSwitchBox.add(sinkTree)
 					stack.push(sinkTree)
@@ -185,7 +185,7 @@ class ClusterRoutingBuilder(val SWITCH_MATRIX_TILES: Set<TileType>) {
 				if (rt!!.connection != null)
 					usedConnections.add(rt.connection!!)
 				visitedWires[rt.wire] = true
-				rt = rt.sourceTree
+				rt = rt.getParent()
 			} while (rt != null && !visitedWires[rt.wire]!!)
 		}
 
@@ -238,7 +238,7 @@ private operator fun RouteTree.contains(wire: Wire): Boolean {
 	while (rt != null) {
 		if (rt.wire == wire)
 			return true
-		rt = rt.sourceTree
+		rt = rt.getParent()
 	}
 	return false
 }

@@ -500,9 +500,9 @@ private fun removeTileWires(routeTrees: Collection<ArrayList<RouteTree>>) {
 				newSourceTrees.add(sourceTree)
 			for (rt in treesToRemove) {
 				if (rt.isSourced)
-					rt.sourceTree.removeConnection(rt.connection)
-				for (sink in ArrayList(rt.sinkTrees)) {
-					rt.removeConnection(sink.connection)
+					rt.getParent<RouteTree>().disconnect(rt.connection)
+				for (sink in ArrayList(rt.children)) {
+					rt.disconnect(sink.connection)
 					if (sink !in treesToRemove) {
 						newSourceTrees.add(sink)
 					}

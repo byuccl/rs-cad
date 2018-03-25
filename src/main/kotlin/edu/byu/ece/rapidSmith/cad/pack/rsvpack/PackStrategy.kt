@@ -373,7 +373,7 @@ class SingleBelPackStrategy<in T: PackUnit>(
 
 		// Check if the BEL is even a valid type for this cell.
 		val anchor = template.bels.first()
-		if (anchor.id !in cell.possibleAnchors)
+		if (anchor.id !in cell.possibleLocations)
 			return PackStatus.INFEASIBLE
 
 		// Try to add the cell to the cluster.

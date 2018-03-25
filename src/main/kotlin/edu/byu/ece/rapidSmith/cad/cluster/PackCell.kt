@@ -87,7 +87,7 @@ fun Cell.addSourceCarryChain(sourcePin: CellPin, sinkPin: CellPin) {
 fun Cell.isInCluster(): Boolean = packingInfo.cluster != null
 
 fun Cell.getPossibleAnchors(cluster: PackUnitTemplate): List<Bel> {
-	return cluster.bels.filter { b -> possibleAnchors.contains(b.id) }
+	return cluster.bels.filter { b -> b.id in possibleLocations }
 }
 
 val Cell.numExposedPins: Int

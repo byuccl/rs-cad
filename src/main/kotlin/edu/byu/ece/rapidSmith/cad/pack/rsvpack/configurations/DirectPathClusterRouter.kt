@@ -80,7 +80,7 @@ private class DirectPathClusterRouter<T: PackUnit>(
 				break
 			}
 
-			wire.wireConnections.mapTo(q) { rt.addConnection(it) }
+			wire.wireConnections.mapTo(q) { rt.connect<RouteTree>(it) }
 		}
 
 		if (sinkTree == null)
@@ -110,7 +110,7 @@ private class DirectPathClusterRouter<T: PackUnit>(
 					break
 			}
 
-			wire.wireConnections.mapTo(q) { rt.addConnection(it) }
+			wire.wireConnections.mapTo(q) { rt.connect<RouteTree>(it) }
 		}
 
 		if (sinkTrees.size < belPins.size)

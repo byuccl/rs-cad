@@ -18,7 +18,7 @@ compileKotlin {
     }
 }
 buildscript {
-    ext.kotlin_version = '1.2.0'
+    ext.kotlin_version = '1.2.31'
     repositories {
         mavenCentral()
     }
@@ -37,7 +37,7 @@ repositories {
 dependencies {
     compile fileTree(dir: 'jars', include: ['*.jar'])
     runtime fileTree(dir: 'jars', include: ['*.jar'])
-    compile 'com.github.trharoldsen:RapidSmith2-public:1.1.0'
+    compile 'com.github.byuccl:RapidSmith2:v2.1.0'
     compile 'com.caucho:hessian:4.0.38'
     compile 'org.antlr:antlr4-runtime:4.6'
     compile 'org.jdom:jdom2:2.0.6'
@@ -45,7 +45,7 @@ dependencies {
     compile 'net.sf.jopt-simple:jopt-simple:5.0.2'
     compile 'com.github.javaparser:javaparser-core:3.0.0-RC.1'
     compile 'ch.qos.logback:logback-classic:1.0.13'
-    compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 }
 
 compileKotlin {

@@ -857,7 +857,7 @@ class TableBasedRoutabilityChecker(
 	private fun getConditionalSinks(
 		connectedSinks: List<BelPin>, sinkPin: CellPin
 	): List<Bel> {
-		val anchors = HashSet(sinkPin.cell.possibleAnchors)
+		val anchors = HashSet(sinkPin.cell.possibleLocations)
 		val conditionals = HashSet<Bel>()
 		for (belPin in connectedSinks) {
 			val bel = belPin.bel

@@ -60,7 +60,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 	}
 
 	private inner class Impl(val cluster: Cluster<T, *>) {
-		val routeTreeMap = HashMap<CellNet, ArrayList<RouteTree>>()
+		val routeTreeMap = HashMap<CellNet, ArrayList<RouteTreeWithCost>>()
 		val belPinMap = HashMap<CellNet, HashMap<CellPin, List<BelPin>>>()
 
 		private val wireUsage = HashMap<Wire, OccupancyHistoryPair>()
@@ -257,9 +257,9 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			return status
 		}
 
-		private fun noContentionForRoute(sourceTrees: List<RouteTree>): Boolean {
+		private fun noContentionForRoute(sourceTrees: List<RouteTreeWithCost>): Boolean {
 			for (sourceTree in sourceTrees) {
-				val stack = Stack<RouteTree>()
+				val stack = Stack<RouteTreeWithCost>()
 				stack.push(sourceTree)
 
 				while (!stack.isEmpty()) {
@@ -269,7 +269,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					val occupancy = wireInfo.occupancy
 					if (occupancy > 1)
 						return false
-					rt.sinkTrees.forEach { stack.push(it) }
+					rt.children.forEach { stack.push(it as RouteTreeWithCost) }
 				}
 			}
 			return true
@@ -296,7 +296,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 			var foundExternalPath = false
 
-			val sinkTrees = HashSet<RouteTree>()
+			val sinkTrees = HashSet<RouteTreeWithCost>()
 			for (sink in sinks.sinkPinsInCluster) {
 				val (status, treeSink, terminal) = routeToSink(
 					sourceTrees, sinkTrees, source, sink)
@@ -360,10 +360,10 @@ private class BasicPathFinderRouter<T: PackUnit>(
 				RouteStatus.SUCCESS
 		}
 
-		private fun buildSources(source: Source, pinMap: HashMap<CellPin, List<BelPin>>): ArrayList<RouteTree> {
-			val sourceTrees = ArrayList<RouteTree>()
+		private fun buildSources(source: Source, pinMap: HashMap<CellPin, List<BelPin>>): ArrayList<RouteTreeWithCost> {
+			val sourceTrees = ArrayList<RouteTreeWithCost>()
 			for (sourceWire in source.wires) {
-				val rt = RouteTree(sourceWire)
+				val rt = RouteTreeWithCost(sourceWire)
 				wireUsage.computeIfAbsent(sourceWire) { OccupancyHistoryPair() }
 				rt.cost = calculateSourceCost(sourceWire)
 				sourceTrees.add(rt)
@@ -373,32 +373,32 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			return sourceTrees
 		}
 
-		private fun updateSourceTrees(sinkTree: RouteTree?) {
+		private fun updateSourceTrees(sinkTree: RouteTreeWithCost?) {
 			var rt = sinkTree
 			while (rt != null) {
 				rt.cost = 0
-				rt = rt.sourceTree
+				rt = rt.getParent()
 			}
 		}
 
 		private fun pruneSourceTrees(
-			sourceTrees: ArrayList<RouteTree>,
-			sinkTrees: Set<RouteTree>, removeSources: Boolean
+			sourceTrees: ArrayList<RouteTreeWithCost>,
+			sinkTrees: Set<RouteTreeWithCost>, removeSources: Boolean
 		) {
 			sourceTrees.removeIf { rt -> !rt.prune(sinkTrees) && removeSources }
 		}
 
 		private fun routeToSink(
-			sourceTrees: ArrayList<RouteTree>,
-			sinkTrees: MutableSet<RouteTree>,
+			sourceTrees: ArrayList<RouteTreeWithCost>,
+			sinkTrees: MutableSet<RouteTreeWithCost>,
 			source: Source,
 			sink: Terminal
 		): RouteToSinkReturn {
-			val pq = PriorityQueue<RouteTree>()
+			val pq = PriorityQueue<RouteTreeWithCost>()
 			val wireCosts = HashMap<Wire, Int>()
 
 			for (sourceTree in sourceTrees) {
-				for (rt in sourceTree) {
+				for (rt in sourceTree.typedIterator<RouteTreeWithCost>()) {
 					pq.add(rt)
 					wireCosts[rt.wire] = rt.cost
 				}
@@ -425,10 +425,9 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					ret.treeSink = lowestCost
 					sinkTrees.add(lowestCost)
 
-					val terminal = wire.terminals.firstOrNull()
+					val terminal = wire.terminal
 					if (terminal != null) {
-						val belPin = terminal.belPin!!
-						ret.terminal = belPin
+						ret.terminal = terminal
 					} else {
 						ret.terminal = wire
 					}
@@ -444,7 +443,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					if (wireCost < wireCosts.getOrDefault(sinkWire, Integer.MAX_VALUE)) {
 						// TODO Support BEL route throughs?
 						if (wire is TileWire || !c.isRouteThrough) {
-							val sinkTree = lowestCost.addConnection(c)
+							val sinkTree = lowestCost.connect<RouteTreeWithCost>(c)
 							sinkTree.cost = wireCost
 							pq.add(sinkTree)
 						}
@@ -456,7 +455,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 					val wireCost = lowestCost.cost + calculateWireCost(sinkWire)
 					if (wireCost < wireCosts.getOrDefault(sinkWire, Integer.MAX_VALUE)) {
-						val sinkTree = lowestCost.addConnection(it)
+						val sinkTree = lowestCost.connect<RouteTreeWithCost>(it)
 						sinkTree.cost = wireCost
 						pq.add(sinkTree)
 					}
@@ -485,9 +484,9 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			return cost
 		}
 
-		private fun commitRoute(net: CellNet, sourceTrees: ArrayList<RouteTree>) {
+		private fun commitRoute(net: CellNet, sourceTrees: ArrayList<RouteTreeWithCost>) {
 			for (sourceTree in sourceTrees) {
-				val stack = Stack<RouteTree>()
+				val stack = Stack<RouteTreeWithCost>()
 				stack.push(sourceTree)
 
 				while (!stack.isEmpty()) {
@@ -497,7 +496,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					// only increment the historical for shared wires
 					if (pair.occupancy > 1)
 						pair.history += 1
-					rt.sinkTrees.forEach { stack.push(it) }
+					rt.children.forEach { stack.push(it as RouteTreeWithCost) }
 				}
 			}
 			routeTreeMap.put(net, sourceTrees)
@@ -603,7 +602,7 @@ private enum class RouteStatus {
 
 private data class RouteToSinkReturn(
 	var status: RouteStatus? = null,
-	var treeSink: RouteTree? = null,
+	var treeSink: RouteTreeWithCost? = null,
 	var terminal: Any? = null
 )
 
@@ -612,3 +611,8 @@ private class StatusNetsPair(
 	var contentionNets: MutableList<CellNet> = ArrayList()
 )
 
+private class RouteTreeWithCost(wire: Wire) : RouteTree(wire) {
+	var cost = 0
+
+	override fun newInstance(wire: Wire): RouteTree = RouteTreeWithCost(wire)
+}

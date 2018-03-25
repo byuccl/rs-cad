@@ -344,16 +344,16 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		val map = HashMap<RouteTree, RouteTree>()
 
 		for (rt in template) {
-			if (rt.sourceTree == null) {
+			if (rt.getParent<RouteTree>() == null) {
 				val newWire = getRelocatedWire(rt.wire, newAnchor)
 				map.put(rt, RouteTree(newWire))
 			} else {
 				check(rt.wire !is TileWire)
 
-				val sourceTree = map[rt.sourceTree]!!
+				val sourceTree = map[rt.getParent()]!!
 				val newConn = getRelocatedConnection(
 					sourceTree.wire, rt.connection, newAnchor)
-				map.put(rt, sourceTree.addConnection(newConn))
+				map.put(rt, sourceTree.connect<RouteTree>(newConn))
 			}
 		}
 

@@ -142,7 +142,7 @@ class CarryChainFinder {
 		packUnits: Collection<PackUnit>, sourcePin: CellPin
 	): List<DirectConnection> {
 		val cell = sourcePin.cell
-		val possibleBels = HashSet(cell.possibleAnchors)
+		val possibleBels = HashSet(cell.possibleLocations)
 		return packUnits.flatMap { packUnit ->
 			val template = packUnit.template
 			template.directSinksOfCluster.map { dc ->

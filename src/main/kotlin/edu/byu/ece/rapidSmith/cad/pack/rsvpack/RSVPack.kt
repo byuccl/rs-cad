@@ -221,8 +221,8 @@ private class _RSVPack<out T: PackUnit>(
 }
 
 private fun cellCanBePlacedAt(cluster: Cluster<*, *>, cell: Cell, anchor: Bel): Boolean {
-	return !cell.getRequiredBels(anchor)
-		.any { cluster.isBelOccupied(it) }
+	assert(!cell.isMacro)
+	return !cluster.isBelOccupied(anchor)
 }
 
 /**

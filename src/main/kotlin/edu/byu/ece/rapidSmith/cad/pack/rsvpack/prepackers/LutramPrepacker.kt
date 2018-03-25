@@ -50,7 +50,7 @@ private class LutramPrepacker(
 		for (ram in incompleteRams.keys) {
 			val mapping = when (ram.type) {
 				"RAM32X1S" -> {
-					val (_, i) = getBaseOffset(ram) ?:
+					val (_, _) = getBaseOffset(ram) ?:
 						return PrepackStatus.INFEASIBLE
 
 					mapOf("SP" to ram.cells.single().locationInCluster!!.name)
