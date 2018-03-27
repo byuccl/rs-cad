@@ -611,8 +611,12 @@ private class StatusNetsPair(
 	var contentionNets: MutableList<CellNet> = ArrayList()
 )
 
-private class RouteTreeWithCost(wire: Wire) : RouteTree(wire) {
+private class RouteTreeWithCost(wire: Wire) : RouteTree(wire), Comparable<RouteTreeWithCost> {
 	var cost = 0
 
 	override fun newInstance(wire: Wire): RouteTree = RouteTreeWithCost(wire)
+
+	override fun compareTo(other: RouteTreeWithCost): Int {
+		return Integer.compare(cost, other.cost)
+	}
 }
