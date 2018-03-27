@@ -1,8 +1,6 @@
 package edu.byu.ece.rapidSmith.cad.place.annealer
 
-import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
-import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import edu.byu.ece.rapidSmith.device.Device
 import edu.byu.ece.rapidSmith.device.Site
 import edu.byu.ece.rapidSmith.device.Tile

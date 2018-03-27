@@ -38,7 +38,7 @@ class SimpleRandomInitialPlacer<S: ClusterSite>(
 			val placementRegion = state.getPlacementRegionForGroup(group)
 			val possibleAnchorSites = placementRegion.validSites
 			if (possibleAnchorSites.isEmpty()) {
-				println("Warning: no placeable sites for group " + group)
+				println("Warning: no placeable sites for group $group")
 				println("Constraint:" + placementRegion.toString())
 				allGroupsPlaced = false
 				continue

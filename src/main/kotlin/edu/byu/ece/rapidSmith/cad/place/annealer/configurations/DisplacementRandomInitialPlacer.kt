@@ -237,7 +237,7 @@ private class PlacementGroupPlacementComparator<S : ClusterSite>(
 			val possibleAnchorSites = grid.validSites
 			val placementProbability: Double
 			placementProbability = if (possibleAnchorSites.isEmpty()) {
-				println("Warning: no placement sites f or group " + g)
+				println("Warning: no placement sites f or group $g")
 				java.lang.Double.MIN_VALUE
 			} else {
 				(1.0 / possibleAnchorSites.size)

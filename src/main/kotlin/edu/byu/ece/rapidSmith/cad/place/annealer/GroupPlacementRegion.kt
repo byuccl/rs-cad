@@ -2,8 +2,8 @@ package edu.byu.ece.rapidSmith.cad.place.annealer
 
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
 
-abstract class GroupPlacementRegionFactory<S: ClusterSite> {
-	abstract fun make(group: PlacementGroup<S>, device: PlacerDevice<S>): GroupPlacementRegion<S>
+interface GroupPlacementRegionFactory<S: ClusterSite> {
+	fun make(group: PlacementGroup<S>, device: PlacerDevice<S>): GroupPlacementRegion<S>
 }
 
 /**
@@ -13,15 +13,17 @@ abstract class GroupPlacementRegionFactory<S: ClusterSite> {
  *
  * Note that not all sites in this coordinate system are valid.
  */
-abstract class GroupPlacementRegion<S: ClusterSite>{
+interface GroupPlacementRegion<S: ClusterSite>{
 	/** The set of valid sites associated with this coordinate system. */
-	abstract val validSites: List<S>
+	val validSites: List<S>
 
 	/**
 	 * Determine the area of the placement constraint.
 	 */
-	abstract val area: Int
+	val area: Int
 
-	abstract fun getLocations(newAnchor: S): List<S>?
+	fun getLocations(newAnchor: S): List<S>?
+
+	fun constrain(constraint: AreaConstraint<S>): GroupPlacementRegion<S>
 }
 

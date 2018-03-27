@@ -34,14 +34,6 @@ sealed class PlacementGroup<S : ClusterSite>(
 
 	/** The index of cluster [i] within the group */
 	abstract fun getClusterIndex(i: Cluster<*, S>): Int
-
-	/**
-	 * Indicates whether the group's placement is fixed.
-	 */
-	val fixedPlacement: Boolean
-		get() {
-			return false
-		}
 }
 
 
