@@ -114,6 +114,7 @@ class ClusterChain<C: Cluster<*, *>>(cluster: C) {
 
 /**
  *  Class used to find carry chains in a design.
+ *  carry chain not really in netlist... so need to find them
  */
 class CarryChainFinder {
 	fun findCarryChains(packUnits: Collection<PackUnit>, design: CellDesign) {

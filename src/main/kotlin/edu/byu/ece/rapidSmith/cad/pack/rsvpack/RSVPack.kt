@@ -85,6 +85,8 @@ private class _RSVPack<out T: PackUnit>(
 
 	private fun init() {
 		// perform any needed modifications to the design prior to packing
+
+		// Replace Routethroughs with LUTs
 		utils.prepareDesign(design)
 
 		// set the unclustered cells to all cells in the design
@@ -94,12 +96,32 @@ private class _RSVPack<out T: PackUnit>(
 		unclusteredCells -= design.gndNet.sourcePin.cell
 
 		// initialize the packing info for all cells in the design
+		// state of each cell
+		// where the cell connects to
+		// used for caching reasons
+		// Creates the information in the properties of every cell
+		// unique id, name...
+		//
 		initCellPackingInformation()
 
+		// add carry chain to packing info
 		CarryChainFinder().findCarryChains(
 			clusterFactory.supportedPackUnits, design)
 
 		// Initialize all of the configurations
+
+		// dont want to pack everything the same way
+		// ex: DSPs have a single BEL inside. Routing will always work
+		// so single BEL strategy puts it in and says I'm good. Doesn't need to run
+		// any more checks.
+
+		// every pack unit has its own pack strategy.
+		// so there are differences in how things work
+		// ex: IO. both IO and slices use multi bel strat,
+		// but if you look elsewhere, you'll see that
+		// slice would say here are the pack rules that need to be applied (like  11 rules)
+		// IO will only have 1 rule.
+		// pack strategies are hand-coded
 		packStrategies.values.forEach { it.init(design) }
 		seedSelector.init(clusterFactory.supportedPackUnits, design)
 		clusterFactory.init()
@@ -136,8 +158,14 @@ private class _RSVPack<out T: PackUnit>(
 				val cluster = clusterFactory.createNewCluster(seedCell.name, type)
 				val strategy = packStrategies[type.type] ?:
 					throw CadException("No strategy for pack unit $type")
+
+
+				// start filling up cluster with stuff
 				val result = strategy.tryPackCluster(cluster, seedCell)
 
+				// if good result, calc cost, store cost
+				// at end, we'll know the best cluster based on cost
+				// cost is NOT very good.
 				if (result == PackStatus.VALID) {
 					val cost = clusterCostCalculator.calculateCost(cluster)
 					cluster.cost = cost
@@ -217,6 +245,10 @@ private class _RSVPack<out T: PackUnit>(
 	}
 
 	private fun cleanupClusters(clusters: List<Cluster<T, *>>) {
+		// go to artix7 packing utils class....
+		// find pseudo pins....
+		// find nets that exist inside of cluster, performs intrasite on each cluster
+		// do intrasite routing once everything has been packed.
 		utils.finish(clusters)
 	}
 }

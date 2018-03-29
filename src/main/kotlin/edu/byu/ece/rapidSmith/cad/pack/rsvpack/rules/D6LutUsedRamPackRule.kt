@@ -17,7 +17,7 @@ import edu.byu.ece.rapidSmith.device.Site
 import java.util.*
 
 /**
-
+  LUTRAM must use D6LUT
  */
 class D6LutUsedRamPackRuleFactory(
 	private val ramMaker: RamMaker

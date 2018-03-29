@@ -15,6 +15,8 @@ import edu.byu.ece.rapidSmith.device.Bel
  * outdated and doesn't work properly with RAMs that use both the 5 and 6 LUT
  * components of a LUT.  This is being left in for reference.
  */
+
+// not thorouguhly tested
 class LutramPrepackerFactory(private val ramMaker: RamMaker)
 	: PrepackerFactory<PackUnit>() {
 

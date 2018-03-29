@@ -10,6 +10,9 @@ import edu.byu.ece.rapidSmith.device.Bel
 import java.util.HashMap
 import kotlin.streams.toList
 
+
+// if a lut is driving a single ff and there is a space, pack it.
+
 class Artix7LutFFPrepackerFactory(
 	cellLibrary: CellLibrary
 ) : PrepackerFactory<PackUnit>() {

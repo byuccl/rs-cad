@@ -10,6 +10,8 @@ import edu.byu.ece.rapidSmith.device.Site
 import java.util.HashMap
 import kotlin.streams.toList
 
+// connect carry chain and DI0 LUT
+
 class DI0LutSourcePrepackerFactory(
 	cellLibrary: CellLibrary
 ) : PrepackerFactory<PackUnit>() {

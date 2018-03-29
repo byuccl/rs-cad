@@ -14,7 +14,8 @@ import java.util.HashMap
 import java.util.HashSet
 
 /**
- *
+ * Postpones flip flop packing until carry chains taken care of, etc.
+ * May need similar rule for LUTs.
  */
 class ReserveFFForSourcePackRuleFactory(cellLibrary: CellLibrary) : PackRuleFactory {
 	private val ccLibCell: LibraryCell = cellLibrary.get("CARRY4")

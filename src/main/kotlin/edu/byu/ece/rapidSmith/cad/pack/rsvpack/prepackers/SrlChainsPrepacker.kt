@@ -9,6 +9,8 @@ import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.Bel
 import java.util.*
 
+// make sure SRL chains are grouped together.
+
 class SRLChainsPrepackerFactory : PrepackerFactory<PackUnit>() {
 	private val mc31Sinks = HashMap<Cell, Cell>()
 
@@ -54,6 +56,9 @@ private class SRLChainsPrepacker(val mc31Sinks: Map<Cell, Cell>) : Prepacker<Pac
 			if (sourceBel.name != "A6LUT") {
 				val sink = mc31Sinks[sourceCell]!!
 				val sinkBelName = "${sourceBel.name[0] - 1}6LUT"
+
+
+
 				val sinkBel = sourceBel.site.getBel(sinkBelName)
 
 				val sinkCluster = sink.getCluster<Cluster<*, *>>()

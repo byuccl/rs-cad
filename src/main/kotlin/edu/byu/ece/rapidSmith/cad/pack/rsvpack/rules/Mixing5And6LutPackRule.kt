@@ -12,7 +12,10 @@ import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.util.luts.InitString
 
 /**
+ * dont pack 6 input function with a 5 input function onto the same
+ * frac lut.
  *
+ * also make sure you dont pack a lutram cell and a non-lutram cell in the same
  */
 class Mixing5And6LutsRuleFactory : PackRuleFactory {
 	override fun make(cluster: Cluster<*, *>): PackRule {
