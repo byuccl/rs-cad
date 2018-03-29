@@ -76,6 +76,7 @@ private class _RSVPack<out T: PackUnit>(
 		(design.leafCells.count() * 1.5).toInt())
 
 	fun pack(): List<Cluster<T, *>> {
+		println("init")
 		init()
 		packNetlist()
 		cleanupClusters(clusters)
