@@ -81,7 +81,7 @@ fun getZynqSitePacker(
 fun getZynqGroupSAPlacer(): SimulatedAnnealingPlacer<SiteClusterSite> {
 	return SimulatedAnnealingPlacer(
 			SiteClusterGridFactory(),
-			SiteGroupPlacementRegionFactory(),
+			ZynqSiteGroupPlacementRegionFactory(),
 			MoveValidator(listOf(
 					MismatchedRAMBValidator(),
 					BondedIOBPlacerRule())),

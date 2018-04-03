@@ -114,7 +114,7 @@ class ClusterChain<C: Cluster<*, *>>(cluster: C) {
 
 /**
  *  Class used to find carry chains in a design.
- *  carry chain not really in netlist... so need to find them
+ *  Carry chains are not explicitly represented in the netlist, so we need to identify them.
  */
 class CarryChainFinder {
 	fun findCarryChains(packUnits: Collection<PackUnit>, design: CellDesign) {
@@ -144,6 +144,7 @@ class CarryChainFinder {
 	): List<DirectConnection> {
 		val cell = sourcePin.cell
 		val possibleBels = HashSet(cell.possibleLocations)
+
 		return packUnits.flatMap { packUnit ->
 			val template = packUnit.template
 			template.directSinksOfCluster.map { dc ->

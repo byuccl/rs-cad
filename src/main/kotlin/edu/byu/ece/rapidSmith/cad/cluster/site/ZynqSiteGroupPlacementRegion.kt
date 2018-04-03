@@ -5,7 +5,7 @@ import edu.byu.ece.rapidSmith.cad.place.annealer.*
 import edu.byu.ece.rapidSmith.device.Site
 import edu.byu.ece.rapidSmith.device.SiteType
 import edu.byu.ece.rapidSmith.device.Wire
-import edu.byu.ece.rapidSmith.device.families.Artix7
+import edu.byu.ece.rapidSmith.device.families.Zynq
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.List
@@ -16,11 +16,13 @@ import kotlin.collections.plusAssign
 /**
  *
  */
-class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterSite>() {
+class ZynqSiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterSite>() {
 	private val singleClusterCache = HashMap<PackUnit, List<List<SiteClusterSite>>>()
 	private val sliceLGroupsCache = HashMap<Int, List<List<SiteClusterSite>>>()
 	private val sliceMGroupsCache = HashMap<Int, List<List<SiteClusterSite>>>()
 	private var ioGroupsCache: List<List<SiteClusterSite>>? = null
+
+	// TODO: Make it support different families.
 
 	override fun make(
 		group: PlacementGroup<SiteClusterSite>,
@@ -29,7 +31,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 		if (group is MultipleClusterPlacementGroup<*>) {
 			val type = group.type as SitePackUnit
 			val locations = when(type.siteType) { // TODO support IOB33S and IOB33M?
-				Artix7.SiteTypes.IOB33 -> {
+				Zynq.SiteTypes.IOB33 -> {
 					var locs = ioGroupsCache
 					if (locs == null) {
 						locs = device.grid.sites
@@ -39,20 +41,20 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 					}
 					locs
 				}
-				Artix7.SiteTypes.SLICEL -> {
+				Zynq.SiteTypes.SLICEL -> {
 					sliceLGroupsCache.computeIfAbsent(group.size) {
 						device.grid.sites
 							.filter { it.isCompatibleWith(type) }
 							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
-								Artix7.SiteTypes.SLICEL, it, group.size) }
+								Zynq.SiteTypes.SLICEL, it, group.size) }
 					}
 				}
-				Artix7.SiteTypes.SLICEM -> {
+				Zynq.SiteTypes.SLICEM -> {
 					sliceMGroupsCache.computeIfAbsent(group.size) {
 						device.grid.sites
 							.filter { it.isCompatibleWith(type) }
 							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
-								Artix7.SiteTypes.SLICEM, it, group.size) }
+								Zynq.SiteTypes.SLICEM, it, group.size) }
 					}
 				}
 				else -> error("unsupported group type")
@@ -77,21 +79,21 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 		sites += anchor
 
 		val source = anchor.site.getPin("I").externalWire
-		val stack = ArrayDeque<WireDistancePair>()
-		stack.push(WireDistancePair(source, 1))
+		val stack = ArrayDeque<ZynqWireDistancePair>()
+		stack.push(ZynqWireDistancePair(source, 1))
 		while (stack.isNotEmpty()) {
 			val (wire, distance) = stack.pop()
 			val pin = wire.connectedPin
-			if (pin != null && pin.site.isCompatibleWith(Artix7.SiteTypes.BUFG)) {
+			if (pin != null && pin.site.isCompatibleWith(Zynq.SiteTypes.BUFG)) {
 				sites += grid.getClusterSite(pin.site)
 				return sites
 			}
 
 			if (distance < 24) {
 				val sinks = wire.wireConnections.map { it.sinkWire }
-					.filter { it.tile.type !in Artix7.SWITCHBOX_TILES }
+					.filter { it.tile.type !in Zynq.SWITCHBOX_TILES }
 				for (sink in sinks) {
-					stack.push(WireDistancePair(sink, distance + 1))
+					stack.push(ZynqWireDistancePair(sink, distance + 1))
 				}
 			}
 		}
@@ -110,8 +112,8 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 		var site = anchor.site
 		outer@for (i in 1 until length) {
 			val source = site.getPin("COUT").externalWire
-			val stack = ArrayDeque<WireDistancePair>()
-			stack.push(WireDistancePair(source, 1))
+			val stack = ArrayDeque<ZynqWireDistancePair>()
+			stack.push(ZynqWireDistancePair(source, 1))
 			while (stack.isNotEmpty()) {
 				val (wire, distance) = stack.pop()
 				val pin = wire.connectedPin
@@ -123,9 +125,9 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 
 				if (distance < 8) {
 					val sinks = wire.wireConnections.map { it.sinkWire }
-						.filter { it.tile.type !in Artix7.SWITCHBOX_TILES }
+						.filter { it.tile.type !in Zynq.SWITCHBOX_TILES }
 					for (sink in sinks) {
-						stack.push(WireDistancePair(sink, distance + 1))
+						stack.push(ZynqWireDistancePair(sink, distance + 1))
 					}
 				}
 			}
@@ -136,7 +138,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 	}
 }
 
-private data class WireDistancePair(
+private data class ZynqWireDistancePair(
 	val wire: Wire,
 	val distance: Int
 )
@@ -152,7 +154,7 @@ private fun Site.isCompatibleWith(siteType: SiteType): Boolean {
 /**
  *
  */
-class SiteGroupPlacementRegion(
+class ZynqSiteGroupPlacementRegion(
 	validAreas: List<List<SiteClusterSite>>
 ) : GroupPlacementRegion<SiteClusterSite>() {
 

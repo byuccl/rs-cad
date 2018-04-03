@@ -70,8 +70,11 @@ class ZynqSitePackUnitGenerator : SitePackUnitGenerator() {
 		IGNORED_TILE_TYPES += TileTypes.DSP_R
 
 		INSTANCE_NAMES = HashMap()
-		INSTANCE_NAMES[SiteTypes.SLICEM] = listOf("SLICE_X26Y149")
-		INSTANCE_NAMES[SiteTypes.SLICEL] = listOf("SLICE_X27Y149")
+		// WARNING: Do NOT use a SLICEM from the top row of the FPGA. These SLICEM's do not have a connection to continue
+		// the carry chain like other SLICEM's.
+		// Probably don't want to use a top SLICEL either.
+		INSTANCE_NAMES[SiteTypes.SLICEM] = listOf("SLICE_X32Y125")
+		INSTANCE_NAMES[SiteTypes.SLICEL] = listOf("SLICE_X33Y125")
 		INSTANCE_NAMES[SiteTypes.RAMB18E1] = listOf("RAMB18_X2Y58")
 		INSTANCE_NAMES[SiteTypes.RAMB36E1] = listOf("RAMB36_X2Y29")
 		INSTANCE_NAMES[SiteTypes.FIFO18E1] = listOf("RAMB18_X2Y58")

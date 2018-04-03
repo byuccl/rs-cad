@@ -2,7 +2,8 @@ package edu.byu.ece.rapidSmith.cad.place.annealer
 
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
 
-abstract class GroupPlacementRegionFactory<S: ClusterSite> {
+abstract class GroupPlacementRegionFactory<S: ClusterSite>
+{
 	abstract fun make(group: PlacementGroup<S>, device: PlacerDevice<S>): GroupPlacementRegion<S>
 }
 
