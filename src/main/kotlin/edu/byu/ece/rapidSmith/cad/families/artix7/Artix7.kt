@@ -32,6 +32,7 @@ class SiteCadFlow {
 //	var placer: RouteR? = null
 
 	fun run(design: CellDesign, device: Device) {
+		println("Get the site packer")
 		val packer = getSitePacker(device)
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>

@@ -68,6 +68,7 @@ class PlacerDesign<S : ClusterSite>(
 				cellPin.mapToBelPins(belPin)
 				if (cellPin.isInpin) {
 					val net = cellPin.net
+					// TODO: Is this right? A sink should only be considered routed if the intersite portion routes to it.
 					net.addRoutedSink(cellPin)
 				}
 			}
@@ -76,7 +77,15 @@ class PlacerDesign<S : ClusterSite>(
 				for (rt in tree) {
 					if (rt.wire.source != null) {
 						net.sourceRouteTree = rt
-						net.setIsIntrasite(rt.none { it.isLeaf && it.connectedSitePin != null })
+
+						// TODO: This is inadequate. A static net might be intrasite still.
+						// Figure out why GND is sometimes being marked as intrasite and do a proper check.
+						if (!net.isStaticNet)
+							net.setIsIntrasite(rt.none { it.isLeaf && it.connectedSitePin != null })
+
+						// TODO: If not intrasite, figure out the used SITE PIPs (Routing BELs)
+						// so routers can figure out what site pins to route to
+
 					}
 					rt.wire.reverseConnectedPin?.let { net.addSinkRouteTree(it, rt) }
 					for (t in rt) {

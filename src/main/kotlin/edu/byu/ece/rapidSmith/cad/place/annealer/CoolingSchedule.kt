@@ -223,7 +223,7 @@ private fun findNewRangeLimit(fractionOfMovesAccepted: Double, oldLimit: Int, ma
 	val computedLimit = oldLimit * (1 - TARGET_ALPHA + fractionOfMovesAccepted)
 	val newLimit = computedLimit.toInt().coerceIn(1, maxRangeLimit)
 	if (newLimit != oldLimit)
-		println("\tNew range=$computedLimit old range =$oldLimit")
+		println("\tNew range=$computedLimit old range=$oldLimit")
 	return newLimit
 }
 

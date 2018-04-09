@@ -135,7 +135,7 @@ private class ZynqSitePackerFactory(
 				clusterFactory,
 				HighestPinCountSeedSelector(),
 				packStrategies,
-				Artix7PackingUtils(cellLibrary, packUnits),
+				ZynqPackingUtils(cellLibrary, packUnits),
 				SiteClusterCostCalculator())
 	}
 
@@ -221,7 +221,7 @@ private class ZynqSitePackerFactory(
 		return SingleBelPackStrategy(packRules)
 	}
 
-	private class Artix7PackingUtils(
+	private class ZynqPackingUtils(
 			val cellLibrary: CellLibrary,
 			val packUnits: PackUnitList<SitePackUnit>
 	) : PackingUtils<SitePackUnit>() {
