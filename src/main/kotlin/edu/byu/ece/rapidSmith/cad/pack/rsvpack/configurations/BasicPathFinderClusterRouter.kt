@@ -292,7 +292,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			val pinMap = HashMap<CellPin, List<BelPin>>()
 			belPinMap[net] = pinMap
 
-			val sourceTrees = buildSources(source, pinMap)
+			val sourceTrees = buildSources(source, pinMap, net.isStaticNet)
 
 			var foundExternalPath = false
 
@@ -360,12 +360,25 @@ private class BasicPathFinderRouter<T: PackUnit>(
 				RouteStatus.SUCCESS
 		}
 
-		private fun buildSources(source: Source, pinMap: HashMap<CellPin, List<BelPin>>): ArrayList<RouteTreeWithCost> {
+		private fun buildSources(source: Source, pinMap: HashMap<CellPin, List<BelPin>>, isPowerNet: Boolean): ArrayList<RouteTreeWithCost> {
 			val sourceTrees = ArrayList<RouteTreeWithCost>()
 			for (sourceWire in source.wires) {
 				val rt = RouteTreeWithCost(sourceWire)
 				wireUsage.computeIfAbsent(sourceWire) { OccupancyHistoryPair() }
 				rt.cost = calculateSourceCost(sourceWire)
+
+				if (isPowerNet) {
+					// Add an extra cost if the source tree's pin is a LUT output pin and the net is VCC/GND
+					// Vivado prefers to not use LUT static sources and will first use the AX, BX, ... , DX pins to route
+					// power nets and will only use LUT static sources as a last resort.
+					// TODO: Don't use a string comparison
+					if (sourceWire.source?.bel != null) {
+							if (sourceWire.source.bel.name.contains("LUT")) {
+								rt.cost += 50
+							}
+					}
+				}
+
 				sourceTrees.add(rt)
 			}
 			if (source.belPin != null)

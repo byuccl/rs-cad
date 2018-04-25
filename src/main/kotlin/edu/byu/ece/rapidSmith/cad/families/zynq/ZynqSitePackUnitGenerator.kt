@@ -116,20 +116,20 @@ class ZynqSitePackUnitGenerator : SitePackUnitGenerator() {
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "B6LUT")] = "O6"
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "C6LUT")] = "O6"
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "D6LUT")] = "O6"
-		//GND_SOURCES[BelId(SiteTypes.SLICEL, "A5LUT")] = "O5"
-		//GND_SOURCES[BelId(SiteTypes.SLICEL, "B5LUT")] = "O5"
-		//GND_SOURCES[BelId(SiteTypes.SLICEL, "C5LUT")] = "O5"
-		//GND_SOURCES[BelId(SiteTypes.SLICEL, "D5LUT")] = "O5"
+		GND_SOURCES[BelId(SiteTypes.SLICEL, "A5LUT")] = "O5"
+		GND_SOURCES[BelId(SiteTypes.SLICEL, "B5LUT")] = "O5"
+		GND_SOURCES[BelId(SiteTypes.SLICEL, "C5LUT")] = "O5"
+		GND_SOURCES[BelId(SiteTypes.SLICEL, "D5LUT")] = "O5"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "CYINITGND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "SRUSEDGND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "A6LUT")] = "O6"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "B6LUT")] = "O6"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "C6LUT")] = "O6"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "D6LUT")] = "O6"
-		//GND_SOURCES[BelId(SiteTypes.SLICEM, "A5LUT")] = "O5"
-		//GND_SOURCES[BelId(SiteTypes.SLICEM, "B5LUT")] = "O5"
-		//GND_SOURCES[BelId(SiteTypes.SLICEM, "C5LUT")] = "O5"
-		//GND_SOURCES[BelId(SiteTypes.SLICEM, "D5LUT")] = "O5"
+		GND_SOURCES[BelId(SiteTypes.SLICEM, "A5LUT")] = "O5"
+		GND_SOURCES[BelId(SiteTypes.SLICEM, "B5LUT")] = "O5"
+		GND_SOURCES[BelId(SiteTypes.SLICEM, "C5LUT")] = "O5"
+		GND_SOURCES[BelId(SiteTypes.SLICEM, "D5LUT")] = "O5"
 		GND_SOURCES[BelId(SiteTypes.IOB33S, "IBUFDISABLE_GND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.IOB33S, "INTERMDISABLE_GND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.IOB33M, "IBUFDISABLE_GND")] = "0"
@@ -151,11 +151,7 @@ class ZynqSitePackUnitGenerator : SitePackUnitGenerator() {
 
 		@JvmStatic fun main(args: Array<String>) {
 			val part = args[0]
-			val cellLibraryPath = args[1]
-
 			val device = Device.getInstance(part, true)
-			val cellLibrary = CellLibrary(Paths.get(cellLibraryPath))
-
 			val env = RSEnvironment.defaultEnv()
 			val family = device.family
 			val deviceDir = env.getPartFolderPath(family)

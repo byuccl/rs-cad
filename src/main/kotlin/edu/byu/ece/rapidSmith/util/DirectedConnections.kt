@@ -30,6 +30,14 @@ class SitePinConnection internal constructor(
 	private val pin: SitePin,
 	private val dir: PinConnectionDirection
 ) : Connection() {
+	override fun getRoutethroughSite(): Site {
+		TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+	}
+
+	override fun getSinkTileWires(alreadyVisited: MutableList<Connection>?): MutableSet<Wire> {
+		TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+	}
+
 	override fun isUsed(): Boolean {
 		TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
 		return false
