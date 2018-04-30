@@ -37,7 +37,7 @@ class SiteCadFlow {
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
 		val placer = getGroupSAPlacer()
-		placer.place(design, clusters)
+		placer.place(device, design, clusters)
 		println(design)
 	}
 
@@ -345,8 +345,9 @@ private fun addPseudoPins(cluster: Cluster<*, *>) {
 			when (cell.type) {
 				"LUT6", "RAMS64E", "RAMD64E" -> { /* nothing */ }
 				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> {
-					val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
-					vcc.connectToPin(pin)
+					// TODO: Fix this. This currently connects pseudo pins in many cases which it should not!
+					// val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
+					// vcc.connectToPin(pin)
 				}
 				"SRLC32E" -> {
 					val pin = cell.attachPseudoPin("pseudoA1", PinDirection.IN)

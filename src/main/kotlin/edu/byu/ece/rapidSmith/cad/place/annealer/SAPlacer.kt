@@ -7,6 +7,7 @@ import edu.byu.ece.rapidSmith.cad.place.Placer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.DisplacementRandomInitialPlacer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.HPWLCostFunctionFactory
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
+import edu.byu.ece.rapidSmith.device.Device
 import java.util.*
 
 /**
@@ -32,20 +33,20 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 	 * "VPR: A New Packing, Placement and Routing Tool for FPGA Research"
 	 * by Betz and Rose.
 	 */
-	override fun place(design: CellDesign, clusters: List<Cluster<*, S>>) {
+	override fun place(device: Device, design: CellDesign, clusters: List<Cluster<*, S>>) {
 		val pdesign = PlacerDesign(clusters, design)
-		val pdevice = PlacerDevice(design.device, csgFactory)
+		val pdevice = PlacerDevice(device, csgFactory)
 		val state = PlacerState(pdesign, pdevice, gprFactory, random, costFunctionFactory.make(pdesign))
 		val coolingSchedule = coolingScheduleFactory.make(state, random)
 
-			// Perform initial placement
+		// Perform initial placement
 		System.out.println("Instances: " + clusters.size)
 		val allGroups = ArrayList(pdesign.groups)
 		val initialPlaceSuccessful = initPlacer.initialPlace(pdesign, pdevice, state)
 
 		// Check to see if the initial placer was successful or not
 		if (!initialPlaceSuccessful) {
-			throw CadException("Unsuccesful initial place")
+			throw CadException("Unsuccessful initial place")
 		}
 
 		coolingSchedule.initialize(pdesign, pdevice, validator)

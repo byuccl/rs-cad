@@ -133,19 +133,34 @@ class TableBasedRoutabilityChecker(
 			}
 			else -> {
 				val sourcePin = net.sourcePin
-				val sourceCell = sourcePin.cell
 
-				source.cellPin = sourcePin
-				val sourceCluster = sourceCell.getCluster<Cluster<*, *>>()
+				if (sourcePin != null) {
+					val sourceCell = sourcePin.cell
 
-				// source is placed outside the cluster
-				if (sourceCluster != null && sourceCluster !== cluster) {
-					initOutsideClusterSource(source, sourcePin)
-				} else {
-					// even if the source is placed, we are treating it as unplaced
-					// right now
-					initUnplacedSource(source, sourcePin)
+					source.cellPin = sourcePin
+					val sourceCluster = sourceCell.getCluster<Cluster<*, *>>()
+
+					// source is placed outside the cluster
+					if (sourceCluster != null && sourceCluster !== cluster) {
+						initOutsideClusterSource(source, sourcePin)
+					} else {
+						// even if the source is placed, we are treating it as unplaced
+						// right now
+						initUnplacedSource(source, sourcePin)
+					}
 				}
+				else {
+					// if the sourcePin is null, then assume it the source cell is a top-level port (which has been removed from the
+					// design if we are packing OOC)
+
+					println("Top Level Port found.")
+					initPartPinSource(source)
+
+//					initUnplacedSource(source, sourcePin)
+				}
+
+
+
 			}
 		}
 
@@ -186,6 +201,16 @@ class TableBasedRoutabilityChecker(
 		template.directSourcesOfCluster
 			.filter { it.endPin in possibleSources }
 			.mapTo(source.sourceWires) { it.clusterExit }
+	}
+
+	private fun initPartPinSource(
+			source: Source.Builder
+	) {
+
+		// There are no possible sources because the source is outside of the partial device boundaries
+		//  Let's just say the source can reach the general fabric
+		source.drivesGeneralFabric = true
+
 	}
 
 	private fun CellPin.getPossibleSources(): List<BelPinTemplate> {
@@ -509,8 +534,8 @@ class TableBasedRoutabilityChecker(
 	}
 
 	/**
-	 * Check the status of a row of the pin group.  Searches for a valid solution
-	 * to each sink and source pin from the pin group.  Terminates early if possible
+	 * Check the status of a row of the pin group. Searches for a valid solution
+	 * to each sink and source pin from the pin group. Terminates early if possible.
 	 */
 	private fun checkRow(pg: PinGroup, row: RoutingTable.Row): RowStatus {
 		val rowStatus = RowStatus()
@@ -568,6 +593,10 @@ class TableBasedRoutabilityChecker(
 
 	private fun checkRowSources(row: RoutingTable.Row, rowStatus: RowStatus) {
 		for ((belPin) in row.sourcePins) {
+
+			// Partial-Device: If the source pin of a net is null, the source is outside of the entire partial device.
+
+
 			// get the cell pin related to the current source BelPin
 			// if the pin is not used, continue to the next BelPin
 			val cellPin = bel2CellPinMap[belPin] ?: continue

@@ -7,13 +7,11 @@ import edu.byu.ece.rapidSmith.cad.cluster.site.PinName
 import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnit
 import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnitGenerator
 import edu.byu.ece.rapidSmith.cad.cluster.site.use
-import edu.byu.ece.rapidSmith.design.subsite.CellLibrary
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.device.families.Zynq.*
 import edu.byu.ece.rapidSmith.util.FileTools
 import java.io.IOException
 import java.nio.file.Files
-import java.nio.file.Paths
 
 class ZynqSitePackUnitGenerator : SitePackUnitGenerator() {
 	override val PACKABLE_SITE_TYPES: List<SiteType>

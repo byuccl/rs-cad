@@ -123,7 +123,7 @@ class CarryChainFinder {
 				val sourcePin = net.sourcePin
 				val dcs = getDirectSinks(packUnits, sourcePin)
 
-				// Identify carry chains be matching them against direct connections
+				// Identify carry chains by matching them against direct connections
 				for (sinkPin in net.sinkPins) {
 					for (dc in dcs) {
 						val sinkPinTemplate = dc.endPin

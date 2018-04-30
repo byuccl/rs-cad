@@ -69,6 +69,10 @@ class PlacerDesign<S : ClusterSite>(
 				if (cellPin.isInpin) {
 					val net = cellPin.net
 					// TODO: Is this right? A sink should only be considered routed if the intersite portion routes to it.
+
+					if (net.isStaticNet)
+						println("static")
+
 					net.addRoutedSink(cellPin)
 				}
 			}
@@ -82,6 +86,8 @@ class PlacerDesign<S : ClusterSite>(
 						// Figure out why GND is sometimes being marked as intrasite and do a proper check.
 						if (!net.isStaticNet)
 							net.setIsIntrasite(rt.none { it.isLeaf && it.connectedSitePin != null })
+						else
+							println("static 2")
 
 						// TODO: If not intrasite, figure out the used SITE PIPs (Routing BELs)
 						// so routers can figure out what site pins to route to

@@ -33,11 +33,12 @@ class ZynqSiteCadFlow {
 //	var placer: RouteR? = null
 
 	fun run(design: CellDesign, device: Device) {
+		println("Get the site packer")
 		val packer = getZynqSitePacker(device)
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
 		val placer = getZynqGroupSAPlacer()
-		placer.place(design, clusters)
+		placer.place(device, design, clusters)
 		println(design)
 	}
 
@@ -345,8 +346,9 @@ private fun addPseudoPins(cluster: Cluster<*, *>) {
 			when (cell.type) {
 				"LUT6", "RAMS64E", "RAMD64E" -> { /* nothing */ }
 				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> {
-					val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
-					vcc.connectToPin(pin)
+					// TODO: Fix this. This currently connects pseudo pins in many cases which it should not!
+					// val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
+					// vcc.connectToPin(pin)
 				}
 				"SRLC32E" -> {
 					val pin = cell.attachPseudoPin("pseudoA1", PinDirection.IN)
@@ -471,6 +473,7 @@ private fun finalRoute(
 ) {
 	// Reached the end of clustering, verify it and choose
 	// whether to commit it or roll it back
+	println("Clustering complete. Verify and choose whether to commit or roll back.")
 	val router = routerFactory.get(cluster.type)
 	val result = router.route(cluster)
 	if (!result.success)

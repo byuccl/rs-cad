@@ -91,8 +91,12 @@ private class _RSVPack<out T: PackUnit>(
 		utils.prepareDesign(design)
 
 		// set the unclustered cells to all cells in the design
+		//unclusteredCells += design.leafCells.toList()
+
+		// Set the unclustered cells to all non-port cells in the design
+		// We don't want to pack port cells if doing partial reconfig - they are outside the reconfig. partition!
 		unclusteredCells += design.leafCells.toList()
-		// remove the shared gnd and vcc cells
+		// remove the shared global gnd and vcc cells
 		unclusteredCells -= design.vccNet.sourcePin.cell
 		unclusteredCells -= design.gndNet.sourcePin.cell
 
