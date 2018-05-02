@@ -158,7 +158,7 @@ fun CellDesign.convertToSiteClusterDesign(packUnits: PackUnitList<SitePackUnit>)
 	val clusterDesign = ClusterDesign<SitePackUnit, SiteClusterSite>()
 
 	val clusters = HashMap<Site, SiteCluster>()
-	for (cell in leafCells) {
+	for (cell in nonPortCells) {
 		if (!cell.isGndSource && !cell.isVccSource) {
 			val bel = requireNotNull(cell.bel) { "Unplaced cells not allowed" }
 			val site = bel.site

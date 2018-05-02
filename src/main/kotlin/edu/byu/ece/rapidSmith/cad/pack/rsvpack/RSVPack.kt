@@ -74,7 +74,7 @@ private class _RSVPack<out T: PackUnit>(
 ) {
 	private val clusters = ArrayList<Cluster<T, ClusterSite>>()
 	private val unclusteredCells = HashSet<Cell>(
-		(design.leafCells.count() * 1.5).toInt())
+		(design.nonPortCells.count() * 1.5).toInt())
 
 	fun pack(): List<Cluster<T, *>> {
 		println("Initialize the packer")
@@ -95,7 +95,7 @@ private class _RSVPack<out T: PackUnit>(
 
 		// Set the unclustered cells to all non-port cells in the design
 		// We don't want to pack port cells if doing partial reconfig - they are outside the reconfig. partition!
-		unclusteredCells += design.leafCells.toList()
+		unclusteredCells += design.nonPortCells.toList()
 		// remove the shared global gnd and vcc cells
 		unclusteredCells -= design.vccNet.sourcePin.cell
 		unclusteredCells -= design.gndNet.sourcePin.cell

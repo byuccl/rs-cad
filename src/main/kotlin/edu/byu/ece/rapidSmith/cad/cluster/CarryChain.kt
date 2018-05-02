@@ -119,7 +119,7 @@ class ClusterChain<C: Cluster<*, *>>(cluster: C) {
 class CarryChainFinder {
 	fun findCarryChains(packUnits: Collection<PackUnit>, design: CellDesign) {
 		for (net in design.nets) {
-			if (net.isSourced) {
+			if (net.isSourced && !net.sourcePin.isPartitionPin) {
 				val sourcePin = net.sourcePin
 				val dcs = getDirectSinks(packUnits, sourcePin)
 

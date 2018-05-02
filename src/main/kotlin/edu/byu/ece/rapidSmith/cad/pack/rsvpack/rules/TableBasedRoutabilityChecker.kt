@@ -134,7 +134,8 @@ class TableBasedRoutabilityChecker(
 			else -> {
 				val sourcePin = net.sourcePin
 
-				if (sourcePin != null) {
+				// TODO: More intelligent handling of partition pins
+				if (!sourcePin.isPartitionPin) {
 					val sourceCell = sourcePin.cell
 
 					source.cellPin = sourcePin
@@ -324,6 +325,11 @@ class TableBasedRoutabilityChecker(
 		// update the sinks with external routes now
 		val sinks = _netSinks[net]!!
 		for (sinkPin in net.sinkPins) {
+
+			// TODO: Handle partition pins intelligently
+			if (sinkPin.isPartitionPin)
+				continue
+
 			val sinkCell = sinkPin.cell
 			val sinkCluster = sinkCell.getCluster<Cluster<*, *>>()
 			if (sinkCluster == null) {

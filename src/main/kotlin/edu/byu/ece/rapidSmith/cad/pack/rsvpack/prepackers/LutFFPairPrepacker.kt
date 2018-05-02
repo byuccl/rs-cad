@@ -57,7 +57,7 @@ class Artix7LutFFPrepackerFactory(
 	}
 
 	override fun init(design: CellDesign) {
-		val pairs = design.leafCells.filter { it.libCell in ffLibCells }
+		val pairs = design.nonPortCells.filter { it.libCell in ffLibCells }
 			.map { it to getFFSource((it)) }
 			.filter { it.second != null }
 			.map { it.first to it.second!!}

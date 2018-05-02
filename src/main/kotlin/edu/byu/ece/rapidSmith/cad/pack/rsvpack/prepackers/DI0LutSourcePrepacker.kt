@@ -22,7 +22,7 @@ class DI0LutSourcePrepackerFactory(
 	override fun init(design: CellDesign) {
 		// Finds all of the LUTs driving the DI0 pin of a CARRY4 which must
 		// be packed with the CARRY4.
-		val pairs = design.leafCells.filter { it.libCell == carry4 }
+		val pairs = design.nonPortCells.filter { it.libCell == carry4 }
 			.filter { requiresExternalCYInitPin(it) }
 			.map { it to it.getPin("DI[0]")!! }
 			.filter { it.second.isConnectedToNet }

@@ -112,6 +112,10 @@ constructor(
 
 			val connectedPins = net.pins.filter { it !== pin }
 			for (connPin in connectedPins) {
+				// TODO: Account for partition pins better
+				if (connPin.isPartitionPin)
+					continue // partition pins have no corresponding cell
+
 				val connCell = connPin.cell
 				assert(if (cluster.hasCell(connCell)) connCell.getCluster<Cluster<*, *>>() === cluster else true)
 				if (connCell.getCluster<Cluster<*, *>>() === cluster) {

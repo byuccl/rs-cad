@@ -114,7 +114,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 			.distinct()
 
 		for (net in nets) {
-			val leavesCluster = net.pins.any { !hasCell(it.cell) }
+			val leavesCluster = net.pins.any { it.isPartitionPin || !hasCell(it.cell) }
 			if (leavesCluster)
 				externalNets!![net] = ArrayList()
 			else

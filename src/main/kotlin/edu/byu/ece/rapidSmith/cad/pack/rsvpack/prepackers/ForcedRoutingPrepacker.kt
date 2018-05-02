@@ -73,7 +73,8 @@ class ForcedRoutingPrepacker(
 					continue
 
 				for (sinkCellPin in sourceCellPin.net.pins) {
-					if (sinkCellPin === sourceCellPin)
+					//TODO: Possibly handle partition pins more intelligently.
+					if (sinkCellPin === sourceCellPin || sinkCellPin.isPartitionPin)
 						continue
 					val sinkCell = sinkCellPin.cell as Cell
 					val cellCluster = sinkCell.getCluster<Cluster<*, *>>()
@@ -171,6 +172,11 @@ class ForcedRoutingPrepacker(
 					continue
 
 				val sourceCellPin = sinkCellPin.net.sourcePin ?: continue
+
+				// TODO: Handle partition pins more intelligently?
+				if (sourceCellPin.isPartitionPin)
+					continue
+
 				val sourceCell = sourceCellPin.cell as Cell
 				if (sourceCell.getCluster<Cluster<*, *>>() != null)
 					continue

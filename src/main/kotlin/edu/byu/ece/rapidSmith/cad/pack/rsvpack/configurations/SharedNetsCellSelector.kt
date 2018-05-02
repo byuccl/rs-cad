@@ -25,10 +25,10 @@ class SharedNetsCellSelector(
 
 	override fun init(design: CellDesign) {
 		design.nets.forEach { if (shouldFilterNet(it)) filteredNets += it }
-		design.leafCells.forEach { numUsedPinsMap[it] = computeNumUsedPinsOnCell(it) }
-		design.leafCells.forEach { numUniqueNetsMap[it] = computeNumUniqueNetsOnCell(it) }
-		design.leafCells.forEach { sharedNetsMap[it] = findSharedNets(it) }
-		design.leafCells.forEach { sharedPinsMap[it] = findSharedPins(it) }
+		design.nonPortCells.forEach { numUsedPinsMap[it] = computeNumUsedPinsOnCell(it) }
+		design.nonPortCells.forEach { numUniqueNetsMap[it] = computeNumUniqueNetsOnCell(it) }
+		design.nonPortCells.forEach { sharedNetsMap[it] = findSharedNets(it) }
+		design.nonPortCells.forEach { sharedPinsMap[it] = findSharedPins(it) }
 	}
 
 	private fun computeNumUsedPinsOnCell(cell: Cell): Int {
@@ -59,7 +59,7 @@ class SharedNetsCellSelector(
 		val netCellPairs = cell.netList
 			.filter { !it.isFilteredNet() }
 			.flatMap { net ->
-				net.pins.map { pin -> Pair(net, pin.cell as Cell) }
+				net.pins.filter { pin -> !pin.isPartitionPin }.map{ pin -> Pair(net, pin.cell as Cell) }
 			}
 		val sharedNetsGroup = netCellPairs.groupingBy { it.second }
 		val sharedNets = sharedNetsGroup
@@ -74,7 +74,7 @@ class SharedNetsCellSelector(
 		val pinCellPairs = cell.netList
 			.filter { !it.isFilteredNet() }
 			.flatMap { net ->
-				net.pins.map { pin -> Pair(pin, pin.cell as Cell) }
+				net.pins.filter { pin -> !pin.isPartitionPin }.map { pin -> Pair(pin, pin.cell as Cell) }
 			}
 		val sharedNetsGroup = pinCellPairs.groupingBy { it.second }
 		val sharedPins = sharedNetsGroup

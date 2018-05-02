@@ -31,7 +31,7 @@ override fun init(design: CellDesign) {
 	}
 
 	private fun getCarryChains(design: CellDesign): Set<CarryChain> {
-		return design.leafCells.asSequence()
+		return design.nonPortCells.asSequence()
 			.map { it.carryChain }
 			.filterNotNull()
 			.toSet()

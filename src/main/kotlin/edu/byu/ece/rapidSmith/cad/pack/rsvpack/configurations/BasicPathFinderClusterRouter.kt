@@ -115,8 +115,8 @@ private class BasicPathFinderRouter<T: PackUnit>(
 				else -> {
 					val sourcePin = net.sourcePin
 
-
-					if (sourcePin != null) {
+					// TODO: Handle partition pins intelligently
+					if (!sourcePin.isPartitionPin) {
 						val sourceCell = sourcePin.cell
 
 						source.cellPin = sourcePin
@@ -175,29 +175,30 @@ private class BasicPathFinderRouter<T: PackUnit>(
 		// into the cluster.
 		private fun initNetSinks(net: CellNet): Sinks {
 
-			if (net.sourcePin != null) {
-				val sourceInCluster = net.sourcePin.cell.getCluster<Cluster<*, *>>() === cluster
+			// TODO: Handle partition pins intelligently
+		//	if (net.sourcePin != null) {
+				val sourceInCluster = (!net.sourcePin.isPartitionPin && net.sourcePin.cell.getCluster<Cluster<*, *>>() === cluster)
 				// update the sinks with external routes now
 				val netSinks = Sinks.Builder()
 				for (sinkPin in net.sinkPins) {
-					val sinkCluster = sinkPin.cell.getCluster<Cluster<*, *>>()
-					if (sinkCluster === cluster) {
+					val sinkCluster = if (sinkPin.isPartitionPin) null else sinkPin.cell.getCluster<Cluster<*, *>>()
+					if (!sinkPin.isPartitionPin && sinkCluster === cluster) {
 						initInsideClusterSink(netSinks, sinkPin)
 					} else if (sinkCluster !== cluster && sourceInCluster) {
 						initOutsideClusterSink(netSinks, sinkPin)
 					}
 				}
 				return netSinks
-			}
-			else {
+			//}
+		//	else {
 				// source is not in cluster
 				// update the sinks with external routes now
-				val netSinks = Sinks.Builder()
-				for (sinkPin in net.sinkPins) {
-					initOutsideClusterSink(netSinks, sinkPin)
-				}
-				return netSinks
-			}
+			//	val netSinks = Sinks.Builder()
+			//	for (sinkPin in net.sinkPins) {
+			//		initOutsideClusterSink(netSinks, sinkPin)
+			///	}
+			//	return netSinks
+		//	}
 
 		}
 
@@ -220,6 +221,14 @@ private class BasicPathFinderRouter<T: PackUnit>(
 		private fun initOutsideClusterSink(sinks: Sinks.Builder, sinkPin: CellPin) {
 			// The source cell has already been placed so we know where it is and
 			// where it enters this cluster.
+
+			// A partition pin has no corresponding cell or bel
+			if (sinkPin.isPartitionPin) {
+				println("part pin...init outside cluster sink?")
+				sinks.mustRouteExternal = true
+				return
+			}
+
 			val sinkBel = sinkPin.cell.locationInCluster!!
 			val belPins = preferredPin(sinkPin, sinkBel)
 			val endSiteIndex = sinkBel.site.index
