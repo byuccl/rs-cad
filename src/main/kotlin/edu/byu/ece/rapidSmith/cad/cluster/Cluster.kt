@@ -227,6 +227,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	// Pin mapping methods
 	/**
 	 * Sets the pin mapping for [cellPin] in this cluster.
+	 * Called by finalRoute.
 	 */
 	fun setPinMapping(cellPin: CellPin, belPin: List<BelPin>) {
 		pinMap.put(cellPin, belPin)

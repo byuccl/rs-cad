@@ -561,7 +561,13 @@ private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
 }
 
 private fun mapLutPin(pin: CellPin, bel: Bel): List<BelPin> {
-	return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
+	// TODO: Sometimes a bad Bel Pin is chosen. For example, a different net may need to use A6LUT.A5, while this net
+	// uses A5LUT.A5. Sometimes, this function lets this happen.
+	if (bel.belPins.count().toInt() == 6)
+		return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
+
+
+	return listOf(bel.getBelPin("A${pin.name.last() - '0' + 2}")!!)
 }
 
 private fun mapRamsPin(pin: CellPin, bel: Bel): List<BelPin> {
