@@ -182,8 +182,9 @@ fun CellDesign.convertToSiteClusterDesign(packUnits: PackUnitList<SitePackUnit>)
 }
 
 fun main(args: Array<String>) {
-	val design = VivadoInterface.loadRSCP(args[0]).design
-	val device = VivadoInterface.loadRSCP(args[0]).device
+	val vcp = VivadoInterface.loadRSCP(args[0])
+	val design = vcp.design
+	val device = vcp.device
 	val family = device.family
 
 	val partsFolder = RSEnvironment.defaultEnv().getPartFolderPath(family)

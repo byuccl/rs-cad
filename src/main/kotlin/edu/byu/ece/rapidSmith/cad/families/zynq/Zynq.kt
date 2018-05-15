@@ -566,8 +566,8 @@ private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
 }
 
 private fun mapLutPin(pin: CellPin, bel: Bel): List<BelPin> {
-	if (bel.belPins.count().toInt() == 6) // if a LUT 5 BEL
-		return listOf(bel.getBelPin("A${pin.name.last() - '0' + 2}")!!)
+	//if (bel.belPins.count().toInt() == 6) // if a LUT 5 BEL
+//		return listOf(bel.getBelPin("A${pin.name.last() - '0' + 2}")!!)
 // LUT cell input pins are named I0, I1, ..., I4, I5.
 	return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
 }

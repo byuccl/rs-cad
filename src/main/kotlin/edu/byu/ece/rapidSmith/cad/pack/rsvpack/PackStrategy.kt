@@ -119,7 +119,7 @@ class MultiBelPackStrategy<in T: PackUnit>(
 					PackStatus.CONDITIONAL -> {
 						assert(state.nextConditionals != null)
 						if (packMore(cluster)) {
-							commitCellBelPair(state, state.nextConditionals!!.keys)
+							commitCellBelPair(state, state.nextConditionals!!.keys) // commit cells and bels packed so far
 							nextCell(state)
 						} else {
 							breakFromLoop = true
@@ -249,7 +249,7 @@ class MultiBelPackStrategy<in T: PackUnit>(
 		var anchor: Bel?
 		do {
 			// try another BEL and repeat
-			anchor = belSelector.nextBel() ?: break
+			anchor = belSelector.nextBel() ?: break // get BEL from belSelector's priority queue (based on BEL cost)
 
 			// try to add anchor into cluster
 
@@ -260,7 +260,7 @@ class MultiBelPackStrategy<in T: PackUnit>(
 
 			// prepackers: Checks that say if I've done this, I have to do this as well..
 			// in all these cases, packer should find a valid state...
-			// prepackers help it to resolve quicker.
+			// prepackers help it to resolve quicker. Prepacker might actually do some packing!!
 			var prepackStatus = PrepackStatus.CHANGED
 			while (status != PackStatus.INFEASIBLE && prepackStatus == PrepackStatus.CHANGED) {
 				prepackStatus = PrepackStatus.UNCHANGED
@@ -313,7 +313,7 @@ class MultiBelPackStrategy<in T: PackUnit>(
 			state.checkedRules.add(rule)
 		}
 	}
-
+	// By this point, there is already a mapping from conditional cells to possible Bels
 	private fun mergeConditionals(
 		conditionals: HashMap<Cell, HashSet<Bel>>,
 		toAdd: Map<Cell, Set<Bel>>

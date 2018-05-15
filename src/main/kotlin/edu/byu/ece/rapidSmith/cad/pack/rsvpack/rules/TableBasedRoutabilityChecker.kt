@@ -108,8 +108,8 @@ class TableBasedRoutabilityChecker(
 		for (cell in changed) {
 			for (pin in cell.pins) {
 				if (pin.isConnectedToNet) {
-					val net = pin.net
-
+					val net = pin.net // "CellNet{u2/gen_pipe[5].Pipe/Xo_reg_n_0_[0]-DI[0]-pass}" ->
+					// If the net and its possible sources have already been initialized for the cluster, skip
 					if (net !in netSources) {
 						initNetSource(net)
 						initNetSinks(net)
@@ -228,7 +228,7 @@ class TableBasedRoutabilityChecker(
 
 	/**
 	 * Move all of the pins affected by this change from unused to being within
-	 * the cluster
+	 * the cluster. update the net info with any pins that now exist in the cluster
 	 */
 	private fun updateChangedNets(changed: Collection<Cell>) {
 		for (cell in changed) {
@@ -433,6 +433,12 @@ class TableBasedRoutabilityChecker(
 	 */
 	private fun checkGroups(groupsToCheck: Set<PinGroup>): Boolean {
 		for (pg in groupsToCheck) {
+
+
+		//	if (pg.sourceWires.size == 1 && pg.sinkPins.size == 2 && pg.sourceWires.get(0).name.equals("CLBLM_IMUX3")) {
+		//		println("I think this is the one")
+		//	}
+
 			val tableRows = pg.routingTable.rows
 
 			val oldPgStatus = getPinGroupStatus(pg)!!

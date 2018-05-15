@@ -74,7 +74,7 @@ constructor(
 		val template = cluster.type.template
 
 		pq = PriorityQueue()
-		val candidateRoots = getPossibleCellRoots(template, cell, forcedAnchors)
+		val candidateRoots = getPossibleCellRoots(template, cell, forcedAnchors) // get possible Bels
 		for (candidateRoot in candidateRoots) {
 			val cost = calcCost(cell, cluster, candidateRoot)
 			if (cost != null)

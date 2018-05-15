@@ -118,28 +118,24 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					source.wires += template.inputs
 					source.wires += template.gndSources.map { it.wire }
 				}
+				net.sourcePin.isPartitionPin -> {
+					// TODO: Handle partition pins intelligently
+					// This net has no source because the source is out of the boundaries of the partial device.
+					initOutsidePartialDeviceSource(source)
+				}
 				else -> {
 					val sourcePin = net.sourcePin
+					val sourceCell = sourcePin.cell
 
-					// TODO: Handle partition pins intelligently
-					if (!sourcePin.isPartitionPin) {
-						val sourceCell = sourcePin.cell
+					source.cellPin = sourcePin
+					val sourceCluster = sourceCell.getCluster<Cluster<*, *>>()
 
-						source.cellPin = sourcePin
-						val sourceCluster = sourceCell.getCluster<Cluster<*, *>>()
-
-						// source is placed outside the cluster
-						if (sourceCluster !== cluster) {
-							initOutsideClusterSource(source, sourcePin)
-						} else {
-							initInsideClusterSource(source, sourcePin)
-						}
+					// source is placed outside the cluster
+					if (sourceCluster !== cluster) {
+						initOutsideClusterSource(source, sourcePin)
+					} else {
+						initInsideClusterSource(source, sourcePin)
 					}
-					else {
-						// This net has no source because the source is out of the boundaries of the partial device.
-						initOutsidePartialDeviceSource(source)
-					}
-
 				}
 			}
 
@@ -182,7 +178,6 @@ private class BasicPathFinderRouter<T: PackUnit>(
 		private fun initNetSinks(net: CellNet): Sinks {
 
 			// TODO: Handle partition pins intelligently
-		//	if (net.sourcePin != null) {
 				val sourceInCluster = (!net.sourcePin.isPartitionPin && net.sourcePin.cell.getCluster<Cluster<*, *>>() === cluster)
 				// update the sinks with external routes now
 				val netSinks = Sinks.Builder()
@@ -190,26 +185,11 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					val sinkCluster = if (sinkPin.isPartitionPin) null else sinkPin.cell.getCluster<Cluster<*, *>>()
 					if (!sinkPin.isPartitionPin && sinkCluster === cluster) {
 						initInsideClusterSink(netSinks, sinkPin)
-				//	} else if (sinkCluster !== cluster && (sourceInCluster || net.sourcePin.isPartitionPin)) {
 					} else if (sinkCluster !== cluster && sourceInCluster) {
 						initOutsideClusterSink(netSinks, sinkPin)
 					}
-				//	else {
-						//println("Dont init " + sinkPin.fullName)
-					//}
 				}
 				return netSinks
-			//}
-		//	else {
-				// source is not in cluster
-				// update the sinks with external routes now
-			//	val netSinks = Sinks.Builder()
-			//	for (sinkPin in net.sinkPins) {
-			//		initOutsideClusterSink(netSinks, sinkPin)
-			///	}
-			//	return netSinks
-		//	}
-
 		}
 
 		/** Relocates [sinkPin] from outside the cluster to inside the cluster. */

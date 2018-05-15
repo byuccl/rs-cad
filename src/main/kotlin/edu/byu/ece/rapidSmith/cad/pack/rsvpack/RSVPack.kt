@@ -152,6 +152,9 @@ private class _RSVPack<out T: PackUnit>(
 			// choose a seed cell for a new cluster
 			val seedCell = seedSelector.nextSeed()
 
+		//	if (seedCell.name.equals("Xo_reg[3]_i_1__1"))
+		//		println("debug here")
+
 			var best: Cluster<T, *>? = null
 			for (type in clusterFactory.supportedPackUnits) {
 				// make sure we have more of this type available
