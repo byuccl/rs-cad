@@ -76,6 +76,7 @@ class ForcedRoutingPrepacker(
 					//TODO: Possibly handle partition pins more intelligently.
 					if (sinkCellPin === sourceCellPin || sinkCellPin.isPartitionPin)
 						continue
+
 					val sinkCell = sinkCellPin.cell as Cell
 					val cellCluster = sinkCell.getCluster<Cluster<*, *>>()
 					if (cellCluster != null)

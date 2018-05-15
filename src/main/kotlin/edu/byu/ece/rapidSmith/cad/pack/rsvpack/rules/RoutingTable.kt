@@ -354,6 +354,7 @@ private class RoutingTableBuilder(val packUnit: PackUnitTemplate) {
 						}
 					}
 				wire.getSitePinConnection(true)?.let { q += it.sinkWire }
+
 				wire.terminal?.let { sink ->
 					val sinkEntry = tableRow.sinkPins.computeIfAbsent(sink) {
 						RoutingTable.SinkPinEntry.Builder()

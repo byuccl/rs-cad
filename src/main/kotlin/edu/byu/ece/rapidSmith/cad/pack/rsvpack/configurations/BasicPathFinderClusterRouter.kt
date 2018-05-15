@@ -244,7 +244,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 			// A partition pin has no corresponding cell or bel
 			if (sinkPin.isPartitionPin) {
-				println("part pin...init outside cluster sink?")
+				// println("part pin...init outside cluster sink?")
 				sinks.mustRouteExternal = true
 				return
 			}

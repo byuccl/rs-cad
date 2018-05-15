@@ -475,6 +475,7 @@ private fun finalRoute(
 	// whether to commit it or roll it back
 	println("Clustering complete. Verify and choose whether to commit or roll back.")
 	val router = routerFactory.get(cluster.type)
+
 	val result = router.route(cluster)
 	if (!result.success)
 		throw CadException("Final route failed: ${cluster.name}")

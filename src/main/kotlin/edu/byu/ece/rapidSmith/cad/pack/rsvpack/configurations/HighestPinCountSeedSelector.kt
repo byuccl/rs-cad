@@ -22,7 +22,7 @@ class HighestPinCountSeedSelector : SeedSelector<PackUnit> {
 
 		// Add all the cells to the appropriate location
 		maxCellInputs = 0
-		for (cell in design.leafCells) {
+		for (cell in design.nonPortCells) {
 			val numInputPins = getNumExternalPinsOfCell(cell)
 			unclusteredCellsMap!!.computeIfAbsent(numInputPins) { ArrayList() }.add(cell)
 			if (numInputPins > maxCellInputs)
@@ -73,7 +73,6 @@ class HighestPinCountSeedSelector : SeedSelector<PackUnit> {
 		for (externalInputs in maxCellInputs downTo 0) {
 			val possibleSeeds = unclusteredCellsMap!![externalInputs] ?: continue
 			val cell = possibleSeeds[0]
-
 			assert(cell.isValid)
 			return cell
 		}

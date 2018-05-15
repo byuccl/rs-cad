@@ -38,6 +38,12 @@ constructor(
 
 	override fun init(design: CellDesign) {
 		fun shouldFilterNet(net: CellNet): Boolean {
+			//println("other filter net")
+
+			//if (net.name.equals("clk"))
+				//println("other clk filter")
+			// What if it is a partition pin? Specifically, what about clk partition pins?
+			// 			if (!net.hasPartitionPin() && (net.isStaticNet || net.pins.size > HIGH_FANOUT_LIMIT))
 			if (net.isStaticNet || net.pins.size > HIGH_FANOUT_LIMIT)
 				return true
 			for (pin in net.pins) {

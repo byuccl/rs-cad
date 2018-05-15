@@ -132,39 +132,34 @@ class TableBasedRoutabilityChecker(
 				source.gnd = true
 				source.drivesGeneralFabric = true
 			}
+			net.sourcePin.isPartitionPin -> {
+				// if the sourcePin is null, then assume the source cell is a top-level port (which has been removed from the
+				// design if we are packing OOC)
+
+				//println("Top Level Port found.")
+
+				// There are no possible sources because the source is outside of the partial device boundaries
+				//  Let's just say the source can reach the general fabric
+				source.cellPin = net.sourcePin
+				source.drivesGeneralFabric = true
+			}
 			else -> {
 				val sourcePin = net.sourcePin
 
 				// TODO: More intelligent handling of partition pins
-				if (!sourcePin.isPartitionPin) {
-					val sourceCell = sourcePin.cell
+				val sourceCell = sourcePin.cell
 
-					source.cellPin = sourcePin
-					val sourceCluster = sourceCell.getCluster<Cluster<*, *>>()
+				source.cellPin = sourcePin
+				val sourceCluster = sourceCell.getCluster<Cluster<*, *>>()
 
-					// source is placed outside the cluster
-					if (sourceCluster !== null && sourceCluster !== cluster) {
-						initOutsideClusterSource(source, sourcePin)
-					} else {
-						// even if the source is placed, we are treating it as unplaced
-						// right now
-						initUnplacedSource(source, sourcePin)
-					}
+				// source is placed outside the cluster
+				if (sourceCluster !== null && sourceCluster !== cluster) {
+					initOutsideClusterSource(source, sourcePin)
+				} else {
+					// even if the source is placed, we are treating it as unplaced
+					// right now
+					initUnplacedSource(source, sourcePin)
 				}
-				else {
-					// if the sourcePin is null, then assume the source cell is a top-level port (which has been removed from the
-					// design if we are packing OOC)
-
-					//println("Top Level Port found.")
-
-					// There are no possible sources because the source is outside of the partial device boundaries
-					//  Let's just say the source can reach the general fabric
-					source.cellPin = sourcePin
-					source.drivesGeneralFabric = true
-				}
-
-
-
 			}
 		}
 
@@ -661,9 +656,12 @@ class TableBasedRoutabilityChecker(
 		val claimedSource: Any?
 		var conditionalSource: Bel? = null
 
+		if (cellPin.net.sourcePin.isPartitionPin && entry.drivenByGeneralFabric) {
+			// claimedSource = sourcePin
 
-		if (cellPin.net.sourcePin.isPartitionPin) {
-			claimedSource = sourcePin
+			// the source for this row comes from general routing
+			claimedSource = entry.sourceClusterPin
+			assert (claimedSource != null)
 			// we're coming from outside the cluster.  Let's just make sure the
 			// source can reach general fabric
 			if (source.drivesGeneralFabric) {
@@ -717,7 +715,7 @@ class TableBasedRoutabilityChecker(
 				assert(source.belPin != null)
 
 				// the source of this net is in this pin group,  this means the
-				// source leaves the cluster and re-enters from another pin
+				// source leaves the cluster and re-enters from another pin TODO: How do I detect this scenario for part pins??
 				if (source.belPin in pg.sourcePins) {
 					val sourcePinEntry = tableRow.sourcePins[source.belPin]!!
 					if (sourcePinEntry.drivesGeneralFabric)
