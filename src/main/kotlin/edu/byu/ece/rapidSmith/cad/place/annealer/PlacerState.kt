@@ -89,7 +89,7 @@ class PlacerState<S : ClusterSite>(
 			println("\tWarning: over utilized - cannot place " +
 			"${it.siteUsage.toFloat() / it.validSites * 100}% utilization")
 		}
-		canBePlaced = overutilized.isNotEmpty()
+		canBePlaced = overutilized.isEmpty()
 	}
 
 	/**
