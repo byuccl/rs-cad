@@ -25,94 +25,42 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 	private val IGNORED_TILE_TYPES: Set<TileType>
 	private val INSTANCE_NAMES: Map<SiteType, List<String>>
 
-	init { // Only add the site types that are actually present in the partial device!!
-
-
+	init {
 		PACKABLE_SITE_TYPES = ArrayList()
+        addPackableSiteType(SiteTypes.SLICEM)
+        addPackableSiteType(SiteTypes.SLICEL)
+        addPackableSiteType(SiteTypes.RAMB18E1)
+        addPackableSiteType(SiteTypes.RAMB36E1)
+        addPackableSiteType(SiteTypes.FIFO18E1)
+        addPackableSiteType(SiteTypes.FIFO36E1)
+        addPackableSiteType(SiteTypes.RAMBFIFO36E1)
+        addPackableSiteType(SiteTypes.DSP48E1)
+        addPackableSiteType(SiteTypes.STARTUP)
+        addPackableSiteType(SiteTypes.IOB33)
+        addPackableSiteType(SiteTypes.IOB33M)
+        addPackableSiteType(SiteTypes.IOB33S)
+        addPackableSiteType(SiteTypes.BUFG)
 
-		if (device.getAllSitesOfType(SiteTypes.SLICEM) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.SLICEM)
+		INTERFACE_TILES = HashSet()
+        IGNORED_TILE_TYPES = HashSet()
 
-		if (device.getAllSitesOfType(SiteTypes.SLICEL) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.SLICEL)
-
-		if (device.getAllSitesOfType(SiteTypes.RAMB18E1) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.RAMB18E1)
-
-		if (device.getAllSitesOfType(SiteTypes.RAMB36E1) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.RAMB36E1)
-
-		if (device.getAllSitesOfType(SiteTypes.FIFO18E1) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.FIFO18E1)
-
-		if (device.getAllSitesOfType(SiteTypes.FIFO36E1) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.FIFO36E1)
-
-		if (device.getAllSitesOfType(SiteTypes.RAMBFIFO36E1) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.RAMBFIFO36E1)
-
-		if (device.getAllSitesOfType(SiteTypes.DSP48E1) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.DSP48E1)
-
-		if (device.getAllSitesOfType(SiteTypes.STARTUP) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.STARTUP)
-
-		if (device.getAllSitesOfType(SiteTypes.IOB33) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.IOB33)
-
-		if (device.getAllSitesOfType(SiteTypes.IOB33M) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.IOB33M)
-
-		if (device.getAllSitesOfType(SiteTypes.IOB33S) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.IOB33S)
-
-		if (device.getAllSitesOfType(SiteTypes.BUFG) != null)
-			PACKABLE_SITE_TYPES.add(SiteTypes.BUFG)
-
-		INTERFACE_TILES = HashSet() // Only add the interface tiles that are present in the partial device!
-
-		if (device.hasTileType(TileTypes.INT_INTERFACE_L))
-			INTERFACE_TILES.add(TileTypes.INT_INTERFACE_L)
-
-		if (device.hasTileType(TileTypes.INT_INTERFACE_R))
-			INTERFACE_TILES.add(TileTypes.INT_INTERFACE_R)
-
-		if (device.hasTileType(TileTypes.IO_INT_INTERFACE_L))
-			INTERFACE_TILES.add(TileTypes.IO_INT_INTERFACE_L)
-
-		if (device.hasTileType(TileTypes.IO_INT_INTERFACE_R))
-			INTERFACE_TILES.add(TileTypes.IO_INT_INTERFACE_R)
-
-		if (device.hasTileType(TileTypes.BRAM_INT_INTERFACE_L))
-			INTERFACE_TILES.add(TileTypes.BRAM_INT_INTERFACE_L)
-
-		if (device.hasTileType(TileTypes.BRAM_INT_INTERFACE_R))
-			INTERFACE_TILES.add(TileTypes.BRAM_INT_INTERFACE_R)
-
-		if (device.hasTileType(TileTypes.RIOI3))
-			INTERFACE_TILES.add(TileTypes.RIOI3)
-
-		if (device.hasTileType(TileTypes.LIOI3))
-			INTERFACE_TILES.add(TileTypes.LIOI3)
-
-
-
+        addPackableTileType(INTERFACE_TILES, TileTypes.INT_INTERFACE_L)
+        addPackableTileType(INTERFACE_TILES, TileTypes.INT_INTERFACE_R)
+        addPackableTileType(INTERFACE_TILES, TileTypes.IO_INT_INTERFACE_L)
+        addPackableTileType(INTERFACE_TILES, TileTypes.IO_INT_INTERFACE_R)
+        addPackableTileType(INTERFACE_TILES, TileTypes.BRAM_INT_INTERFACE_L)
+        addPackableTileType(INTERFACE_TILES, TileTypes.BRAM_INT_INTERFACE_R)
+        addPackableTileType(INTERFACE_TILES, TileTypes.RIOI3)
+        addPackableTileType(INTERFACE_TILES, TileTypes.LIOI3)
 
 		SWITCH_MATRIX_TILES = HashSet()
+        addPackableTileType(SWITCH_MATRIX_TILES, TileTypes.INT_L)
+        addPackableTileType(SWITCH_MATRIX_TILES, TileTypes.INT_R)
 
-
-		if (device.hasTileType(TileTypes.INT_L))
-			SWITCH_MATRIX_TILES.add(TileTypes.INT_L)
-
-		if (device.hasTileType(TileTypes.INT_R))
-			SWITCH_MATRIX_TILES.add(TileTypes.INT_R)
-
-		// TODO: Any checks for these with partial devices?
+		// I think it's fine to keep both of these even with partial devices.
 		NULL_TILE_TYPE = TileTypes.NULL
 		TIEOFF_SITE_TYPE = SiteTypes.TIEOFF
 
-		// TODO: What about this?
-		IGNORED_TILE_TYPES = HashSet()
 		IGNORED_TILE_TYPES += TileTypes.BRAM_R
 		IGNORED_TILE_TYPES += TileTypes.CLBLL_R
 		IGNORED_TILE_TYPES += TileTypes.CLBLM_R
@@ -120,107 +68,130 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 
 		// TODO: Automatically find valid instances to use?
 		INSTANCE_NAMES = HashMap()
-		// WARNING: Do NOT use a SLICEM from the top row of the FPGA. These SLICEM's do not have a connection to continue
-		// the carry chain like other SLICEM's.
-		// Probably don't want to use a top SLICEL either.
-
-		/*
-		INSTANCE_NAMES[SiteTypes.SLICEM] = listOf("SLICE_X32Y125")
-		INSTANCE_NAMES[SiteTypes.SLICEL] = listOf("SLICE_X33Y125")
-		INSTANCE_NAMES[SiteTypes.RAMB18E1] = listOf("RAMB18_X2Y58")
-		INSTANCE_NAMES[SiteTypes.RAMB36E1] = listOf("RAMB36_X2Y29")
-		INSTANCE_NAMES[SiteTypes.FIFO18E1] = listOf("RAMB18_X2Y58")
-		INSTANCE_NAMES[SiteTypes.FIFO36E1] = listOf("RAMB36_X2Y29")
-		INSTANCE_NAMES[SiteTypes.RAMBFIFO36E1] = listOf("RAMB36_X2Y29")
-		INSTANCE_NAMES[SiteTypes.DSP48E1] = listOf("DSP48_X2Y58")
-		INSTANCE_NAMES[SiteTypes.STARTUP] = listOf("STARTUP_X0Y0")
-		INSTANCE_NAMES[SiteTypes.IOB33] = listOf("C20")
-		INSTANCE_NAMES[SiteTypes.IOB33M] = listOf("C20")
-		INSTANCE_NAMES[SiteTypes.IOB33S] = listOf("B20")
-		INSTANCE_NAMES[SiteTypes.BUFG] = listOf("BUFGCTRL_X0Y16")
-		*/
-		INSTANCE_NAMES[SiteTypes.SLICEM] = listOf("SLICE_X38Y96")
-		INSTANCE_NAMES[SiteTypes.SLICEL] = listOf("SLICE_X37Y96")
-		//INSTANCE_NAMES[SiteTypes.RAMB18E1] = listOf("RAMB18_X2Y58")
-		//INSTANCE_NAMES[SiteTypes.RAMB36E1] = listOf("RAMB36_X2Y29")
-		//INSTANCE_NAMES[SiteTypes.FIFO18E1] = listOf("RAMB18_X2Y58")
-		//INSTANCE_NAMES[SiteTypes.FIFO36E1] = listOf("RAMB36_X2Y29")
-		//INSTANCE_NAMES[SiteTypes.RAMBFIFO36E1] = listOf("RAMB36_X2Y29")
-		//INSTANCE_NAMES[SiteTypes.DSP48E1] = listOf("DSP48_X2Y58")
-
-
-		// Can a startup site even be in a partial device (for partial reconfiguration)?
-		//INSTANCE_NAMES[SiteTypes.STARTUP] = listOf("STARTUP_X0Y0")
-		//INSTANCE_NAMES[SiteTypes.IOB33] = listOf("C20")
-		//INSTANCE_NAMES[SiteTypes.IOB33M] = listOf("C20")
-		//INSTANCE_NAMES[SiteTypes.IOB33S] = listOf("B20")
-		// INSTANCE_NAMES[SiteTypes.BUFG] = listOf("BUFGCTRL_X0Y16")
-
+        assignPackableSiteInstances()
 
 		VCC_SOURCES = HashMap()
+        GND_SOURCES = HashMap()
 
-		VCC_SOURCES[BelId(SiteTypes.SLICEL, "CEUSEDVCC")] = "1"
-		VCC_SOURCES[BelId(SiteTypes.SLICEL, "CYINITVCC")] = "1"
-		VCC_SOURCES[BelId(SiteTypes.SLICEL, "A6LUT")] = "O6"
-		VCC_SOURCES[BelId(SiteTypes.SLICEL, "B6LUT")] = "O6"
-		VCC_SOURCES[BelId(SiteTypes.SLICEL, "C6LUT")] = "O6"
-		VCC_SOURCES[BelId(SiteTypes.SLICEL, "D6LUT")] = "O6"
-		VCC_SOURCES[BelId(SiteTypes.SLICEL, "A5LUT")] = "O5"
-		VCC_SOURCES[BelId(SiteTypes.SLICEL, "B5LUT")] = "O5"
-		VCC_SOURCES[BelId(SiteTypes.SLICEL, "C5LUT")] = "O5"
-		VCC_SOURCES[BelId(SiteTypes.SLICEL, "D5LUT")] = "O5"
-		VCC_SOURCES[BelId(SiteTypes.SLICEM, "CEUSEDVCC")] = "1"
-		VCC_SOURCES[BelId(SiteTypes.SLICEM, "CYINITVCC")] = "1"
-		VCC_SOURCES[BelId(SiteTypes.SLICEM, "A6LUT")] = "O6"
-		VCC_SOURCES[BelId(SiteTypes.SLICEM, "B6LUT")] = "O6"
-		VCC_SOURCES[BelId(SiteTypes.SLICEM, "C6LUT")] = "O6"
-		VCC_SOURCES[BelId(SiteTypes.SLICEM, "D6LUT")] = "O6"
-		VCC_SOURCES[BelId(SiteTypes.SLICEM, "A5LUT")] = "O5"
-		VCC_SOURCES[BelId(SiteTypes.SLICEM, "B5LUT")] = "O5"
-		VCC_SOURCES[BelId(SiteTypes.SLICEM, "C5LUT")] = "O5"
-		VCC_SOURCES[BelId(SiteTypes.SLICEM, "D5LUT")] = "O5"
+        if (device.getAllSitesOfType(SiteTypes.SLICEL) != null) {
+            VCC_SOURCES[BelId(SiteTypes.SLICEL, "CEUSEDVCC")] = "1"
+            VCC_SOURCES[BelId(SiteTypes.SLICEL, "CYINITVCC")] = "1"
+            VCC_SOURCES[BelId(SiteTypes.SLICEL, "A6LUT")] = "O6"
+            VCC_SOURCES[BelId(SiteTypes.SLICEL, "B6LUT")] = "O6"
+            VCC_SOURCES[BelId(SiteTypes.SLICEL, "C6LUT")] = "O6"
+            VCC_SOURCES[BelId(SiteTypes.SLICEL, "D6LUT")] = "O6"
+            VCC_SOURCES[BelId(SiteTypes.SLICEL, "A5LUT")] = "O5"
+            VCC_SOURCES[BelId(SiteTypes.SLICEL, "B5LUT")] = "O5"
+            VCC_SOURCES[BelId(SiteTypes.SLICEL, "C5LUT")] = "O5"
+            VCC_SOURCES[BelId(SiteTypes.SLICEL, "D5LUT")] = "O5"
+
+            GND_SOURCES[BelId(SiteTypes.SLICEL, "CYINITGND")] = "0"
+            GND_SOURCES[BelId(SiteTypes.SLICEL, "SRUSEDGND")] = "0"
+            GND_SOURCES[BelId(SiteTypes.SLICEL, "A6LUT")] = "O6"
+            GND_SOURCES[BelId(SiteTypes.SLICEL, "B6LUT")] = "O6"
+            GND_SOURCES[BelId(SiteTypes.SLICEL, "C6LUT")] = "O6"
+            GND_SOURCES[BelId(SiteTypes.SLICEL, "D6LUT")] = "O6"
+            GND_SOURCES[BelId(SiteTypes.SLICEL, "A5LUT")] = "O5"
+            GND_SOURCES[BelId(SiteTypes.SLICEL, "B5LUT")] = "O5"
+            GND_SOURCES[BelId(SiteTypes.SLICEL, "C5LUT")] = "O5"
+            GND_SOURCES[BelId(SiteTypes.SLICEL, "D5LUT")] = "O5"
+        }
+
+        if (device.getAllSitesOfType(SiteTypes.SLICEM) != null) {
+            VCC_SOURCES[BelId(SiteTypes.SLICEM, "CEUSEDVCC")] = "1"
+            VCC_SOURCES[BelId(SiteTypes.SLICEM, "CYINITVCC")] = "1"
+            VCC_SOURCES[BelId(SiteTypes.SLICEM, "A6LUT")] = "O6"
+            VCC_SOURCES[BelId(SiteTypes.SLICEM, "B6LUT")] = "O6"
+            VCC_SOURCES[BelId(SiteTypes.SLICEM, "C6LUT")] = "O6"
+            VCC_SOURCES[BelId(SiteTypes.SLICEM, "D6LUT")] = "O6"
+            VCC_SOURCES[BelId(SiteTypes.SLICEM, "A5LUT")] = "O5"
+            VCC_SOURCES[BelId(SiteTypes.SLICEM, "B5LUT")] = "O5"
+            VCC_SOURCES[BelId(SiteTypes.SLICEM, "C5LUT")] = "O5"
+            VCC_SOURCES[BelId(SiteTypes.SLICEM, "D5LUT")] = "O5"
+
+            GND_SOURCES[BelId(SiteTypes.SLICEM, "CYINITGND")] = "0"
+            GND_SOURCES[BelId(SiteTypes.SLICEM, "SRUSEDGND")] = "0"
+            GND_SOURCES[BelId(SiteTypes.SLICEM, "A6LUT")] = "O6"
+            GND_SOURCES[BelId(SiteTypes.SLICEM, "B6LUT")] = "O6"
+            GND_SOURCES[BelId(SiteTypes.SLICEM, "C6LUT")] = "O6"
+            GND_SOURCES[BelId(SiteTypes.SLICEM, "D6LUT")] = "O6"
+            GND_SOURCES[BelId(SiteTypes.SLICEM, "A5LUT")] = "O5"
+            GND_SOURCES[BelId(SiteTypes.SLICEM, "B5LUT")] = "O5"
+            GND_SOURCES[BelId(SiteTypes.SLICEM, "C5LUT")] = "O5"
+            GND_SOURCES[BelId(SiteTypes.SLICEM, "D5LUT")] = "O5"
+        }
+
+        if (PACKABLE_SITE_TYPES.contains(SiteTypes.IOB33S)) {
+            GND_SOURCES[BelId(SiteTypes.IOB33S, "IBUFDISABLE_GND")] = "0"
+            GND_SOURCES[BelId(SiteTypes.IOB33S, "INTERMDISABLE_GND")] = "0"
+        }
 
 
-		GND_SOURCES = HashMap()
+        if (PACKABLE_SITE_TYPES.contains(SiteTypes.IOB33M)) {
+            GND_SOURCES[BelId(SiteTypes.IOB33M, "IBUFDISABLE_GND")] = "0"
+            GND_SOURCES[BelId(SiteTypes.IOB33M, "INTERMDISABLE_GND")] = "0"
+        }
 
-		GND_SOURCES[BelId(SiteTypes.SLICEL, "CYINITGND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.SLICEL, "SRUSEDGND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.SLICEL, "A6LUT")] = "O6"
-		GND_SOURCES[BelId(SiteTypes.SLICEL, "B6LUT")] = "O6"
-		GND_SOURCES[BelId(SiteTypes.SLICEL, "C6LUT")] = "O6"
-		GND_SOURCES[BelId(SiteTypes.SLICEL, "D6LUT")] = "O6"
-		GND_SOURCES[BelId(SiteTypes.SLICEL, "A5LUT")] = "O5"
-		GND_SOURCES[BelId(SiteTypes.SLICEL, "B5LUT")] = "O5"
-		GND_SOURCES[BelId(SiteTypes.SLICEL, "C5LUT")] = "O5"
-		GND_SOURCES[BelId(SiteTypes.SLICEL, "D5LUT")] = "O5"
-		GND_SOURCES[BelId(SiteTypes.SLICEM, "CYINITGND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.SLICEM, "SRUSEDGND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.SLICEM, "A6LUT")] = "O6"
-		GND_SOURCES[BelId(SiteTypes.SLICEM, "B6LUT")] = "O6"
-		GND_SOURCES[BelId(SiteTypes.SLICEM, "C6LUT")] = "O6"
-		GND_SOURCES[BelId(SiteTypes.SLICEM, "D6LUT")] = "O6"
-		GND_SOURCES[BelId(SiteTypes.SLICEM, "A5LUT")] = "O5"
-		GND_SOURCES[BelId(SiteTypes.SLICEM, "B5LUT")] = "O5"
-		GND_SOURCES[BelId(SiteTypes.SLICEM, "C5LUT")] = "O5"
-		GND_SOURCES[BelId(SiteTypes.SLICEM, "D5LUT")] = "O5"
-		/*
-		GND_SOURCES[BelId(SiteTypes.IOB33S, "IBUFDISABLE_GND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.IOB33S, "INTERMDISABLE_GND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.IOB33M, "IBUFDISABLE_GND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.IOB33M, "INTERMDISABLE_GND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.IOB33, "IBUFDISABLE_GND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.IOB33, "INTERMDISABLE_GND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.ILOGICE2, "D2OBYP_TSMUX_GND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.ILOGICE2, "D2OFFBYP_TSMUX_GND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.ILOGICE3, "D2OBYP_TSMUX_GND")] = "0"
-		GND_SOURCES[BelId(SiteTypes.ILOGICE3, "D2OFFBYP_TSMUX_GND")] = "0"
-		*/
+
+        if (PACKABLE_SITE_TYPES.contains(SiteTypes.IOB33)) {
+            GND_SOURCES[BelId(SiteTypes.IOB33, "IBUFDISABLE_GND")] = "0"
+            GND_SOURCES[BelId(SiteTypes.IOB33, "INTERMDISABLE_GND")] = "0"
+        }
+
+        if (PACKABLE_SITE_TYPES.contains(SiteTypes.ILOGICE2)) {
+            GND_SOURCES[BelId(SiteTypes.ILOGICE2, "D2OBYP_TSMUX_GND")] = "0"
+            GND_SOURCES[BelId(SiteTypes.ILOGICE2, "D2OFFBYP_TSMUX_GND")] = "0"
+        }
+
+        if (PACKABLE_SITE_TYPES.contains(SiteTypes.ILOGICE3)) {
+            GND_SOURCES[BelId(SiteTypes.ILOGICE3, "D2OBYP_TSMUX_GND")] = "0"
+            GND_SOURCES[BelId(SiteTypes.ILOGICE3, "D2OFFBYP_TSMUX_GND")] = "0"
+        }
 
 	}
 
 	override fun findClusterInstances(siteType: SiteType, device: Device): List<Site> {
 		return INSTANCE_NAMES[siteType]!!.map { device.getSite(it)!! }
 	}
+
+    private fun addPackableSiteType(type: SiteType) {
+        if (device.getAllSitesOfType(type) != null)
+            (PACKABLE_SITE_TYPES as ArrayList<SiteType>).add(type)
+    }
+
+    private fun addPackableTileType(tileTypes: HashSet<TileType>, type: TileType) {
+        if (device.hasTileType(type))
+            tileTypes.add(type)
+        else
+            (IGNORED_TILE_TYPES as HashSet<TileType>).add(type)
+    }
+
+    /**
+     * Assign valid site instances for every packable site type. The templates are based off of these instances.
+     */
+    private fun assignPackableSiteInstances() {
+        PACKABLE_SITE_TYPES.forEach {
+            println("Find a valid instance for type " + it.name())
+
+            val siteInstances = device.getAllSitesOfType(it)
+            assert (siteInstances.size > 0)
+
+            // Avoid using sites near full device boundaries as instances. For instance, using a SLICEM from the top
+            // row of the FPGA will lead to issues since SLICEMs in the top row do not have a connection to continue
+            // the carry chain (unlike other SLICEMs).
+            // QUESTION: Are there any other similar boundary cases?
+            var instance = siteInstances[0]
+
+            for (i in 1 until siteInstances.size) {
+                // TODO: Need a way to be able to know the bottom row (instanceY) given only the parital device.
+                // Add true device size information to partial device??
+                if (siteInstances[i].instanceY == 0 || siteInstances[i].instanceY == 155)
+                    break
+                instance = siteInstances[i]
+            }
+            (INSTANCE_NAMES as HashMap<SiteType, List<String>>)[it] = listOf(instance.name)
+        }
+    }
 
 	companion object {
 		val CURRENT_VERSION = "1.0.0"
