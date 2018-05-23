@@ -19,6 +19,7 @@ import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.device.families.Zynq
 import edu.byu.ece.rapidSmith.device.families.Zynq.SiteTypes.*
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
+import edu.byu.ece.rapidSmith.util.Time
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
@@ -33,8 +34,14 @@ class ZynqSiteCadFlow {
 //	var placer: RouteR? = null
 
 	fun run(design: CellDesign, device: Device) {
+
+		val runtime = Time()
 		println("Get the site packer")
+		runtime.setStartTime()
 		val packer = getZynqSitePacker(device)
+		runtime.setEndTime()
+		println("  Took " + runtime.totalTime + " seconds")
+
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
 		val placer = getZynqGroupSAPlacer()
@@ -70,13 +77,31 @@ fun getZynqSitePacker(
 		device: Device,
 		cellLibraryPath: Path = partsFolder.resolve("cellLibrary.xml"),
 		belCostsPath: Path = partsFolder.resolve("belCosts.xml"),
-		packUnitsPath: Path = partsFolder.resolve("packunits-site.rpu")
+		packUnitsPath: Path = partsFolder.resolve(device.partName + "_packunits_site.rpu")
 ): RSVPack<SitePackUnit> {
+	val runtime = Time()
+	println("Load pack units from file")
+	runtime.setStartTime()
 	val packUnits = loadPackUnits<SitePackUnit>(packUnitsPath)
+	runtime.setEndTime()
+	println("  Took " + runtime.totalTime + " seconds")
+	runtime.setStartTime()
+	println("Load Bel Costs from file")
 	val belCosts = loadBelCostsFromFile(belCostsPath)
+	runtime.setEndTime()
+	println("  Took " + runtime.totalTime + " seconds")
+	println("Load cell library from file")
+	runtime.setStartTime()
 	val cellLibrary = CellLibrary(cellLibraryPath)
+	runtime.setEndTime()
+	println("  Took " + runtime.totalTime + " seconds")
 
-	return ZynqSitePackerFactory(device, packUnits, belCosts, cellLibrary).make()
+	println("Create the site packer w/ the factory")
+	runtime.setStartTime()
+	val packer = ZynqSitePackerFactory(device, packUnits, belCosts, cellLibrary).make()
+	runtime.setEndTime()
+	println("  Took " + runtime.totalTime + " seconds")
+	return packer
 }
 
 fun getZynqGroupSAPlacer(): SimulatedAnnealingPlacer<SiteClusterSite> {

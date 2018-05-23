@@ -60,7 +60,7 @@ abstract class SitePackUnitGenerator {
 			val builder = SitePackUnitTemplate.Builder()
 			val (puDevice, tileMaps) = buildPackUnitDevice(type, device, siteTemplates)
 			builder.device = puDevice
-			tileMapsMap.put(type, tileMaps)
+			tileMapsMap[type] = tileMaps
 
 			builder.gndSources = findStaticSources(puDevice.tiles, GND_SOURCES)
 			builder.vccSources = findStaticSources(puDevice.tiles, VCC_SOURCES)
@@ -121,7 +121,7 @@ abstract class SitePackUnitGenerator {
 		device.constructTileMap()
 		device.constructDependentResources()
 		device.wireEnumerator = makeWireEnumerator(oldDevice.wireEnumerator)
-		val usedWires = makeDeviceRouting(templateSites, tileMaps, type, tilePointMap)
+//		val usedWires = makeDeviceRouting(templateSites, tileMaps, type, tilePointMap)
 //		device.wireEnumerator = makeWireEnumerator(oldDevice.wireEnumerator, usedWires)
 
 		return Pair(device, tileMaps)

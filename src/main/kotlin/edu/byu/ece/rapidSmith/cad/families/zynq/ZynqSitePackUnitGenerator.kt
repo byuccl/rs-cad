@@ -13,7 +13,7 @@ import edu.byu.ece.rapidSmith.util.FileTools
 import java.io.IOException
 import java.nio.file.Files
 
-class ZynqSitePackUnitGenerator : SitePackUnitGenerator() {
+class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 	override val PACKABLE_SITE_TYPES: List<SiteType>
 	override val NULL_TILE_TYPE: TileType
 	override val TIEOFF_SITE_TYPE: SiteType
@@ -25,52 +25,106 @@ class ZynqSitePackUnitGenerator : SitePackUnitGenerator() {
 	private val IGNORED_TILE_TYPES: Set<TileType>
 	private val INSTANCE_NAMES: Map<SiteType, List<String>>
 
-	init {
-		PACKABLE_SITE_TYPES = ArrayList()
-		PACKABLE_SITE_TYPES.add(SiteTypes.SLICEM)
-		PACKABLE_SITE_TYPES.add(SiteTypes.SLICEL)
-		PACKABLE_SITE_TYPES.add(SiteTypes.RAMB18E1)
-		PACKABLE_SITE_TYPES.add(SiteTypes.RAMB36E1)
-		PACKABLE_SITE_TYPES.add(SiteTypes.FIFO18E1)
-		PACKABLE_SITE_TYPES.add(SiteTypes.FIFO36E1)
-		PACKABLE_SITE_TYPES.add(SiteTypes.RAMBFIFO36E1)
-		PACKABLE_SITE_TYPES.add(SiteTypes.DSP48E1)
-		PACKABLE_SITE_TYPES.add(SiteTypes.STARTUP)
-		PACKABLE_SITE_TYPES.add(SiteTypes.IOB33)
-		PACKABLE_SITE_TYPES.add(SiteTypes.IOB33M)
-		PACKABLE_SITE_TYPES.add(SiteTypes.IOB33S)
-		PACKABLE_SITE_TYPES.add(SiteTypes.BUFG)
+	init { // Only add the site types that are actually present in the partial device!!
 
-		INTERFACE_TILES = HashSet()
-		INTERFACE_TILES.add(TileTypes.INT_INTERFACE_L)
-		INTERFACE_TILES.add(TileTypes.INT_INTERFACE_R)
-		INTERFACE_TILES.add(TileTypes.IO_INT_INTERFACE_L)
-		INTERFACE_TILES.add(TileTypes.IO_INT_INTERFACE_R)
-		//INTERFACE_TILES.add(TileTypes.GTP_INT_INTERFACE)
-		INTERFACE_TILES.add(TileTypes.BRAM_INT_INTERFACE_L)
-		INTERFACE_TILES.add(TileTypes.BRAM_INT_INTERFACE_R)
-		//INTERFACE_TILES.add(TileTypes.PCIE_INT_INTERFACE_L)
-		//INTERFACE_TILES.add(TileTypes.PCIE_INT_INTERFACE_R)
-		INTERFACE_TILES.add(TileTypes.RIOI3)
-		INTERFACE_TILES.add(TileTypes.LIOI3)
+
+		PACKABLE_SITE_TYPES = ArrayList()
+
+		if (device.getAllSitesOfType(SiteTypes.SLICEM) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.SLICEM)
+
+		if (device.getAllSitesOfType(SiteTypes.SLICEL) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.SLICEL)
+
+		if (device.getAllSitesOfType(SiteTypes.RAMB18E1) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.RAMB18E1)
+
+		if (device.getAllSitesOfType(SiteTypes.RAMB36E1) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.RAMB36E1)
+
+		if (device.getAllSitesOfType(SiteTypes.FIFO18E1) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.FIFO18E1)
+
+		if (device.getAllSitesOfType(SiteTypes.FIFO36E1) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.FIFO36E1)
+
+		if (device.getAllSitesOfType(SiteTypes.RAMBFIFO36E1) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.RAMBFIFO36E1)
+
+		if (device.getAllSitesOfType(SiteTypes.DSP48E1) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.DSP48E1)
+
+		if (device.getAllSitesOfType(SiteTypes.STARTUP) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.STARTUP)
+
+		if (device.getAllSitesOfType(SiteTypes.IOB33) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.IOB33)
+
+		if (device.getAllSitesOfType(SiteTypes.IOB33M) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.IOB33M)
+
+		if (device.getAllSitesOfType(SiteTypes.IOB33S) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.IOB33S)
+
+		if (device.getAllSitesOfType(SiteTypes.BUFG) != null)
+			PACKABLE_SITE_TYPES.add(SiteTypes.BUFG)
+
+		INTERFACE_TILES = HashSet() // Only add the interface tiles that are present in the partial device!
+
+		if (device.hasTileType(TileTypes.INT_INTERFACE_L))
+			INTERFACE_TILES.add(TileTypes.INT_INTERFACE_L)
+
+		if (device.hasTileType(TileTypes.INT_INTERFACE_R))
+			INTERFACE_TILES.add(TileTypes.INT_INTERFACE_R)
+
+		if (device.hasTileType(TileTypes.IO_INT_INTERFACE_L))
+			INTERFACE_TILES.add(TileTypes.IO_INT_INTERFACE_L)
+
+		if (device.hasTileType(TileTypes.IO_INT_INTERFACE_R))
+			INTERFACE_TILES.add(TileTypes.IO_INT_INTERFACE_R)
+
+		if (device.hasTileType(TileTypes.BRAM_INT_INTERFACE_L))
+			INTERFACE_TILES.add(TileTypes.BRAM_INT_INTERFACE_L)
+
+		if (device.hasTileType(TileTypes.BRAM_INT_INTERFACE_R))
+			INTERFACE_TILES.add(TileTypes.BRAM_INT_INTERFACE_R)
+
+		if (device.hasTileType(TileTypes.RIOI3))
+			INTERFACE_TILES.add(TileTypes.RIOI3)
+
+		if (device.hasTileType(TileTypes.LIOI3))
+			INTERFACE_TILES.add(TileTypes.LIOI3)
+
+
+
 
 		SWITCH_MATRIX_TILES = HashSet()
-		SWITCH_MATRIX_TILES.add(TileTypes.INT_L)
-		SWITCH_MATRIX_TILES.add(TileTypes.INT_R)
 
+
+		if (device.hasTileType(TileTypes.INT_L))
+			SWITCH_MATRIX_TILES.add(TileTypes.INT_L)
+
+		if (device.hasTileType(TileTypes.INT_R))
+			SWITCH_MATRIX_TILES.add(TileTypes.INT_R)
+
+		// TODO: Any checks for these with partial devices?
 		NULL_TILE_TYPE = TileTypes.NULL
 		TIEOFF_SITE_TYPE = SiteTypes.TIEOFF
 
+		// TODO: What about this?
 		IGNORED_TILE_TYPES = HashSet()
 		IGNORED_TILE_TYPES += TileTypes.BRAM_R
 		IGNORED_TILE_TYPES += TileTypes.CLBLL_R
 		IGNORED_TILE_TYPES += TileTypes.CLBLM_R
 		IGNORED_TILE_TYPES += TileTypes.DSP_R
 
+		// TODO: Automatically find valid instances to use?
 		INSTANCE_NAMES = HashMap()
 		// WARNING: Do NOT use a SLICEM from the top row of the FPGA. These SLICEM's do not have a connection to continue
 		// the carry chain like other SLICEM's.
 		// Probably don't want to use a top SLICEL either.
+
+		/*
 		INSTANCE_NAMES[SiteTypes.SLICEM] = listOf("SLICE_X32Y125")
 		INSTANCE_NAMES[SiteTypes.SLICEL] = listOf("SLICE_X33Y125")
 		INSTANCE_NAMES[SiteTypes.RAMB18E1] = listOf("RAMB18_X2Y58")
@@ -84,8 +138,27 @@ class ZynqSitePackUnitGenerator : SitePackUnitGenerator() {
 		INSTANCE_NAMES[SiteTypes.IOB33M] = listOf("C20")
 		INSTANCE_NAMES[SiteTypes.IOB33S] = listOf("B20")
 		INSTANCE_NAMES[SiteTypes.BUFG] = listOf("BUFGCTRL_X0Y16")
+		*/
+		INSTANCE_NAMES[SiteTypes.SLICEM] = listOf("SLICE_X38Y96")
+		INSTANCE_NAMES[SiteTypes.SLICEL] = listOf("SLICE_X37Y96")
+		//INSTANCE_NAMES[SiteTypes.RAMB18E1] = listOf("RAMB18_X2Y58")
+		//INSTANCE_NAMES[SiteTypes.RAMB36E1] = listOf("RAMB36_X2Y29")
+		//INSTANCE_NAMES[SiteTypes.FIFO18E1] = listOf("RAMB18_X2Y58")
+		//INSTANCE_NAMES[SiteTypes.FIFO36E1] = listOf("RAMB36_X2Y29")
+		//INSTANCE_NAMES[SiteTypes.RAMBFIFO36E1] = listOf("RAMB36_X2Y29")
+		//INSTANCE_NAMES[SiteTypes.DSP48E1] = listOf("DSP48_X2Y58")
+
+
+		// Can a startup site even be in a partial device (for partial reconfiguration)?
+		//INSTANCE_NAMES[SiteTypes.STARTUP] = listOf("STARTUP_X0Y0")
+		//INSTANCE_NAMES[SiteTypes.IOB33] = listOf("C20")
+		//INSTANCE_NAMES[SiteTypes.IOB33M] = listOf("C20")
+		//INSTANCE_NAMES[SiteTypes.IOB33S] = listOf("B20")
+		// INSTANCE_NAMES[SiteTypes.BUFG] = listOf("BUFGCTRL_X0Y16")
+
 
 		VCC_SOURCES = HashMap()
+
 		VCC_SOURCES[BelId(SiteTypes.SLICEL, "CEUSEDVCC")] = "1"
 		VCC_SOURCES[BelId(SiteTypes.SLICEL, "CYINITVCC")] = "1"
 		VCC_SOURCES[BelId(SiteTypes.SLICEL, "A6LUT")] = "O6"
@@ -107,7 +180,9 @@ class ZynqSitePackUnitGenerator : SitePackUnitGenerator() {
 		VCC_SOURCES[BelId(SiteTypes.SLICEM, "C5LUT")] = "O5"
 		VCC_SOURCES[BelId(SiteTypes.SLICEM, "D5LUT")] = "O5"
 
+
 		GND_SOURCES = HashMap()
+
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "CYINITGND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "SRUSEDGND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "A6LUT")] = "O6"
@@ -128,6 +203,7 @@ class ZynqSitePackUnitGenerator : SitePackUnitGenerator() {
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "B5LUT")] = "O5"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "C5LUT")] = "O5"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "D5LUT")] = "O5"
+		/*
 		GND_SOURCES[BelId(SiteTypes.IOB33S, "IBUFDISABLE_GND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.IOB33S, "INTERMDISABLE_GND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.IOB33M, "IBUFDISABLE_GND")] = "0"
@@ -138,6 +214,8 @@ class ZynqSitePackUnitGenerator : SitePackUnitGenerator() {
 		GND_SOURCES[BelId(SiteTypes.ILOGICE2, "D2OFFBYP_TSMUX_GND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.ILOGICE3, "D2OBYP_TSMUX_GND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.ILOGICE3, "D2OFFBYP_TSMUX_GND")] = "0"
+		*/
+
 	}
 
 	override fun findClusterInstances(siteType: SiteType, device: Device): List<Site> {
@@ -153,7 +231,7 @@ class ZynqSitePackUnitGenerator : SitePackUnitGenerator() {
 			val env = RSEnvironment.defaultEnv()
 			val family = device.family
 			val deviceDir = env.getPartFolderPath(family)
-			val templatesPath = deviceDir.resolve("packunits-site.rpu")
+			val templatesPath = deviceDir.resolve(part + "_packunits_site.rpu")
 
 			if (Files.exists(templatesPath) && !forceRebuild(args)) {
 				val o = try {
@@ -173,7 +251,7 @@ class ZynqSitePackUnitGenerator : SitePackUnitGenerator() {
 			}
 			println("Generating template for " + part)
 
-			val packUnits = ZynqSitePackUnitGenerator().buildFromDevice(device)
+			val packUnits = ZynqSitePackUnitGenerator(device).buildFromDevice(device)
 
 			// write the templates
 			try {
