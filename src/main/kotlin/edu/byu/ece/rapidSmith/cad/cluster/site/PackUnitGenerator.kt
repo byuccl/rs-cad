@@ -121,7 +121,8 @@ abstract class SitePackUnitGenerator {
 		device.constructTileMap()
 		device.constructDependentResources()
 		device.wireEnumerator = makeWireEnumerator(oldDevice.wireEnumerator)
-//		val usedWires = makeDeviceRouting(templateSites, tileMaps, type, tilePointMap)
+		// val usedWires = makeDeviceRouting(templateSites, tileMaps, type, tilePointMap)
+		makeDeviceRouting(templateSites, tileMaps, type, tilePointMap)
 //		device.wireEnumerator = makeWireEnumerator(oldDevice.wireEnumerator, usedWires)
 
 		return Pair(device, tileMaps)

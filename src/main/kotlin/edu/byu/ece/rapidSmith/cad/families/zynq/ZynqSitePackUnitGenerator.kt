@@ -184,6 +184,7 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
                 // TODO: Need a way to be able to know the bottom row (instanceY) given only the partial device.
                 // TODO: Change device to have build-in coordinate info (to replace the top and bottom y coordinate methods)
                 // Add true device size information to partial device??
+                // QUESTION: Does this matter? Or just the full device coordinates?
                 if (instance.instanceY != device.topYCoordinate && instance.instanceY != device.bottomYCoordinate)
                     break
                 instance = siteInstances[i]
