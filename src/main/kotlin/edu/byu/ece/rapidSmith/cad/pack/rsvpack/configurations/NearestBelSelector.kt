@@ -1,11 +1,13 @@
 package edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations
 
+import com.sun.xml.internal.bind.v2.runtime.reflect.Lister
 import edu.byu.ece.rapidSmith.cad.cluster.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.BelSelector
 import edu.byu.ece.rapidSmith.design.subsite.*
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.*
 import org.jdom2.input.SAXBuilder
+import java.io.Serializable
 import java.nio.file.Path
 import java.util.*
 
@@ -16,11 +18,13 @@ typealias BelCostMap = Map<BelId, Double>
  */
 class ShortestRouteBelSelector
 constructor(
-	packUnit: PackUnit,
+	template: PackUnitTemplate,
+	//packUnit: PackUnit,
 	private val baseBelCostMap: BelCostMap,
 	private val HIGH_FANOUT_LIMIT: Int = 500,
 	private val LEAVE_SITE_PENALTY: Double = 0.5
-) : BelSelector<PackUnit> {
+)
+	: BelSelector<PackUnit>, Serializable {
 	private val sinksOfSources: Map<BelPin, Map<BelPin, CCList>>
 	private val sourcesOfSinks: Map<BelPin, Map<BelPin, CCList>>
 	private val reserveBelCostMap = StackedHashMap<Bel, Double>()
@@ -31,7 +35,7 @@ constructor(
 	private var pq: PriorityQueue<BelCandidate>? = null
 
 	init {
-		val ccb = ClusterConnectionsBuilder().build(packUnit)
+		val ccb = ClusterConnectionsBuilder().build(template)
 		sinksOfSources = ccb.sinksOfSources
 		sourcesOfSinks = ccb.sourcesOfSinks
 	}
@@ -241,7 +245,7 @@ private class ClusterConnection(
 	val pin: BelPin,
 	val isWithinSite: Boolean,
 	val distance: Int
-) : Comparable<ClusterConnection> {
+) : Comparable<ClusterConnection>, Serializable {
 	override fun compareTo(other: ClusterConnection): Int {
 		return Comparator.comparing { cc: ClusterConnection -> cc.isWithinSite }
 			.thenComparing { cc -> cc.distance }
@@ -257,10 +261,14 @@ private class ClusterConnectionsBuilder {
 	val sinksOfSources: HashMap<BelPin, Map<BelPin, CCList>> = HashMap()
 
 	fun build(
-		packUnit: PackUnit
+		template: PackUnitTemplate
+		//packUnit: PackUnit
 	): ClusterConnectionsBuilder {
-		val template = packUnit.template
+		//val template = packUnit.template
 		for (bel in template.bels) {
+		//	if (bel.type.equals("SELMUX2_1")) // Can we skip these? No cells get packed onto these BELs.
+			//	continue
+
 			bel.sources.associateTo(sinksOfSources) {
 				it to traverse(it, true).groupBy { it.pin }
 			}
@@ -269,6 +277,41 @@ private class ClusterConnectionsBuilder {
 			}
 		}
 		return this
+	}
+
+	// This only adds returns within the site
+	private fun traverseIntrasite(sourcePin: BelPin, forward: Boolean): List<ClusterConnection> {
+		val connections = ArrayList<ClusterConnection>()
+		val sourceWire = sourcePin.wire
+		val wrapper = CCTWire(sourceWire)
+
+		val processed = HashSet<Wire>()
+		val pq = PriorityQueue<CCTWire>()
+		pq += wrapper
+
+		while (pq.isNotEmpty()) {
+			val cct = pq.poll()
+			if (!processed.add(cct.wire))
+				continue
+
+			if (!cct.reversed) {
+				cct.wire.getWireConnections(forward)
+						.forEach { handleWireConnection(cct, it, pq, false) }
+				//cct.wire.getSitePinConnection(forward)?.let { handleSitePin(cct, it, pq, false) }
+				if (cct.wire != sourceWire) // Need to realize that SRUSEDMUX_OUT, BFF.SR, etc. are all the same node
+					cct.wire.getBelPinConnection(forward)?.let { handleBelPin(cct, it, connections) }
+			}
+
+			//	if (!forward) {
+			//		cct.wire.getWireConnections(true)
+			//			.forEach { handleWireConnection(cct, it, pq, true) }
+			//		cct.wire.getSitePinConnection(true)?.let { handleSitePin(cct, it, pq, true) }
+			//		if (cct.wire != sourceWire)
+			//			cct.wire.getBelPinConnection(true)?.let { handleBelPin(cct, it, connections) }
+			//		}
+		}
+
+		return connections
 	}
 
 	private fun traverse(sourcePin: BelPin, forward: Boolean): List<ClusterConnection> {

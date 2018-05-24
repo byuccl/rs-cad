@@ -7,9 +7,12 @@ import edu.byu.ece.rapidSmith.cad.cluster.site.PinName
 import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnit
 import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnitGenerator
 import edu.byu.ece.rapidSmith.cad.cluster.site.use
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations.loadBelCostsFromFile
 import edu.byu.ece.rapidSmith.design.subsite.CellLibrary
 import edu.byu.ece.rapidSmith.device.*
+import edu.byu.ece.rapidSmith.device.families.Artix7
 import edu.byu.ece.rapidSmith.device.families.Artix7.*
+import edu.byu.ece.rapidSmith.device.families.Zynq
 import edu.byu.ece.rapidSmith.util.FileTools
 import java.io.IOException
 import java.nio.file.Files
@@ -151,6 +154,8 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 			val cellLibraryPath = args[1]
 
 			val device = Device.getInstance(part, true)
+			val partsFolder = RSEnvironment.defaultEnv().getPartFolderPath(Artix7.FAMILY_TYPE)
+			val belCostsPath = partsFolder.resolve("belCosts.xml")
 			val cellLibrary = CellLibrary(Paths.get(cellLibraryPath))
 
 			val env = RSEnvironment.defaultEnv()
@@ -176,7 +181,8 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 			}
 			println("Generating template for " + part)
 
-			val packUnits = Artix7SitePackUnitGenerator().buildFromDevice(device)
+			val belCosts = loadBelCostsFromFile(belCostsPath)
+			val packUnits = Artix7SitePackUnitGenerator().buildFromDevice(device, belCosts)
 
 			// write the templates
 			try {

@@ -141,6 +141,8 @@ private class ZynqSitePackerFactory(
 	)
 
 	fun make(): RSVPack<SitePackUnit> {
+		val runtime = Time()
+		runtime.setStartTime()
 		val packStrategies: Map<PackUnitType, PackStrategy<SitePackUnit>> = packUnits.map {
 			val type = it.type
 			val siteType = it.siteType
@@ -155,6 +157,8 @@ private class ZynqSitePackerFactory(
 
 			type to strategy
 		}.toMap()
+		runtime.setEndTime()
+		println("PackStrategies: " + runtime.totalTime + " seconds")
 
 		val clusterFactory = SiteClusterFactory(
 				packUnits, device, sharedTypes, compatibleTypes)
@@ -170,9 +174,13 @@ private class ZynqSitePackerFactory(
 	private fun makeSliceLStrategy(
 			packUnits: PackUnitList<*>, belCosts: BelCostMap
 	): PackStrategy<SitePackUnit> {
+		val runtime = Time()
 		val packUnit = packUnits.first { it.type == SitePackUnitType(SLICEL) }
 		val cellSelector = SharedNetsCellSelector(false)
-		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
+
+		//val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts) // this seems to take some time..
+		val belSelector = packUnit.belSelector
+		runtime.setStartTime()
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 				lutFFPairPrepacker,
 				di0LutSourcePrepacker,
@@ -180,15 +188,29 @@ private class ZynqSitePackerFactory(
 						packUnit, packUnits.pinsDrivingGeneralFabric,
 						packUnits.pinsDrivenByGeneralFabric, Zynq.SWITCHBOX_TILES)
 		)
-
+		runtime.setEndTime()
+		println("Prepackers: " + runtime.totalTime + " seconds")
+		runtime.setStartTime()
 		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, ::slicePinMapper)
+		runtime.setEndTime()
+		println("TableBasedRoutabilityCheckerFactory: " + runtime.totalTime + " seconds")
+
+		runtime.setStartTime()
 		val packRules = listOf(
 				mixing5And6LutPackRuleFactory,
 				reserveFFForSourcePackRuleFactory,
 				carryChainLookAheadRuleFactory,
 				RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
 		)
-		return MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
+		runtime.setEndTime()
+		println("packRules: " + runtime.totalTime + " seconds")
+
+		runtime.setStartTime()
+		val multiBelPackStrategy = MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
+		runtime.setEndTime()
+		println("multiBelPackStrategy: " + runtime.totalTime + " seconds")
+
+		return multiBelPackStrategy
 	}
 
 	private fun makeSliceMStrategy(
@@ -196,7 +218,8 @@ private class ZynqSitePackerFactory(
 	): PackStrategy<SitePackUnit> {
 		val packUnit = packUnits.first { it.type == SitePackUnitType(SLICEM) }
 		val cellSelector = SharedNetsCellSelector(false)
-		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
+		//val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts)
+		val belSelector = packUnit.belSelector
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 				lutFFPairPrepacker,
 				di0LutSourcePrepacker,
@@ -225,7 +248,7 @@ private class ZynqSitePackerFactory(
 	): MultiBelPackStrategy<SitePackUnit> {
 		val packUnit = packUnits.first { it.type == type }
 		val cellSelector = SharedNetsCellSelector(false)
-		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
+		val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts)
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 				ForcedRoutingPrepackerFactory(packUnit, packUnits.pinsDrivingGeneralFabric,
 						packUnits.pinsDrivenByGeneralFabric, Zynq.SWITCHBOX_TILES)

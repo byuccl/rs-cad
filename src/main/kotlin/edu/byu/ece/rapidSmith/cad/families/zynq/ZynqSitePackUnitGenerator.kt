@@ -7,7 +7,9 @@ import edu.byu.ece.rapidSmith.cad.cluster.site.PinName
 import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnit
 import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnitGenerator
 import edu.byu.ece.rapidSmith.cad.cluster.site.use
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations.loadBelCostsFromFile
 import edu.byu.ece.rapidSmith.device.*
+import edu.byu.ece.rapidSmith.device.families.Zynq
 import edu.byu.ece.rapidSmith.device.families.Zynq.*
 import edu.byu.ece.rapidSmith.util.FileTools
 import java.io.IOException
@@ -199,6 +201,8 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 
 		@JvmStatic fun main(args: Array<String>) {
 			val part = args[0]
+            val partsFolder = RSEnvironment.defaultEnv().getPartFolderPath(Zynq.FAMILY_TYPE)
+            val belCostsPath = partsFolder.resolve("belCosts.xml")
 			val device = Device.getInstance(part, true)
 			val env = RSEnvironment.defaultEnv()
 			val family = device.family
@@ -223,7 +227,8 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 			}
 			println("Generating template for " + part)
 
-			val packUnits = ZynqSitePackUnitGenerator(device).buildFromDevice(device)
+            val belCosts = loadBelCostsFromFile(belCostsPath)
+			val packUnits = ZynqSitePackUnitGenerator(device).buildFromDevice(device, belCosts)
 
 			// write the templates
 			try {

@@ -2,6 +2,7 @@ package edu.byu.ece.rapidSmith.cad.cluster
 
 import com.caucho.hessian.io.*
 import edu.byu.ece.rapidSmith.cad.cluster.site.use
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.BelSelector
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.FileTools
 import java.io.Serializable
@@ -12,7 +13,8 @@ import java.nio.file.Path
  */
 open class PackUnit(
 	open val type: PackUnitType,
-	open val template: PackUnitTemplate
+	open val template: PackUnitTemplate,
+	open val belSelector: BelSelector<PackUnit>
 )
 
 /** The type of a pack unit. */

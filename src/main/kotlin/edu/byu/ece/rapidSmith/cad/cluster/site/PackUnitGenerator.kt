@@ -3,6 +3,8 @@ package edu.byu.ece.rapidSmith.cad.cluster.site
 import com.caucho.hessian.io.Hessian2Input
 import com.caucho.hessian.io.Hessian2Output
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnitList
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations.BelCostMap
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations.ShortestRouteBelSelector
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.getWireConnections
 import java.awt.Point
@@ -30,14 +32,14 @@ abstract class SitePackUnitGenerator {
 	private var numBuiltTiles = 0
 	private val tileMapsMap = HashMap<SiteType, Map<Site, Map<Tile, Tile>>>()
 
-	fun buildFromDevice(device: Device): PackUnitList<SitePackUnit> {
-		val templates = makePackUnits(device)
+	fun buildFromDevice(device: Device, belCosts: BelCostMap): PackUnitList<SitePackUnit> {
+		val templates = makePackUnits(device, belCosts)
 		val drivers = buildDrivesGeneralFabric(device, SWITCH_MATRIX_TILES)
 		val drivens = buildDrivenByGeneralFabric(device, SWITCH_MATRIX_TILES)
 		return PackUnitList(VERSION, device.partName, templates, drivers, drivens)
 	}
 
-	private fun makePackUnits(device: Device): ArrayList<SitePackUnit> {
+	private fun makePackUnits(device: Device, belCosts: BelCostMap): ArrayList<SitePackUnit> {
 		val packUnits = ArrayList<SitePackUnit>()
 		val instancesMap = HashMap<SiteType, List<Site>>()
 
@@ -77,7 +79,9 @@ abstract class SitePackUnitGenerator {
 
 			findDirectSourcesAndSinks(builder, tileMaps, siteTemplates, actualInstance)
 			val template = builder.build()
-			packUnits += SitePackUnit(SitePackUnitType(type), template)
+			val belSelector = ShortestRouteBelSelector(template, belCosts)
+			val sitePackUnit = SitePackUnit(SitePackUnitType(type), template, belSelector)
+			packUnits += sitePackUnit
 		}
 
 		return packUnits

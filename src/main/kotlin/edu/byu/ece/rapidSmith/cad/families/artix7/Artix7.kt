@@ -144,7 +144,7 @@ private class SitePackerFactory(
 	): PackStrategy<SitePackUnit> {
 		val packUnit = packUnits.first { it.type == SitePackUnitType(SLICEL) }
 		val cellSelector = SharedNetsCellSelector(false)
-		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
+		val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts)
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 			lutFFPairPrepacker,
 			di0LutSourcePrepacker,
@@ -168,7 +168,7 @@ private class SitePackerFactory(
 	): PackStrategy<SitePackUnit> {
 		val packUnit = packUnits.first { it.type == SitePackUnitType(SLICEM) }
 		val cellSelector = SharedNetsCellSelector(false)
-		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
+		val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts)
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 			lutFFPairPrepacker,
 			di0LutSourcePrepacker,
@@ -197,7 +197,7 @@ private class SitePackerFactory(
 	): MultiBelPackStrategy<SitePackUnit> {
 		val packUnit = packUnits.first { it.type == type }
 		val cellSelector = SharedNetsCellSelector(false)
-		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
+		val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts)
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 			ForcedRoutingPrepackerFactory(packUnit, packUnits.pinsDrivingGeneralFabric,
 				packUnits.pinsDrivenByGeneralFabric, Artix7.SWITCHBOX_TILES)
