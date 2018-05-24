@@ -73,7 +73,7 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 		VCC_SOURCES = HashMap()
         GND_SOURCES = HashMap()
 
-        if (device.getAllSitesOfType(SiteTypes.SLICEL) != null) {
+        if (PACKABLE_SITE_TYPES.contains(SiteTypes.SLICEL)) {
             VCC_SOURCES[BelId(SiteTypes.SLICEL, "CEUSEDVCC")] = "1"
             VCC_SOURCES[BelId(SiteTypes.SLICEL, "CYINITVCC")] = "1"
             VCC_SOURCES[BelId(SiteTypes.SLICEL, "A6LUT")] = "O6"
@@ -97,7 +97,7 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
             GND_SOURCES[BelId(SiteTypes.SLICEL, "D5LUT")] = "O5"
         }
 
-        if (device.getAllSitesOfType(SiteTypes.SLICEM) != null) {
+        if (PACKABLE_SITE_TYPES.contains(SiteTypes.SLICEM)) {
             VCC_SOURCES[BelId(SiteTypes.SLICEM, "CEUSEDVCC")] = "1"
             VCC_SOURCES[BelId(SiteTypes.SLICEM, "CYINITVCC")] = "1"
             VCC_SOURCES[BelId(SiteTypes.SLICEM, "A6LUT")] = "O6"
@@ -171,26 +171,26 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
      */
     private fun assignPackableSiteInstances() {
         PACKABLE_SITE_TYPES.forEach {
-            println("Find a valid instance for type " + it.name())
-
             val siteInstances = device.getAllSitesOfType(it)
             assert (siteInstances.size > 0)
 
-            // Avoid using sites near full device boundaries as instances. For instance, using a SLICEM from the top
+            // Avoid using sites near device boundaries as instances. For instance, using a SLICEM from the top
             // row of the FPGA will lead to issues since SLICEMs in the top row do not have a connection to continue
             // the carry chain (unlike other SLICEMs).
             // QUESTION: Are there any other similar boundary cases?
             var instance = siteInstances[0]
 
             for (i in 1 until siteInstances.size) {
-                // TODO: Need a way to be able to know the bottom row (instanceY) given only the parital device.
+                // TODO: Need a way to be able to know the bottom row (instanceY) given only the partial device.
+                // TODO: Change device to have build-in coordinate info (to replace the top and bottom y coordinate methods)
                 // Add true device size information to partial device??
-                if (siteInstances[i].instanceY == 0 || siteInstances[i].instanceY == 155)
+                if (instance.instanceY != device.topYCoordinate && instance.instanceY != device.bottomYCoordinate)
                     break
                 instance = siteInstances[i]
             }
             (INSTANCE_NAMES as HashMap<SiteType, List<String>>)[it] = listOf(instance.name)
         }
+
     }
 
 	companion object {
@@ -248,7 +248,7 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 		}
 
 		private fun forceRebuild(args: Array<String>) =
-			args.size >= 3 && args[2] == "rebuild"
+			args.size >= 2 && args[1] == "rebuild"
 
 	}
 }
