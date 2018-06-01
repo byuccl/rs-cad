@@ -69,10 +69,18 @@ class PlacerDesign<S : ClusterSite>(
 				if (cellPin.isInpin) {
 					val net = cellPin.net
 					// TODO: Is this right? A sink should only be considered routed if the intersite portion routes to it.
-
 					net.addRoutedSink(cellPin)
 				}
 			}
+
+			// TODO: Actually check that partition pins can be routed earlier? Like the other pins?
+		//	for (net in cluster.getExternalNets()) {
+		//		if (net.sinkPins.iterator().hasNext()) {
+		///			val sinkPin = net.sinkPins.iterator().next()
+		//			if (sinkPin.isPartitionPin)
+		//				net.addRoutedSink(sinkPin)
+		//		}
+		//	}
 
 			for ((net, tree) in cluster.routeTreeMap) {
 				for (rt in tree) {

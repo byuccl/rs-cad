@@ -55,45 +55,45 @@ private class LutramPrepacker(
 					val (_, _) = getBaseOffset(ram) ?:
 						return PrepackStatus.INFEASIBLE
 
-					mapOf("SP" to ram.cells.single().locationInCluster!!.name)
+					mapOf("SP" to ram.cells.single().locationInCluster!!.name + "LUT")
 				}
 				"RAM64X1S" -> {
-					mapOf("SP" to ram.cells.single().locationInCluster!!.name)
+					mapOf("SP" to ram.cells.single().locationInCluster!!.name + "LUT")
 				}
 				"RAM128X1S" -> {
 					val (c, _) = getBaseOffset(ram) ?:
 						return PrepackStatus.INFEASIBLE
 
-					mapOf("LOW" to "${c}6", "HIGH" to "${c-1}6")
+					mapOf("LOW" to "${c}6LUT", "HIGH" to "${c-1}6LUT")
 				}
 				"RAM256X1S" -> {
 					// based off of name, place cells
-					mapOf("RAMA" to "A6", "RAMB" to "B6", "RAMC" to "C6", "RAMD" to "D6")
+					mapOf("RAMA" to "A6LUT", "RAMB" to "B6LUT", "RAMC" to "C6LUT", "RAMD" to "D6LUT")
 				}
 				"RAM32X1D" -> {
 					val (c, i) = getBaseOffset(ram) ?:
 						return PrepackStatus.INFEASIBLE
 
 					// check the names to indices map
-					mapOf("SP" to "$c$i", "DP" to "${c-1}$i")
+					mapOf("SP" to "$c${i}LUT", "DP" to "${c-1}${i}LUT")
 				}
 				"RAM64X1D" -> {
 					val (c, _) = getBaseOffset(ram) ?:
 						return PrepackStatus.INFEASIBLE
 
-					mapOf("SP" to "${c}6", "DP" to "${c-1}6")
+					mapOf("SP" to "${c}6LUT", "DP" to "${c-1}6LUT")
 				}
 				"RAM128X1D" -> {
 					// check the names to indices map
-					mapOf("SP.LOW" to "A6", "DP.LOW" to "B6", "SP.HIGH" to "C6", "DP.HIGH" to "D6")
+					mapOf("SP.LOW" to "D6LUT", "SP.HIGH" to "C6LUT", "DP.LOW" to "B6LUT", "DP.HIGH" to "A6LUT", "F7.SP" to "F7BMUX", "F7.DP" to "F7AMUX")
 				}
 				"RAM32M" -> {
-					mapOf("RAMD" to "D6", "RAMC" to "C6", "RAMB" to "B6", "RAMA" to "A6",
-						"RAMD_D1" to "D5", "RAMC_D1" to "C5", "RAMB_D1" to "B5", "RAMA_D1" to "A5")
+					mapOf("RAMD" to "D6LUT", "RAMC" to "C6LUT", "RAMB" to "B6LUT", "RAMA" to "A6LUT",
+						"RAMD_D1" to "D5LUT", "RAMC_D1" to "C5LUT", "RAMB_D1" to "B5LUT", "RAMA_D1" to "A5LUT")
 				}
 				"RAM64M" -> {
-					mapOf("RAMD" to "D6", "RAMC" to "C6", "RAMB" to "B6", "RAMA" to "A6",
-						"RAMD_D1" to "D5", "RAMC_D1" to "C5", "RAMB_D1" to "B5", "RAMA_D1" to "A5")
+					mapOf("RAMD" to "D6LUT", "RAMC" to "C6LUT", "RAMB" to "B6LUT", "RAMA" to "A6LUT",
+						"RAMD_D1" to "D5LUT", "RAMC_D1" to "C5LUT", "RAMB_D1" to "B5LUT", "RAMA_D1" to "A5LUT")
 				}
 
 				else -> error("Unsupported RAM type: ${ram.type}")
@@ -101,7 +101,8 @@ private class LutramPrepacker(
 
 			for (cell in ram.cells) {
 				val ext = cell.name.substringAfterLast("/")
-				val expected = mapping[ext]!! + "LUT"
+				//val expected = mapping[ext]!! + "LUT"
+				val expected = mapping[ext]!!
 				if (cell.locationInCluster == null) {
 					val bel = getBel(cluster, expected)
 					val res = addCellToCluster(cluster, cell, bel)

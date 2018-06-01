@@ -273,7 +273,8 @@ private class BasicPathFinderRouter<T: PackUnit>(
 						continue
 					unrouteNet(net)
 				}
-				println("Route net " + net.name)
+				// TODO: Verbosity print.
+				// println("Route net " + net.name)
 
 				// If the net has a source, add it to the list of contention nets (WHY?)
 				if (net.isSourced) // && !net.sourcePin.isPartitionPin
@@ -339,7 +340,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 			val sinkTrees = HashSet<RouteTreeWithCost>()
 			for (sink in sinks.sinkPinsInCluster) {
-				println("  to sink " + sink.cellPin + " - " + sink.belPins)
+				//println("  to sink " + sink.cellPin + " - " + sink.belPins) //TODO: Verbosity print
 
 				val (status, treeSink, terminal) = routeToSink(
 					sourceTrees, sinkTrees, source, sink, net)
