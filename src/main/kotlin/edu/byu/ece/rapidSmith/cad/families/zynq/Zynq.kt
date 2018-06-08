@@ -523,7 +523,7 @@ private fun finalRoute(
 ) {
 	// Reached the end of clustering, verify it and choose
 	// whether to commit it or roll it back
-	println("Clustering complete. Verify and choose whether to commit or roll back.")
+	//println("Clustering complete. Verify and choose whether to commit or roll back.")
 	val router = routerFactory.get(cluster.type)
 
 	val result = router.route(cluster)

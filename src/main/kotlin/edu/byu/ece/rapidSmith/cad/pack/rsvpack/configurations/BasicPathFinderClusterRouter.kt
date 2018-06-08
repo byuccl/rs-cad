@@ -307,7 +307,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					val wireInfo = wireUsage[wire]!!
 					val occupancy = wireInfo.occupancy
 					if (occupancy > 1) {
-						println("Wire " + wire.name + " has occupancy " + occupancy)
+						//println("Wire " + wire.name + " has occupancy " + occupancy)
 						return false
 					}
 

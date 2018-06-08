@@ -92,11 +92,12 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 		val (moveList, toDisplace) = buildDisplaceMove(
 			selectedMove, state, displacementRequired)
 
-		// perform the move
+		// perform the move(s)
 		val move = PlacerMove(moveList)
 		move.perform(state)
+		// 		for (displacedGroup in toDisplace.filter {placementGroup -> !placementGroup.equals(selectedMove.group)}) {
 		for (displacedGroup in toDisplace) {
-			if (state.getAnchorOfGroup(displacedGroup) != null)
+			if (!displacedGroup.equals(selectedMove.group) && state.getAnchorOfGroup(displacedGroup) != null)
 				throw AssertionError("Displaced group still placed: " + displacedGroup)
 			unplacedGroupQueue += displacedGroup
 		}
