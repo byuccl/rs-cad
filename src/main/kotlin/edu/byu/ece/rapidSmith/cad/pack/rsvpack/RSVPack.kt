@@ -73,8 +73,9 @@ private class _RSVPack<out T: PackUnit>(
 	private val design: CellDesign
 ) {
 	private val clusters = ArrayList<Cluster<T, ClusterSite>>()
+
 	private val unclusteredCells = HashSet<Cell>(
-		(design.nonPortCells.count() * 1.5).toInt())
+		(design.inContextLeafCells.count() * 1.5).toInt())
 
 	fun pack(): List<Cluster<T, *>> {
 		println("Initialize the packer")
@@ -90,12 +91,16 @@ private class _RSVPack<out T: PackUnit>(
 		// Replace Routethroughs with LUTs
 		utils.prepareDesign(design)
 
-		// set the unclustered cells to all cells in the design
-		//unclusteredCells += design.leafCells.toList()
+		// set the unclustered cells to all cells in the design or to non-port cells in the design for RMs.
+		// We don't want to pack OOC ports if the design is an RM design.
 
 		// Set the unclustered cells to all non-port cells in the design
 		// We don't want to pack port cells if doing partial reconfig - they are outside the reconfig. partition!
-		unclusteredCells += design.nonPortCells.toList()
+
+		if (design.implementationMode.equals(ImplementationMode.RECONFIG_MODULE))
+			unclusteredCells += design.leafCells.filter{t -> !t.isPort}.toList()
+		else
+			unclusteredCells += design.leafCells.toList()
 		// remove the shared global gnd and vcc cells
 		unclusteredCells -= design.vccNet.sourcePin.cell
 		unclusteredCells -= design.gndNet.sourcePin.cell
@@ -151,9 +156,6 @@ private class _RSVPack<out T: PackUnit>(
 
 			// choose a seed cell for a new cluster
 			val seedCell = seedSelector.nextSeed()
-
-		//	if (seedCell.name.equals("Xo_reg[3]_i_1__1"))
-		//		println("debug here")
 
 			var best: Cluster<T, *>? = null
 			for (type in clusterFactory.supportedPackUnits) {

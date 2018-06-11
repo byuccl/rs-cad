@@ -23,8 +23,5 @@ fun getRealNets(d: PlacerDesign<*>): Set<CellNet> {
 
 // TODO make fan out filter parameterizable
 private fun isFilteredNet(n: CellNet): Boolean {
-//	if (n.name.equals("clk"))
-//		println("clk")
-
 	return n.isClkNet || n.isStaticNet || n.fanOut == 0 || n.fanOut > 500
 }

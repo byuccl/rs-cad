@@ -36,7 +36,7 @@ class RamMaker(cellLibrary: CellLibrary) {
 		cellLibrary.get("RAMS64E"))
 
 	fun make(design: CellDesign): Map<Cell, Ram> {
-		return design.nonPortCells.asSequence()
+		return design.inContextLeafCells.asSequence()
 			.filter { it.libCell in leafRamCellTypes } // look at just RAM cells
 			.map { it to it.parent } // RAM cell to parent cell
 			.filter { it.second != null } // Not all RAM cells are part of a larger RAM

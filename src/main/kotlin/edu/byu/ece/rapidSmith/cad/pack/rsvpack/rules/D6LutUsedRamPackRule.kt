@@ -112,9 +112,6 @@ class D6LutUsedRamPackRuleFactory(
 
 		private val filteredNets = HashMap<CellNet, Boolean>()
 		private fun isFilteredNet(net: CellNet): Boolean {
-		//	if (net.name.equals("clk"))
-			//	println("clk")
-
 			return filteredNets.computeIfAbsent(net) {
 				net.isClkNet || net.isStaticNet ||
 					net.pins.size > 100

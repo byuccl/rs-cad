@@ -18,7 +18,7 @@ class BasicPathFinderRouterFactory<in T: PackUnit>(
 	private val packUnits: PackUnitList<T>,
 	private val preferredPin: PinMapper,
 	private val wireInvalidator: (PackUnit, Source, Terminal) -> Set<Wire>,
-	private val maxIterations: Int = 10 //10
+	private val maxIterations: Int = 10
 ) : ClusterRouterFactory<T> {
 	private val routers = HashMap<T, ClusterRouter<T>>()
 
@@ -41,8 +41,6 @@ private class BasicPathFinderRouter<T: PackUnit>(
 	private val maxIterations: Int
 ) : ClusterRouter<T> {
 	private val clusterOutputs: Terminal
-	//private val netBelPinMap: Map<CellNet, List<BelPin>>()
-
 
 	init {
 		clusterOutputs = Terminal.Builder()
@@ -224,7 +222,6 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 			// A partition pin has no corresponding cell or bel
 			if (sinkPin.isPartitionPin) {
-				// println("part pin...init outside cluster sink?")
 				sinks.mustRouteExternal = true
 				return
 			}
@@ -441,6 +438,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 						//}
 					//}
 				}
+
 
 				sourceTrees.add(rt)
 			}

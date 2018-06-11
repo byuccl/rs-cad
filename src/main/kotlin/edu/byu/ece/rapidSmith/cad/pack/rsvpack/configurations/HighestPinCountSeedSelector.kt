@@ -6,7 +6,9 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.SeedSelector
 import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
+import edu.byu.ece.rapidSmith.design.subsite.ImplementationMode
 import java.util.*
+import java.util.stream.Stream
 
 /**
  *
@@ -22,7 +24,14 @@ class HighestPinCountSeedSelector : SeedSelector<PackUnit> {
 
 		// Add all the cells to the appropriate location
 		maxCellInputs = 0
-		for (cell in design.nonPortCells) {
+
+		val cells: Stream<Cell>
+		if (design.implementationMode.equals(ImplementationMode.RECONFIG_MODULE))
+			cells = design.leafCells
+		else
+			cells = design.inContextLeafCells
+
+		for (cell in cells) {
 			val numInputPins = getNumExternalPinsOfCell(cell)
 			unclusteredCellsMap!!.computeIfAbsent(numInputPins) { ArrayList() }.add(cell)
 			if (numInputPins > maxCellInputs)

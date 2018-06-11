@@ -69,8 +69,22 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 		IGNORED_TILE_TYPES += TileTypes.DSP_R
 
 		// TODO: Automatically find valid instances to use?
-		INSTANCE_NAMES = HashMap()
-        assignPackableSiteInstances()
+        INSTANCE_NAMES = HashMap()
+        INSTANCE_NAMES[SiteTypes.SLICEM] = listOf("SLICE_X32Y125")
+        INSTANCE_NAMES[SiteTypes.SLICEL] = listOf("SLICE_X33Y125")
+        INSTANCE_NAMES[SiteTypes.RAMB18E1] = listOf("RAMB18_X2Y58")
+        INSTANCE_NAMES[SiteTypes.RAMB36E1] = listOf("RAMB36_X2Y29")
+        INSTANCE_NAMES[SiteTypes.FIFO18E1] = listOf("RAMB18_X2Y58")
+        INSTANCE_NAMES[SiteTypes.FIFO36E1] = listOf("RAMB36_X2Y29")
+        INSTANCE_NAMES[SiteTypes.RAMBFIFO36E1] = listOf("RAMB36_X2Y29")
+        INSTANCE_NAMES[SiteTypes.DSP48E1] = listOf("DSP48_X2Y58")
+        INSTANCE_NAMES[SiteTypes.STARTUP] = listOf("STARTUP_X0Y0")
+        INSTANCE_NAMES[SiteTypes.IOB33] = listOf("C20")
+        INSTANCE_NAMES[SiteTypes.IOB33M] = listOf("C20")
+        INSTANCE_NAMES[SiteTypes.IOB33S] = listOf("B20")
+        INSTANCE_NAMES[SiteTypes.BUFG] = listOf("BUFGCTRL_X0Y16")
+		//INSTANCE_NAMES = HashMap()
+        //assignPackableSiteInstances()
 
 		VCC_SOURCES = HashMap()
         GND_SOURCES = HashMap()
@@ -172,6 +186,7 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
      * Assign valid site instances for every packable site type. The templates are based off of these instances.
      */
     private fun assignPackableSiteInstances() {
+        /*
         PACKABLE_SITE_TYPES.forEach {
             val siteInstances = device.getAllSitesOfType(it)
             assert (siteInstances.size > 0)
@@ -187,12 +202,13 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
                 // TODO: Change device to have build-in coordinate info (to replace the top and bottom y coordinate methods)
                 // Add true device size information to partial device??
                 // QUESTION: Does this matter? Or just the full device coordinates?
-                if (instance.instanceY != device.topYCoordinate && instance.instanceY != device.bottomYCoordinate)
+                if (instance.instanceY != device.getTopYCoordinate(it) && instance.instanceY != device.getBottomYCoordinate(it))
                     break
                 instance = siteInstances[i]
             }
             (INSTANCE_NAMES as HashMap<SiteType, List<String>>)[it] = listOf(instance.name)
         }
+        */
 
     }
 

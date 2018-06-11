@@ -56,9 +56,6 @@ private class SRLChainsPrepacker(val mc31Sinks: Map<Cell, Cell>) : Prepacker<Pac
 			if (sourceBel.name != "A6LUT") {
 				val sink = mc31Sinks[sourceCell]!!
 				val sinkBelName = "${sourceBel.name[0] - 1}6LUT"
-
-
-
 				val sinkBel = sourceBel.site.getBel(sinkBelName)
 
 				val sinkCluster = sink.getCluster<Cluster<*, *>>()

@@ -87,9 +87,10 @@ private class LutramPrepacker(
 					// check the names to indices map
 					mapOf("SP.LOW" to "D6LUT", "SP.HIGH" to "C6LUT", "DP.LOW" to "B6LUT", "DP.HIGH" to "A6LUT", "F7.SP" to "F7BMUX", "F7.DP" to "F7AMUX")
 				}
+			// TODO: Is this different for some devices?? This was the reverse before and it worked fine. Maybe it is because I changed the pack units?
 				"RAM32M" -> {
-					mapOf("RAMD" to "D6LUT", "RAMC" to "C6LUT", "RAMB" to "B6LUT", "RAMA" to "A6LUT",
-						"RAMD_D1" to "D5LUT", "RAMC_D1" to "C5LUT", "RAMB_D1" to "B5LUT", "RAMA_D1" to "A5LUT")
+					mapOf("RAMD" to "D5LUT", "RAMC" to "C5LUT", "RAMB" to "B5LUT", "RAMA" to "A5LUT",
+							"RAMD_D1" to "D6LUT", "RAMC_D1" to "C6LUT", "RAMB_D1" to "B6LUT", "RAMA_D1" to "A6LUT")
 				}
 				"RAM64M" -> {
 					mapOf("RAMD" to "D6LUT", "RAMC" to "C6LUT", "RAMB" to "B6LUT", "RAMA" to "A6LUT",
