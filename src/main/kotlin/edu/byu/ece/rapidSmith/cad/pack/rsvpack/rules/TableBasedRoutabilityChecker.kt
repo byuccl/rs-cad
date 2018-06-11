@@ -868,8 +868,6 @@ class TableBasedRoutabilityChecker(
 
 		if (!conditionals.isEmpty()) {
 			val (status, conditionalSinks) = checkConditionalSinks(entry, conditionals)
-			if (status.equals(Routability.INFEASIBLE))
-				println("wow  ")
 			return IsRowValidForSourceReturn(status, conditionalSinks)
 		}
 		return IsRowValidForSourceReturn(Routability.VALID, null)
