@@ -68,6 +68,7 @@ class PlacerDesign<S : ClusterSite>(
 				cellPin.mapToBelPins(belPin)
 				if (cellPin.isInpin) {
 					val net = cellPin.net
+
 					// TODO: Is this right? A sink should only be considered routed if the intersite portion routes to it.
 					net.addRoutedSink(cellPin)
 				}
@@ -83,6 +84,10 @@ class PlacerDesign<S : ClusterSite>(
 		//	}
 
 			for ((net, tree) in cluster.routeTreeMap) {
+
+				if (net.isVCCNet)
+					println("STATIC")
+
 				for (rt in tree) {
 					if (rt.wire.source != null) {
 						net.sourceRouteTree = rt

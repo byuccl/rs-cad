@@ -345,9 +345,12 @@ private fun addPseudoPins(cluster: Cluster<*, *>) {
 			when (cell.type) {
 				"LUT6", "RAMS64E", "RAMD64E" -> { /* nothing */ }
 				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> {
-					// TODO: Fix this. This currently connects pseudo pins in many cases which it should not!
-					// val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
-					// vcc.connectToPin(pin)
+					// If the corresponding 5LUT is also used, tie A6 to VCC
+					val bel5Lut = bel.name.substring(0, 0) + "5" + bel.name.substring(2)
+					if (cluster.isBelOccupied(cell.site.getBel(bel5Lut))) {
+						val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
+						vcc.connectToPin(pin)
+					}
 				}
 				"SRLC32E" -> {
 					val pin = cell.attachPseudoPin("pseudoA1", PinDirection.IN)

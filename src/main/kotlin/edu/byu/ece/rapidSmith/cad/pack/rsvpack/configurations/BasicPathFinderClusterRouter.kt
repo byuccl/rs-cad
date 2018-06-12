@@ -1,5 +1,6 @@
 package edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations
 
+import edu.byu.ece.rapidSmith.RSEnvironment
 import edu.byu.ece.rapidSmith.cad.cluster.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
@@ -7,10 +8,10 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterResult
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.PinMapper
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.Routability
 import edu.byu.ece.rapidSmith.design.NetType
-import edu.byu.ece.rapidSmith.design.subsite.CellNet
-import edu.byu.ece.rapidSmith.design.subsite.CellPin
-import edu.byu.ece.rapidSmith.design.subsite.RouteTree
+import edu.byu.ece.rapidSmith.design.subsite.*
 import edu.byu.ece.rapidSmith.device.*
+import edu.byu.ece.rapidSmith.util.getBelPin
+import edu.byu.ece.rapidSmith.util.getConnectedPin
 import edu.byu.ece.rapidSmith.util.getSitePinConnection
 import java.util.*
 
@@ -41,22 +42,50 @@ private class BasicPathFinderRouter<T: PackUnit>(
 	private val maxIterations: Int
 ) : ClusterRouter<T> {
 	private val clusterOutputs: Terminal
+	private val libCells: CellLibrary
 
 	init {
 		clusterOutputs = Terminal.Builder()
 		clusterOutputs.wires += template.outputs
+
+		// TODOO: Replace with parameter
+		libCells = CellLibrary(RSEnvironment.defaultEnv()
+				.getPartFolderPath(template.device.partName)
+				.resolve("cellLibrary.xml"))
 	}
 
 	private val template: PackUnitTemplate
 		get() = packUnit.template
 
+
 	override fun route(cluster: Cluster<T, *>): ClusterRouterResult {
 		val router = Impl(cluster)
 		val result = router.routeCluster(cluster)
-		return if (result == Routability.VALID)
-			ClusterRouterResult(true, router.routeTreeMap, router.belPinMap)
+		if (result == Routability.VALID) {
+
+			// Identify Static Source BELs after path finding has completed
+			for (net in cluster.nets.stream().filter { t: CellNet? -> t!!.isStaticNet }) {
+				val rts = router.routeTreeMap[net]
+
+				for (rt in rts!!) {
+					val sourceWire = rt.wire
+					if (sourceWire.name.contains("O6") || sourceWire.name.contains("O5")) {
+						val bel = sourceWire.getBelPin(false)!!.bel
+						// If the LUT6 or LUT5 BEL is not occupied, this is an implied static source BEL.
+						if (!cluster.isBelOccupied(bel)) {
+							// Add a psuedo cell for the static source BEL so we can attach pseudo pins if needed.
+							val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"), net.design, true)
+							cell.initPackingInfo()
+							cluster.addCell(bel, cell)
+						}
+					}
+				}
+			}
+
+			return ClusterRouterResult(true, router.routeTreeMap, router.belPinMap)
+		}
 		else
-			ClusterRouterResult(false)
+			return ClusterRouterResult(false)
 	}
 
 	private inner class Impl(val cluster: Cluster<T, *>) {
@@ -266,6 +295,8 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			for ((net, pins) in routePins) {
 				if (net in routeTreeMap) {
 					val rts = routeTreeMap[net]!!
+
+					// If a net's routes have no contention, don't rip-up and re-route them.
 					if (noContentionForRoute(rts))
 						continue
 					unrouteNet(net)
@@ -330,11 +361,8 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			val (source, sinks) = routePins
 			val pinMap = HashMap<CellPin, List<BelPin>>()
 			belPinMap[net] = pinMap
-
 			val sourceTrees = buildSources(source, pinMap, net.isStaticNet)
-
 			var foundExternalPath = false
-
 			val sinkTrees = HashSet<RouteTreeWithCost>()
 			for (sink in sinks.sinkPinsInCluster) {
 				//println("  to sink " + sink.cellPin + " - " + sink.belPins) //TODO: Verbosity print
@@ -351,12 +379,6 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					else
 						v + (terminal as BelPin) }
 				updateSourceTrees(treeSink)
-
-				// If VCC/GND and the source is O5 or O6 of a LUT, then we are planning on using
-				// this BEL as a static source. Add it to a list for the router to be aware of.
-				//if (net.isStaticNet && (treeSink?.connectedBelPin?.name.equals("O5") || treeSink?.connectedBelPin?.name.equals("O6"))) {
-					
-				//}
 			}
 			// take care of sink pins out of the cluster
 			if (sinks.mustRouteExternal) {
@@ -579,6 +601,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			pruneSourceTrees(sourceTrees, sinkTrees, false)
 			invalidatedWires.clear()
 
+
 			return ret
 		}
 
@@ -669,7 +692,7 @@ abstract class Source {
  * The different sinks in a net that must be reached.
  */
 private abstract class Sinks {
-	// Must this net leave to the general routing fabric (ie are there one or more
+	// Must this net leave to the general routing fabric? (ie are there one or more
 	// sinks on this net that are placed outside by accessible only via the general
 	// routing fabric.
 	abstract val mustRouteExternal: Boolean

@@ -199,30 +199,38 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		}
 	}
 
+	fun addRouteTree(net : CellNet, trees : ArrayList<RouteTree>) {
+		//routeTreeMap.getOrPut(net) {trees}
+		externalNets?.put(net, trees)
+		//routeTreeMap.put(net, trees)
+
+	}
+
 	/**
 	 * Map of nets in the cluster to route trees for the nets.
 	 */
-	var routeTreeMap: Map<CellNet, List<RouteTree>>
+	var routeTreeMap: MutableMap<CellNet, MutableList<RouteTree>>
 		get() {
 			checkNotNull(externalNets)
 			checkNotNull(internalNets)
 
-			val routeTreeMap = HashMap<CellNet, List<RouteTree>>()
+			val routeTreeMap = mutableMapOf<CellNet, MutableList<RouteTree>>()
 			routeTreeMap.putAll(internalNets!!)
 			routeTreeMap.putAll(externalNets!!)
 			return routeTreeMap
 		}
 		set(newMap) {
 			for (e in internalNets!!.entries) {
-				val newRouteTree = newMap[e.key] ?: emptyList()
+				val newRouteTree = newMap[e.key] ?: mutableListOf()
 				e.setValue(ArrayList(newRouteTree))
 			}
 
 			for (e in externalNets!!.entries) {
-				val newRouteTree = newMap[e.key] ?: emptyList()
+				val newRouteTree = newMap[e.key] ?: mutableListOf()
 				e.setValue(ArrayList(newRouteTree))
 			}
 		}
+
 
 	// Pin mapping methods
 	/**
