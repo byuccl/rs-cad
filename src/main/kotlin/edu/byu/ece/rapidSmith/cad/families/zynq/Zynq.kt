@@ -1,6 +1,5 @@
 package edu.byu.ece.rapidSmith.cad.families.zynq
 
-import edu.byu.ece.partialreconfig.router.RouteTreeWithCost
 import edu.byu.ece.rapidSmith.RSEnvironment
 import edu.byu.ece.rapidSmith.cad.cluster.*
 import edu.byu.ece.rapidSmith.cad.cluster.site.*
@@ -21,7 +20,6 @@ import edu.byu.ece.rapidSmith.device.families.Zynq
 import edu.byu.ece.rapidSmith.device.families.Zynq.SiteTypes.*
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
 import edu.byu.ece.rapidSmith.util.Time
-import edu.byu.ece.rapidSmith.util.getBelPin
 import edu.byu.ece.rapidSmith.util.getWireConnections
 import java.nio.file.Path
 import java.nio.file.Paths

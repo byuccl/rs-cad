@@ -11,7 +11,6 @@ import edu.byu.ece.rapidSmith.design.NetType
 import edu.byu.ece.rapidSmith.design.subsite.*
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.getBelPin
-import edu.byu.ece.rapidSmith.util.getConnectedPin
 import edu.byu.ece.rapidSmith.util.getSitePinConnection
 import java.util.*
 
@@ -748,13 +747,3 @@ private class StatusNetsPair(
 	var status: RouteStatus? = null,
 	var contentionNets: MutableList<CellNet> = ArrayList()
 )
-
-private class RouteTreeWithCost(wire: Wire) : RouteTree(wire), Comparable<RouteTreeWithCost> {
-	var cost = 0
-
-	override fun newInstance(wire: Wire): RouteTree = RouteTreeWithCost(wire)
-
-	override fun compareTo(other: RouteTreeWithCost): Int {
-		return Integer.compare(cost, other.cost)
-	}
-}
