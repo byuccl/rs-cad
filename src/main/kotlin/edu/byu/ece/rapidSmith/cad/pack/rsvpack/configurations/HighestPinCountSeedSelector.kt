@@ -26,10 +26,10 @@ class HighestPinCountSeedSelector : SeedSelector<PackUnit> {
 		maxCellInputs = 0
 
 		val cells: Stream<Cell>
-		if (design.implementationMode.equals(ImplementationMode.RECONFIG_MODULE))
-			cells = design.leafCells
-		else
-			cells = design.inContextLeafCells
+		//if (design.implementationMode.equals(ImplementationMode.RECONFIG_MODULE))
+		//	cells = design.leafCells
+		//else
+		cells = design.inContextLeafCells
 
 		for (cell in cells) {
 			val numInputPins = getNumExternalPinsOfCell(cell)

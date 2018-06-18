@@ -61,7 +61,8 @@ class ZynqSiteCadFlow {
 			val device = rscp.device
 			design.unrouteDesignFull()
 			design.unplaceDesign()
-			design.leafCells.forEach { it.removePseudoPins() }
+			//design.leafCells.forEach { it.removePseudoPins() }
+			design.inContextLeafCells.forEach { it.removePseudoPins() }
 			design.nets.forEach { it.disconnectFromPins(
 					it.pins.filter { it.isPseudoPin }) }
 			val ciPins = design.gndNet.sinkPins
@@ -327,7 +328,8 @@ private class ZynqSitePackerFactory(
 			val carry4 = cellLibrary["CARRY4"]
 			val muxf7 = cellLibrary["MUXF7"]
 
-			val cells = ArrayList(design.leafCells.toList())
+			//val cells = ArrayList(design.leafCells.toList())
+			val cells = ArrayList(design.inContextLeafCells.toList())
 			for (cell in cells) {
 				when (cell.libCell) {
 					carry4 -> {

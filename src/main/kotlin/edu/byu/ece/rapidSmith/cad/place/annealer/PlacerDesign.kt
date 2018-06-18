@@ -84,10 +84,6 @@ class PlacerDesign<S : ClusterSite>(
 		//	}
 
 			for ((net, tree) in cluster.routeTreeMap) {
-
-				if (net.isVCCNet)
-					println("STATIC")
-
 				for (rt in tree) {
 					if (rt.wire.source != null) {
 						net.sourceRouteTree = rt

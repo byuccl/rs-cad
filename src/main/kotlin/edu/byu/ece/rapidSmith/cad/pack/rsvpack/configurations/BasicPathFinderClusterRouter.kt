@@ -74,8 +74,9 @@ private class BasicPathFinderRouter<T: PackUnit>(
 						// If the LUT6 or LUT5 BEL is not occupied, this is an implied static source BEL.
 						if (!cluster.isBelOccupied(bel)) {
 							// Add a psuedo cell for the static source BEL so we can attach pseudo pins if needed.
-							val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"), net.design, true)
+							val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"), true)
 							cell.initPackingInfo()
+							net.design.addCell(cell)
 							cluster.addCell(bel, cell)
 						}
 					}
