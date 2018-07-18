@@ -40,22 +40,27 @@ class SiteCadFlow {
 		println(design)
 	}
 
+	fun prepDesign(design: CellDesign, device: Device) {
+		design.unrouteDesignFull()
+		design.unplaceDesign()
+		design.leafCells.forEach { it.removePseudoPins() }
+		design.nets.forEach { it.disconnectFromPins(
+				it.pins.filter { it.isPseudoPin }) }
+		val ciPins = design.gndNet.sinkPins
+				.filter { it.cell.libCell.name == "CARRY4" }
+				.filter { it.name == "CI"  }
+		design.gndNet.disconnectFromPins(ciPins)
+	}
+
 	companion object {
 		@JvmStatic
 		fun main(args: Array<String>) {
 			val rscp = VivadoInterface.loadRSCP(args[0])
 			val design = rscp.design
 			val device = rscp.device
-			design.unrouteDesignFull()
-			design.unplaceDesign()
-			design.leafCells.forEach { it.removePseudoPins() }
-			design.nets.forEach { it.disconnectFromPins(
-				it.pins.filter { it.isPseudoPin }) }
-			val ciPins = design.gndNet.sinkPins
-				.filter { it.cell.libCell.name == "CARRY4" }
-				.filter { it.name == "CI"  }
-			design.gndNet.disconnectFromPins(ciPins)
-			SiteCadFlow().run(design, device)
+			val flow = SiteCadFlow()
+			flow.prepDesign(design, device)
+			flow.run(design, device)
 			val rscpFile = Paths.get(args[0]).toFile()
 			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
 			println("writing to $tcp")
