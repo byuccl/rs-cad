@@ -38,17 +38,22 @@ class ZynqSiteCadFlow {
 	fun run(design: CellDesign, device: Device) {
 
 		val runtime = Time()
-		println("Get the site packer")
+		//println("Get the site packer")
 		runtime.setStartTime()
 		val packer = getZynqSitePacker(device)
-		runtime.setEndTime()
-		println("  Took " + runtime.totalTime + " seconds")
+		//runtime.setEndTime()
+		//println("  Took " + runtime.totalTime + " seconds")
 
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
+        runtime.setEndTime()
+        println("Took " + runtime.totalTime + " seconds to pack")
+        runtime.setStartTime()
 		val placer = getZynqGroupSAPlacer()
 		placer.place(device, design, clusters)
-		println(design)
+        runtime.setEndTime()
+        println("Took " + runtime.totalTime + " seconds to place")
+        //println(design)
 	}
 
 	companion object {
@@ -82,28 +87,28 @@ fun getZynqSitePacker(
 		belCostsPath: Path = partsFolder.resolve("belCosts.xml"),
 		packUnitsPath: Path = partsFolder.resolve(device.partName + "_packunits_site.rpu")
 ): RSVPack<SitePackUnit> {
-	val runtime = Time()
-	println("Load pack units from file")
-	runtime.setStartTime()
+	//val runtime = Time()
+	//println("Load pack units from file")
+	//runtime.setStartTime()
 	val packUnits = loadPackUnits<SitePackUnit>(packUnitsPath)
-	runtime.setEndTime()
-	println("  Took " + runtime.totalTime + " seconds")
-	runtime.setStartTime()
-	println("Load Bel Costs from file")
+	//runtime.setEndTime()
+	//println("  Took " + runtime.totalTime + " seconds")
+	//runtime.setStartTime()
+	//println("Load Bel Costs from file")
 	val belCosts = loadBelCostsFromFile(belCostsPath)
-	runtime.setEndTime()
-	println("  Took " + runtime.totalTime + " seconds")
-	println("Load cell library from file")
-	runtime.setStartTime()
+	//runtime.setEndTime()
+	//println("  Took " + runtime.totalTime + " seconds")
+	//println("Load cell library from file")
+	//runtime.setStartTime()
 	val cellLibrary = CellLibrary(cellLibraryPath)
-	runtime.setEndTime()
-	println("  Took " + runtime.totalTime + " seconds")
+	//runtime.setEndTime()
+	//println("  Took " + runtime.totalTime + " seconds")
 
-	println("Create the site packer w/ the factory")
-	runtime.setStartTime()
+	//println("Create the site packer w/ the factory")
+	//runtime.setStartTime()
 	val packer = ZynqSitePackerFactory(device, packUnits, belCosts, cellLibrary).make()
-	runtime.setEndTime()
-	println("  Took " + runtime.totalTime + " seconds")
+	//runtime.setEndTime()
+	//println("  Took " + runtime.totalTime + " seconds")
 	return packer
 }
 
@@ -145,7 +150,7 @@ private class ZynqSitePackerFactory(
 
 	fun make(): RSVPack<SitePackUnit> {
 		val runtime = Time()
-		runtime.setStartTime()
+//		runtime.setStartTime()
 		val packStrategies: Map<PackUnitType, PackStrategy<SitePackUnit>> = packUnits.map {
 			val type = it.type
 			val siteType = it.siteType
@@ -160,8 +165,8 @@ private class ZynqSitePackerFactory(
 
 			type to strategy
 		}.toMap()
-		runtime.setEndTime()
-		println("PackStrategies: " + runtime.totalTime + " seconds")
+//		runtime.setEndTime()
+//		println("PackStrategies: " + runtime.totalTime + " seconds")
 
 		val clusterFactory = SiteClusterFactory(
 				packUnits, device, sharedTypes, compatibleTypes)
@@ -177,13 +182,13 @@ private class ZynqSitePackerFactory(
 	private fun makeSliceLStrategy(
 			packUnits: PackUnitList<*>, belCosts: BelCostMap
 	): PackStrategy<SitePackUnit> {
-		val runtime = Time()
+		//val runtime = Time()
 		val packUnit = packUnits.first { it.type == SitePackUnitType(SLICEL) }
 		val cellSelector = SharedNetsCellSelector(false)
 
 		//val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts) // this seems to take some time..
 		val belSelector = packUnit.belSelector
-		runtime.setStartTime()
+		//runtime.setStartTime()
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 				lutFFPairPrepacker,
 				di0LutSourcePrepacker,
@@ -191,27 +196,27 @@ private class ZynqSitePackerFactory(
 						packUnit, packUnits.pinsDrivingGeneralFabric,
 						packUnits.pinsDrivenByGeneralFabric, Zynq.SWITCHBOX_TILES)
 		)
-		runtime.setEndTime()
-		println("Prepackers: " + runtime.totalTime + " seconds")
-		runtime.setStartTime()
+		//runtime.setEndTime()
+		//println("Prepackers: " + runtime.totalTime + " seconds")
+		//runtime.setStartTime()
 		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, ::slicePinMapper)
-		runtime.setEndTime()
-		println("TableBasedRoutabilityCheckerFactory: " + runtime.totalTime + " seconds")
+		//runtime.setEndTime()
+		//println("TableBasedRoutabilityCheckerFactory: " + runtime.totalTime + " seconds")
 
-		runtime.setStartTime()
+		//runtime.setStartTime()
 		val packRules = listOf(
 				mixing5And6LutPackRuleFactory,
 				reserveFFForSourcePackRuleFactory,
 				carryChainLookAheadRuleFactory,
 				RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
 		)
-		runtime.setEndTime()
-		println("packRules: " + runtime.totalTime + " seconds")
+		//runtime.setEndTime()
+		//println("packRules: " + runtime.totalTime + " seconds")
 
-		runtime.setStartTime()
+		//runtime.setStartTime()
 		val multiBelPackStrategy = MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
-		runtime.setEndTime()
-		println("multiBelPackStrategy: " + runtime.totalTime + " seconds")
+		//runtime.setEndTime()
+		//println("multiBelPackStrategy: " + runtime.totalTime + " seconds")
 
 		return multiBelPackStrategy
 	}
@@ -596,7 +601,7 @@ private fun finalRoute(
 	}
 	belPinMap.forEach(cluster::setPinMapping)
 
-	println("Final route completed: " + cluster.name)
+	//println("Final route completed: " + cluster.name)
 }
 
 private fun removeTileWires(routeTrees: Collection<ArrayList<RouteTree>>) {

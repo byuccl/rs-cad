@@ -136,7 +136,7 @@ class DefaultCoolingSchedule<S: ClusterSite>(
 		// placed, it looks at a different group.
 
 		stepsPerTemp = (Math.pow(groups.size.toDouble(), 1.33) * qualityMultiplier).toInt()
-		println("Max Range Limit = $MAX_RANGE_LIMIT steps per temp=$stepsPerTemp")
+//		println("Max Range Limit = $MAX_RANGE_LIMIT steps per temp=$stepsPerTemp")
 
 		COST_THRESHOLD = .05 * currCost / numRealNets
 		this.design = design
@@ -153,12 +153,12 @@ class DefaultCoolingSchedule<S: ClusterSite>(
 			numTemperaturesBelowCostThreshold++
 			if (numTemperaturesBelowCostThreshold >= MAX_TEMPERATURES_BELOW_COST_THRESHOLD) {
 				keepGoing = false
-				if (!usePercentMode)
-					println("Did not meet threshold of $COST_THRESHOLD for " +
-						"$numTemperaturesBelowCostThreshold consecutive temperatures")
-				else
-					println("The delta cost percent fell below -$percentageThreshold% for " +
-						"$numTemperaturesBelowCostThreshold consecutive times.")
+//				if (!usePercentMode)
+//					println("Did not meet threshold of $COST_THRESHOLD for " +
+//						"$numTemperaturesBelowCostThreshold consecutive temperatures")
+//				else
+//					println("The delta cost percent fell below -$percentageThreshold% for " +
+//						"$numTemperaturesBelowCostThreshold consecutive times.")
 			}
 		} else {
 			numTemperaturesBelowCostThreshold = 0
@@ -168,11 +168,11 @@ class DefaultCoolingSchedule<S: ClusterSite>(
 		val fractionOfMovesAccepted = numTempMovesAccepted.toDouble() / numTempMoves.toDouble()
 		temperature = findNewTemperature(fractionOfMovesAccepted, temperature)
 
-		val diffPercent = String.format("%3.3f", tempDiffCost / currentCost * 100)
-		println("\tNew cost=$currentCost delta cost: $tempDiffCost ($diffPercent%)")
+//		val diffPercent = String.format("%3.3f", tempDiffCost / currentCost * 100)
+//		println("\tNew cost=$currentCost delta cost: $tempDiffCost ($diffPercent%)")
 		rangeLimit = findNewRangeLimit(fractionOfMovesAccepted, rangeLimit, MAX_RANGE_LIMIT)
 
-		println("\tRange Limit: " + rangeLimit)
+//		println("\tRange Limit: " + rangeLimit)
 
 		//work harder in more productive parts of the anneal
 		//TODO: make this vary directly with alpha? We want alpha=.44, and
@@ -204,9 +204,9 @@ private fun findNewTemperature(fractionOfMovesAccepted: Double, curTemp: Double)
 
 	newTemp = alpha * curTemp
 	val fiftyPercentCostAccept = (-Math.log(.5)) * newTemp
-	println("New temp=" + newTemp + " " + (fractionOfMovesAccepted * 100).toInt() +
-		"% accepted Alpha=" + alpha +
-		" 50% delta cost accept=" + fiftyPercentCostAccept)
+	//println("New temp=" + newTemp + " " + (fractionOfMovesAccepted * 100).toInt() +
+	//	"% accepted Alpha=" + alpha +
+	//	" 50% delta cost accept=" + fiftyPercentCostAccept)
 	return newTemp
 }
 
@@ -222,8 +222,8 @@ private fun findNewTemperature(fractionOfMovesAccepted: Double, curTemp: Double)
 private fun findNewRangeLimit(fractionOfMovesAccepted: Double, oldLimit: Int, maxRangeLimit: Int): Int {
 	val computedLimit = oldLimit * (1 - TARGET_ALPHA + fractionOfMovesAccepted)
 	val newLimit = computedLimit.toInt().coerceIn(1, maxRangeLimit)
-	if (newLimit != oldLimit)
-		println("\tNew range=$computedLimit old range=$oldLimit")
+//	if (newLimit != oldLimit)
+//		println("\tNew range=$computedLimit old range=$oldLimit")
 	return newLimit
 }
 
@@ -261,10 +261,10 @@ private fun <S: ClusterSite> findInitialTemperature(
 	val temperature = stdDev / 15
 
 	// Print debug messages regarding the computation of the initial temperature
-	println("Initial temperature = " + temperature + " computed from " + allMoveDeltaCosts.size + " moves.")
-	println("\tAvg delta cost= " + calcMean(allMoveDeltaCosts) + " std=" + stdDev)
-	println("\tAvg move cost=" + calcMean(allMoveCosts) + " std dev=" + calcStdDev(allMoveCosts) +
-		" temp would be " + 20 * calcStdDev(allMoveCosts))
+//	println("Initial temperature = " + temperature + " computed from " + allMoveDeltaCosts.size + " moves.")
+//	println("\tAvg delta cost= " + calcMean(allMoveDeltaCosts) + " std=" + stdDev)
+//	println("\tAvg move cost=" + calcMean(allMoveCosts) + " std dev=" + calcStdDev(allMoveCosts) +
+//		" temp would be " + 20 * calcStdDev(allMoveCosts))
 	return temperature
 }
 

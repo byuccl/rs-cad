@@ -28,7 +28,7 @@ class RSVPack<out T: PackUnit>(
 ) : Packer<T> {
 	override fun pack(design: CellDesign): List<Cluster<T, *>> {
 		// creates a new packer instance and packs the design.
-		println("Create a new packer instance")
+//		println("Create a new packer instance")
 		val packer = _RSVPack(clusterFactory, clusterCostCalculator,
 			seedSelector, packStrategies, utils, design)
 		@Suppress("UNCHECKED_CAST")
@@ -78,7 +78,7 @@ private class _RSVPack<out T: PackUnit>(
 		(design.inContextLeafCells.count() * 1.5).toInt())
 
 	fun pack(): List<Cluster<T, *>> {
-		println("Initialize the packer")
+//		println("Initialize the packer")
 		init()
 		packNetlist()
 		cleanupClusters(clusters)
@@ -147,12 +147,12 @@ private class _RSVPack<out T: PackUnit>(
 
 	private fun packNetlist() {
 		var remainingCells = unclusteredCells.size
-		println("Cells remaining to pack " + remainingCells)
+//		println("Cells remaining to pack " + remainingCells)
 
 		// do until all cells have been packed
 		while (!unclusteredCells.isEmpty()) {
-			if (unclusteredCells.size % 1000 > remainingCells % 1000)
-				println("Cells remaining to pack " + unclusteredCells.size)
+//			if (unclusteredCells.size % 1000 > remainingCells % 1000)
+//				println("Cells remaining to pack " + unclusteredCells.size)
 			remainingCells = unclusteredCells.size
 
 			// choose a seed cell for a new cluster

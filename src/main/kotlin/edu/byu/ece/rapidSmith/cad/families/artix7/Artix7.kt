@@ -18,9 +18,12 @@ import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.device.families.Artix7
 import edu.byu.ece.rapidSmith.device.families.Artix7.SiteTypes.*
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
+import edu.byu.ece.rapidSmith.util.Time
+import edu.byu.ece.rapidSmith.util.getWireConnections
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
+import kotlin.collections.HashMap
 import kotlin.streams.toList
 
 private val family = Artix7.FAMILY_TYPE
@@ -32,12 +35,22 @@ class SiteCadFlow {
 //	var placer: RouteR? = null
 
 	fun run(design: CellDesign, device: Device) {
-		println("Get the site packer")
+		val runtime = Time()
+		//println("Get the site packer")
+		runtime.setStartTime()
 		val packer = getSitePacker(device)
+		//runtime.setEndTime()
+		//println("  Took " + runtime.totalTime + " seconds")
+
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
+		runtime.setEndTime()
+		println("Took " + runtime.totalTime + " seconds to pack")
+		runtime.setStartTime()	
 		val placer = getGroupSAPlacer()
 		placer.place(device, design, clusters)
+		runtime.setEndTime()
+		println("Took " + runtime.totalTime + " seconds to place")
 		println(design)
 	}
 
@@ -49,7 +62,8 @@ class SiteCadFlow {
 			val device = rscp.device
 			design.unrouteDesignFull()
 			design.unplaceDesign()
-			design.leafCells.forEach { it.removePseudoPins() }
+			//design.leafCells.forEach { it.removePseudoPins() }
+			design.inContextLeafCells.forEach { it.removePseudoPins() }
 			design.nets.forEach { it.disconnectFromPins(
 				it.pins.filter { it.isPseudoPin }) }
 			val ciPins = design.gndNet.sinkPins
@@ -69,7 +83,7 @@ fun getSitePacker(
         device: Device,
         cellLibraryPath: Path = partsFolder.resolve("cellLibrary.xml"),
         belCostsPath: Path = partsFolder.resolve("belCosts.xml"),
-        packUnitsPath: Path = partsFolder.resolve("packunits-site.rpu")
+		packUnitsPath: Path = partsFolder.resolve(device.partName + "_packunits_site.rpu")
 ): RSVPack<SitePackUnit> {
 	val packUnits = loadPackUnits<SitePackUnit>(packUnitsPath)
 	val belCosts = loadBelCostsFromFile(belCostsPath)
@@ -272,7 +286,8 @@ private class SitePackerFactory(
 			val carry4 = cellLibrary["CARRY4"]
 			val muxf7 = cellLibrary["MUXF7"]
 
-			val cells = ArrayList(design.leafCells.toList())
+			//val cells = ArrayList(design.leafCells.toList())
+			val cells = ArrayList(design.inContextLeafCells.toList())
 			for (cell in cells) {
 				when (cell.libCell) {
 					carry4 -> {
@@ -332,6 +347,48 @@ private class SitePackerFactory(
 				addPseudoPins(cluster)
 				cluster.constructNets()
 				finalRoute(routerFactory, cluster)
+				addFracLutPseudoPins(cluster)
+			}
+		}
+	}
+}
+
+fun addFracLutPseudoPins(cluster: Cluster<*, *>) {
+	for (cell in cluster.cells) {
+		val vcc = cell.design.vccNet
+		val bel = cluster.getCellPlacement(cell)
+		if (bel!!.name.matches(Regex("[A-D]6LUT"))) {
+			when (cell.type) {
+				"LUT6", "RAMS64E", "RAMD64E" -> { /* nothing */ }
+				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> {
+					// If the corresponding 5LUT is also used, tie A6 to VCC
+					// TODO: Replace this by instead using a map w/ A,B,C,D that is updated in this loop?
+					val bel5Lut = bel.name[0] + "5" + bel.name.substring(2)
+					if (cluster.isBelOccupied(bel.site.getBel(bel5Lut))) {
+						//cluster.setPinMapping()
+						val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
+						val belPin = bel.getBelPin("A6")
+						// Assume that vcc can be routed to this pin.
+						cluster.setPinMapping(pin, listOf(belPin))
+						vcc.connectToPin(pin)
+
+						// Add a route tree for this pin to the cluster's route tree map.
+						val reverseConns = belPin.wire.reverseWireConnections
+						assert (reverseConns.size == 1)
+						val sitePinWire = reverseConns.iterator().next().sinkWire
+						val rt = RouteTreeWithCost(sitePinWire)
+						rt.connect<RouteTreeWithCost>(sitePinWire.getWireConnections(true).iterator().next())
+
+						if (cluster.routeTreeMap[vcc] == null) {
+							val list = ArrayList<RouteTree>()
+							list.add(rt)
+							cluster.addRouteTree(vcc, list)
+						}
+						else {
+							cluster.routeTreeMap[vcc]!!.add(rt)
+						}
+					}
+				}
 			}
 		}
 	}
@@ -346,11 +403,13 @@ private fun addPseudoPins(cluster: Cluster<*, *>) {
 				"LUT6", "RAMS64E", "RAMD64E" -> { /* nothing */ }
 				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> {
 					// If the corresponding 5LUT is also used, tie A6 to VCC
-					val bel5Lut = bel.name.substring(0, 0) + "5" + bel.name.substring(2)
-					if (cluster.isBelOccupied(cell.site.getBel(bel5Lut))) {
-						val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
-						vcc.connectToPin(pin)
-					}
+					// TODO: Is this necessary/helpful so we can check that VCC can be routed to any A6 pin on a LUT?
+					// If so, this unfortunately doesn't work in the case of static source BELs
+				//	val bel5Lut = bel.name[0] + "5" + bel.name.substring(2)
+				//	if (cluster.isBelOccupied(bel.site.getBel(bel5Lut))) {
+						//val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
+						//vcc.connectToPin(pin)
+				//	}
 				}
 				"SRLC32E" -> {
 					val pin = cell.attachPseudoPin("pseudoA1", PinDirection.IN)
@@ -564,13 +623,10 @@ private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
 }
 
 private fun mapLutPin(pin: CellPin, bel: Bel): List<BelPin> {
-	// TODO: Sometimes a bad Bel Pin is chosen. For example, a different net may need to use A6LUT.A5, while this net
-	// uses A5LUT.A5. Sometimes, this function lets this happen.
-	if (bel.belPins.count().toInt() == 6)
-		return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
-
-
-	return listOf(bel.getBelPin("A${pin.name.last() - '0' + 2}")!!)
+	//if (bel.belPins.count().toInt() == 6) // if a LUT 5 BEL
+//		return listOf(bel.getBelPin("A${pin.name.last() - '0' + 2}")!!)
+// LUT cell input pins are named I0, I1, ..., I4, I5.
+	return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
 }
 
 private fun mapRamsPin(pin: CellPin, bel: Bel): List<BelPin> {

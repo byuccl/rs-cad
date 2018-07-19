@@ -68,7 +68,6 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 		IGNORED_TILE_TYPES += TileTypes.CLBLM_R
 		IGNORED_TILE_TYPES += TileTypes.DSP_R
 
-		// TODO: Automatically find valid instances to use?
 		INSTANCE_NAMES = HashMap()
         assignPackableSiteInstances()
 
