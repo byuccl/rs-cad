@@ -17,11 +17,14 @@ import edu.byu.ece.rapidSmith.design.subsite.*
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.device.families.Artix7
 import edu.byu.ece.rapidSmith.device.families.Artix7.SiteTypes.*
+import edu.byu.ece.rapidSmith.interfaces.vivado.RSVInterface
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
 import kotlin.streams.toList
+
+
 
 private val family = Artix7.FAMILY_TYPE
 private val partsFolder = RSEnvironment.defaultEnv().getPartFolderPath(family)
@@ -30,6 +33,14 @@ class SiteCadFlow {
 //	var packer: Packer<SitePackUnit> = getSitePacker()
 //	var placer: Placer<SiteClusterSite>? = null
 //	var placer: RouteR? = null
+
+	fun runPacker(design: CellDesign, device: Device): MutableList<SiteCluster> {
+		val packer = getSitePacker(device)
+		@Suppress("UNCHECKED_CAST")
+		val clusters = packer.pack(design) as MutableList<SiteCluster>
+		println(design)
+		return clusters
+	}
 
 	fun run(design: CellDesign, device: Device) {
 		val packer = getSitePacker(device)
@@ -55,12 +66,28 @@ class SiteCadFlow {
 				.filter { it.cell.libCell.name == "CARRY4" }
 				.filter { it.name == "CI"  }
 			design.gndNet.disconnectFromPins(ciPins)
-			SiteCadFlow().run(design, device)
+			val clusters = SiteCadFlow().runPacker(design, device)
+			removeLutPairs(design)
 			val rscpFile = Paths.get(args[0]).toFile()
 			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
 			println("writing to $tcp")
-			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells)
+			RSVInterface.writePackedTCP(tcp.toString(), design, device, rscp.libCells, clusters)
 		}
+	}
+}
+
+/**
+ * Removes HLUTNM, SOFT_HLUTNM, and LUTNM properties from a netlist. Even if the -no_lc option is used with Vivado
+ * synthesis, Vivado may still insert HLUTNM properties on cells. If the packer does not choose these same LUT
+ * pairings, it is important to remove them from the netlist before re-importing the design into Vivado.
+ */
+fun removeLutPairs(design: CellDesign) {
+	val lutCells = design.leafCells.filter { it.isLut }.toList()
+
+	for (lutCell in lutCells) {
+		lutCell.getProperties().remove("LUTNM")
+		lutCell.getProperties().remove("HLUTNM")
+		lutCell.getProperties().remove("SOFT_HLUTNM")
 	}
 }
 
