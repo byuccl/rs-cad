@@ -1,5 +1,6 @@
 package edu.byu.ece.rapidSmith.util
 
+import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -51,6 +52,10 @@ fun main(argv: Array<String>) {
 	Files.newBufferedWriter(results_file).use {
 		it.write("delay : ${-delay}"); it.newLine()
 	}
+
+	var routed_rscp = VivadoInterface.loadRSCP("")
+	gatherStats(routed_rscp.design)
+
 	// TODO read in the exported rscp file
 	// TODO what numbers do I need?
 }
