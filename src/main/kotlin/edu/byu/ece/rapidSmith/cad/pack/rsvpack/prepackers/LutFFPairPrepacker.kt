@@ -47,13 +47,17 @@ class Artix7LutFFPrepackerFactory(
 		f78LibCells[cellLibrary.get("MUXF7")] = "O"
 
 		lutramLibCells = HashMap()
-		lutramLibCells[cellLibrary["SRLC16E"]] = "Q"
-		lutramLibCells[cellLibrary["SRLC32E"]] = "Q"
-		lutramLibCells[cellLibrary["SRL16E"]] = "Q"
-		lutramLibCells[cellLibrary["RAMD32"]] = "O"
+
+		// Right now, don't worry about SRLs because Yosys won't make them.
+		// Do the same for non-supported LUTRAMs.
+
+		//lutramLibCells[cellLibrary["SRLC16E"]] = "Q"
+		//lutramLibCells[cellLibrary["SRLC32E"]] = "Q"
+		//lutramLibCells[cellLibrary["SRL16E"]] = "Q"
+		//lutramLibCells[cellLibrary["RAMD32"]] = "O"
 		lutramLibCells[cellLibrary["RAMD64E"]] = "O"
-		lutramLibCells[cellLibrary["RAMS32"]] = "O"
-		lutramLibCells[cellLibrary["RAMS64E"]] = "O"
+		//lutramLibCells[cellLibrary["RAMS32"]] = "O"
+		//lutramLibCells[cellLibrary["RAMS64E"]] = "O"
 	}
 
 	override fun init(design: CellDesign) {

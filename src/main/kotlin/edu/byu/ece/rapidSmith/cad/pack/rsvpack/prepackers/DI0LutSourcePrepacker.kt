@@ -73,27 +73,6 @@ class DI0LutSourcePrepacker(
 		return status
 	}
 
-//	fun checkLutSources(
-//		cluster: Cluster<*, *>, changedCells: MutableMap<Cell, Bel>
-//	): PrepackStatus {
-//		val cellsToCheck = changedCells.keys
-//			.filter { it in lutToC4Map }
-//			.put { lutToC4Map[it]!! to it.locationInCluster }
-//
-//		var status = PrepackStatus.UNCHANGED
-//		for ((carryCell, value) in cellsToCheck) {
-//			if (!carryCell.isInCluster()) {
-//				val ccBel = getC4Bel(value)
-//				val packStatus = addCellToCluster(cluster, carryCell, ccBel)
-//				if (packStatus == PackStatus.INFEASIBLE)
-//					return PrepackStatus.INFEASIBLE
-//				changedCells[carryCell] = ccBel
-//				status = PrepackStatus.CHANGED
-//			}
-//		}
-//
-//		return status
-//	}
 }
 
 private fun requiresExternalCYInitPin(carry4Cell: Cell): Boolean {

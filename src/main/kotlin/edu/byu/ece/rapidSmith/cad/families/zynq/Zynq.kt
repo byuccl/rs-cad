@@ -31,10 +31,6 @@ private val family = Zynq.FAMILY_TYPE
 private val partsFolder = RSEnvironment.defaultEnv().getPartFolderPath(family)
 
 class ZynqSiteCadFlow {
-//	var packer: Packer<SitePackUnit> = getSitePacker()
-//	var placer: Placer<SiteClusterSite>? = null
-//	var placer: RouteR? = null
-
 	fun run(design: CellDesign, device: Device) {
 
 		val runtime = Time()
@@ -136,7 +132,6 @@ private class ZynqSitePackerFactory(
 	private val di0LutSourcePrepacker = DI0LutSourcePrepackerFactory(cellLibrary)
 	private val lutFFPairPrepacker = Artix7LutFFPrepackerFactory(cellLibrary)
 	private val lutramsPrepacker = LutramPrepackerFactory(ramMaker)
-
 	private val mixing5And6LutPackRuleFactory = Mixing5And6LutsRuleFactory()
 	private val d6LutUsedRamPackRuleFactory = D6LutUsedRamPackRuleFactory(ramMaker)
 	private val ramFullyPackedPackRuleFactory = RamFullyPackedPackRuleFactory(ramMaker)
@@ -232,7 +227,7 @@ private class ZynqSitePackerFactory(
 				lutFFPairPrepacker,
 				di0LutSourcePrepacker,
 				lutramsPrepacker,
-				SRLChainsPrepackerFactory(),
+				//SRLChainsPrepackerFactory(), // Not supported by Yosys
 				ForcedRoutingPrepackerFactory(packUnit,
 						packUnits.pinsDrivingGeneralFabric,
 						packUnits.pinsDrivenByGeneralFabric, Zynq.SWITCHBOX_TILES)
@@ -284,6 +279,7 @@ private class ZynqSitePackerFactory(
 			val cellLibrary: CellLibrary,
 			val packUnits: PackUnitList<SitePackUnit>
 	) : PackingUtils<SitePackUnit>() {
+		// commented out cell types aren't supported by Yosys
 		val lutCells = setOf(
 				cellLibrary["LUT1"],
 				cellLibrary["LUT2"],
@@ -291,13 +287,13 @@ private class ZynqSitePackerFactory(
 				cellLibrary["LUT4"],
 				cellLibrary["LUT5"],
 				cellLibrary["LUT6"],
-				cellLibrary["RAMS32"],
-				cellLibrary["RAMD32"],
-				cellLibrary["RAMS64E"],
-				cellLibrary["RAMD64E"],
-				cellLibrary["SRL16E"],
-				cellLibrary["SRLC16E"],
-				cellLibrary["SRLC32E"]
+			//	cellLibrary["RAMS32"],
+			//	cellLibrary["RAMD32"],
+			//	cellLibrary["RAMS64E"],
+				cellLibrary["RAMD64E"]
+			//	cellLibrary["SRL16E"],
+			//	cellLibrary["SRLC16E"],
+			//	cellLibrary["SRLC32E"]
 		)
 
 		val routerFactory = object : ClusterRouterFactory<SitePackUnit> {

@@ -83,6 +83,7 @@ private class LutramPrepacker(
 
 					mapOf("SP" to "${c}6LUT", "DP" to "${c-1}6LUT")
 				}
+				// NOTE: Supported by Yosys.
 				"RAM128X1D" -> {
 					// check the names to indices map
 					mapOf("SP.LOW" to "D6LUT", "SP.HIGH" to "C6LUT", "DP.LOW" to "B6LUT", "DP.HIGH" to "A6LUT", "F7.SP" to "F7BMUX", "F7.DP" to "F7AMUX")
@@ -188,6 +189,7 @@ private class LutramPrepacker(
 				}
 				Pair(ch[0]!!, index[0]!! - '0')
 			}
+			// NOTE: Supported by Yosys
 			"RAM64X1D" -> {
 				val ch = arrayOfNulls<Char>(1)
 				for (cell in ram.cells) {
