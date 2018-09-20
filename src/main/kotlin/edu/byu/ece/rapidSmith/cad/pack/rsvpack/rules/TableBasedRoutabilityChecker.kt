@@ -702,6 +702,8 @@ class TableBasedRoutabilityChecker(
 			claimedSource = entry.sourceClusterPin
 			if (entry.sourceClusterPin in source.sourceWires)
 				status = Routability.VALID
+			else if (source.vcc)  // This is a bit hackish, but the CASCADEIN on the BRAMs seems to drive VCC
+				status = Routability.VALID
 		} else {
 			error("No source specified")
 		}
