@@ -4,17 +4,23 @@ import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellNet
 import edu.byu.ece.rapidSmith.device.Tile
-import edu.byu.ece.rapidSmith.device.families.Artix7
 import edu.byu.ece.rapidSmith.device.families.FamilyInfos
+import java.io.PrintWriter
+import java.io.Writer
 import java.lang.Math.abs
 
 
+val CellDesign.logicCells: Sequence<Cell>
+	get() = this.cells.asSequence().filter { !it.isGndSource && !it.isVccSource}
 
-fun gatherStats(design: CellDesign) {
-	println("num sites: ${design.cells.map { it.site }.distinct()}")
-	println("num sites: ${design.cells.map { it.site.tile }.distinct()}")
-	println("total wire length: ${computeWireLength(design)}")
-	println("les per slice: ${computeLEsPerSlice(design).joinToString(separator = " ")}")
+fun gatherStats(design: CellDesign, resultsFile: Writer) {
+	val pw = PrintWriter(resultsFile, true)
+	design.cells.forEach { assert(!it.isMacro) }
+	pw.println("num sites: ${design.logicCells.map { it.site }.distinct().count()}")
+	pw.println("num sites: ${design.logicCells.map { it.site.tile }.distinct().count()}")
+	pw.println("total wire length: ${computeWireLength(design)}")
+	pw.println("les per slice: ${computeLEsPerSlice(design).joinToString(separator = " ")}")
+	pw.flush()
 }
 
 fun computeWireLength(design: CellDesign): Int {
@@ -34,7 +40,9 @@ fun computeWireLength(design: CellDesign): Int {
 		for (trees in net.intersiteRouteTreeList) {
 			for (tree in trees) {
 				for (c in tree) {
-					wireLength += manhattanDistance(c.sourceTree.wire.tile, c.wire.tile)
+					if (c.sourceTree != null) {
+						wireLength += manhattanDistance(c.sourceTree.wire.tile, c.wire.tile)
+					}
 				}
 			}
 		}
@@ -44,10 +52,10 @@ fun computeWireLength(design: CellDesign): Int {
 
 fun computeLEsPerSlice(design: CellDesign): IntArray {
 	val SLICE_TYPES = FamilyInfos.get(design.family).sliceSites()
-	val perSite = design.cells.groupBy { it.site }.filterKeys { it.type in SLICE_TYPES }
+	val perSite = design.logicCells.groupBy { it.site }.filterKeys { it.type in SLICE_TYPES }
 	val array = IntArray(4)
 	for ((_, v) in perSite) {
-		array[v.map { it.le }.distinct().filterNotNull().size] += 1
+		array[v.map { it.le }.distinct().filterNotNull().size-1] += 1
 	}
 	return array
 }
@@ -58,6 +66,6 @@ val Cell.le: Char?
 		val mo = belNames.matchEntire(this.bel.name)
 		return when {
 			mo == null -> null
-			else -> mo.groupValues[1][1]
+			else -> mo.groupValues[1][0]
 		}
 	}

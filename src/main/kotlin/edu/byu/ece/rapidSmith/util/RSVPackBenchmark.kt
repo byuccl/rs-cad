@@ -40,11 +40,17 @@ fun main(argv: Array<String>) {
 
 	val timing_report = Paths.get("$benchname.twr")
 	VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells)
-	VivadoProject.from_tcp(benchname, tcp).use {
+	var startTime: Long = -1
+	var routeTime: Long = -1
+	val final = VivadoProject.from_tcp(benchname, tcp).use {
 		println(it.addConstraintsFiles(new_xdc).joinToString(System.lineSeparator()) { it })
+		println(it.console.runCommand("place_design"))
+		startTime = System.currentTimeMillis()
 		println(it.route().joinToString(System.lineSeparator()) { it })
+		routeTime = System.currentTimeMillis()
 		println(it.timing_report(timing_report).joinToString(System.lineSeparator()) { it })
 		println(it.export_rscp().joinToString(System.lineSeparator()) { it })
+		it.exported_rscp
 	}
 
 	var delay: Float = Files.newBufferedReader(timing_report).useLines {
@@ -59,9 +65,17 @@ fun main(argv: Array<String>) {
 		delay!!
 	}
 
+	var routed_rscp = VivadoInterface.loadRSCP(final.toString())
 	Files.newBufferedWriter(results_file).use {
+		it.write("packer load time: ${flow.packTime!!}"); it.newLine()
+		it.write("pack time: ${flow.packTime!!}"); it.newLine()
+		it.write("place time: ${flow.placeTime!!}"); it.newLine()
+		it.write("route time: ${routeTime - startTime}"); it.newLine()
 		it.write("delay : ${-delay}"); it.newLine()
+		gatherStats(routed_rscp.design, it)
 	}
+
+
 	// TODO read in the exported rscp file
 	// TODO what numbers do I need?
 }

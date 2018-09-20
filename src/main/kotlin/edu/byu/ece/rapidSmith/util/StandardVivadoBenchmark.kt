@@ -12,7 +12,6 @@ fun main(argv: Array<String>) {
 	var benchname = benchmarkPath.fileName.toFile().nameWithoutExtension
 	var benchdir = benchmarkPath.parent
 	println("building $benchname $benchmarkPath")
-	System.out.flush()
 
 	val orig_xdc = benchdir.resolve("$benchname.xdc")
 	val new_xdc = Paths.get("$benchname-timing.xdc")
@@ -27,14 +26,21 @@ fun main(argv: Array<String>) {
 		}
 	}
 
+	var startTime: Long = -1
+	var placeTime: Long = -1
+	var routeTime: Long = -1
 	val timing_report = Paths.get("$benchname.twr")
-	VivadoProject.from_dcp(benchname, benchmarkPath).use {
+	val final = VivadoProject.from_dcp(benchname, benchmarkPath).use {
 		// TODO set the strategy?
 		println(it.addConstraintsFiles(new_xdc).joinToString(System.lineSeparator()) { it })
+		startTime = System.currentTimeMillis()
 		println(it.place().joinToString(System.lineSeparator()) { it })
+		placeTime = System.currentTimeMillis()
 		println(it.route().joinToString(System.lineSeparator()) { it })
+		routeTime = System.currentTimeMillis()
 		println(it.timing_report(timing_report).joinToString(System.lineSeparator()) { it })
 		println(it.export_rscp().joinToString(System.lineSeparator()) { it })
+		it.exported_rscp
 	}
 
 	var delay: Float = Files.newBufferedReader(timing_report).useLines {
@@ -49,15 +55,13 @@ fun main(argv: Array<String>) {
 		delay!!
 	}
 
+	var routed_rscp = VivadoInterface.loadRSCP(final.toString())
 	Files.newBufferedWriter(results_file).use {
+		it.write("place time : ${placeTime - startTime}"); it.newLine()
+		it.write("route time : ${routeTime - placeTime}"); it.newLine()
 		it.write("delay : ${-delay}"); it.newLine()
+		gatherStats(routed_rscp.design, it)
 	}
-
-	var routed_rscp = VivadoInterface.loadRSCP("")
-	gatherStats(routed_rscp.design)
-
-	// TODO read in the exported rscp file
-	// TODO what numbers do I need?
 }
 
 
