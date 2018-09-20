@@ -17,55 +17,59 @@ import kotlin.collections.plusAssign
  *
  */
 class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterSite>() {
-	private val singleClusterCache = HashMap<PackUnit, List<List<SiteClusterSite>>>()
-	private val sliceLGroupsCache = HashMap<Int, List<List<SiteClusterSite>>>()
-	private val sliceMGroupsCache = HashMap<Int, List<List<SiteClusterSite>>>()
-	private var ioGroupsCache: List<List<SiteClusterSite>>? = null
+	private val singleClusterCache = HashMap<PackUnit, SiteGroupPlacementRegion>()
+	private val sliceLGroupsCache = HashMap<Int, SiteGroupPlacementRegion>()
+	private val sliceMGroupsCache = HashMap<Int, SiteGroupPlacementRegion>()
+	private var ioGroupsCache: SiteGroupPlacementRegion? = null
 
 	override fun make(
 		group: PlacementGroup<SiteClusterSite>,
 		device: PlacerDevice<SiteClusterSite>
 	): SiteGroupPlacementRegion {
-		if (group is MultipleClusterPlacementGroup<*>) {
+		return if (group is MultipleClusterPlacementGroup<*>) {
 			val type = group.type as SitePackUnit
-			val locations = when(type.siteType) { // TODO support IOB33S and IOB33M?
+			when(type.siteType) { // TODO support IOB33S and IOB33M?
 				Artix7.SiteTypes.IOB33 -> {
-					var locs = ioGroupsCache
-					if (locs == null) {
-						locs = device.grid.sites
+					var region = ioGroupsCache
+					if (region == null) {
+						val locs = device.grid.sites.asSequence()
 							.filter { it.isCompatibleWith(type) }
 							.mapNotNull { getIOPair(device.grid as SiteClusterGrid, it) }
-						ioGroupsCache = locs
+							.toList()
+						region = SiteGroupPlacementRegion(locs)
+						ioGroupsCache = region
 					}
-					locs
+					region
 				}
 				Artix7.SiteTypes.SLICEL -> {
-					sliceLGroupsCache.computeIfAbsent(group.size) {
-						device.grid.sites
+					sliceLGroupsCache.computeIfAbsent(group.size) { _ ->
+						val locs = device.grid.sites.asSequence()
 							.filter { it.isCompatibleWith(type) }
 							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
 								Artix7.SiteTypes.SLICEL, it, group.size) }
+							.toList()
+						SiteGroupPlacementRegion(locs)
 					}
 				}
 				Artix7.SiteTypes.SLICEM -> {
-					sliceMGroupsCache.computeIfAbsent(group.size) {
-						device.grid.sites
+					sliceMGroupsCache.computeIfAbsent(group.size) { _ ->
+						val locs = device.grid.sites.asSequence()
 							.filter { it.isCompatibleWith(type) }
 							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
 								Artix7.SiteTypes.SLICEM, it, group.size) }
+							.toList()
+						SiteGroupPlacementRegion(locs)
 					}
 				}
-				else -> error("unsupported groupt type")
+				else -> error("unsupported group type")
 			}
-
-			return SiteGroupPlacementRegion(locations)
 		} else {
-			val locations = singleClusterCache.computeIfAbsent(group.type) { type ->
-				device.grid.sites
+			singleClusterCache.computeIfAbsent(group.type) { type ->
+				val locations = device.grid.sites
 					.filter { it.isCompatibleWith(type) }
 					.map { listOf(it) }
+				SiteGroupPlacementRegion(locations)
 			}
-			return SiteGroupPlacementRegion(locations)
 		}
 	}
 
