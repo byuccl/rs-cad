@@ -72,7 +72,7 @@ class SitePackUnitTemplate(
 			is SiteWire -> {
 				val newSite = newAnchor.site
 				return if (oldWire.siteType in newSite.possibleTypes) {
-					SiteWire(newAnchor.site, oldWire.wireEnum)
+					newAnchor.site.getWire(oldWire.name)
 				} else {
 					val newWireName = oldWire.name.replace(
 						curAnchor.defaultType(), newAnchor.defaultType())
