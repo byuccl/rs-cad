@@ -216,23 +216,12 @@ fun <S: ClusterSite> getValidRandomSite(
 	val oldCoord = center.location
 
 	val region = state.getPlacementRegionForGroup(g)
-	val validSites = ArrayList(region.validSites)
-	while (validSites.isNotEmpty()) {
-		val i = rand.nextInt(validSites.size)
-		val site = validSites[i]
-		val newCoord = site.location
-
-		if (withinRange(oldCoord, newCoord, range))
-			return site
-
-		validSites.removeAt(i)
-	}
-	return null
-}
-
-private fun withinRange(oldP: Coordinates, newP: Coordinates, range: Int): Boolean {
-	return Math.abs(newP.row - oldP.row) <= range &&
-		Math.abs(newP.column - oldP.column) <= range
+	val validSites = region.getValidSitesAround(oldCoord, range)
+	if (validSites.isEmpty())
+		return null
+	val i = rand.nextInt(validSites.size)
+	val site = validSites[i]
+	return site
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
