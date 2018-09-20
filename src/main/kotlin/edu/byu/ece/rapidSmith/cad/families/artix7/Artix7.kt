@@ -21,6 +21,7 @@ import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.device.families.Artix7
 import edu.byu.ece.rapidSmith.device.families.Artix7.SiteTypes.*
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
+import java.lang.IllegalArgumentException
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
@@ -333,7 +334,7 @@ private class SitePackerFactory(
 				if (!net.isStaticNet) {
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
-						val cellName = "${net.name}-${pin.name}-pass"
+						val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
 						val newCell = Cell(cellName, cellLibrary["LUT1"])
 						newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
 						design.addCell(newCell)
@@ -611,11 +612,9 @@ private fun CellPin.findPinMapping(b: Bel): List<BelPin>? {
 		// onto a  bel.
 		var pm = PinMapping.findPinMappingForCell(c, b.fullName)
 		if (pm == null) {
-			println("    No pin mapping found for ${c.type} -> ${b.name}")
-			PinMapping.createPinMappings(c, b.name, b.site.tile.type, b.site.index, true)
-			pm = PinMapping.findPinMappingForCell(c, b.fullName)
+			throw IllegalArgumentException("No pin mapping found for ${c.type} -> ${b.name}")
 		}
-		return pm?.pins?.get(this.name)?.filter { it != "nc" }?.map { b.getBelPin(it)!! }
+		return pm.pins[this.name]?.filter { it != "nc" }?.map { b.getBelPin(it)!! }
 	} else {
 		return this.getPossibleBelPins(b)
 	}
