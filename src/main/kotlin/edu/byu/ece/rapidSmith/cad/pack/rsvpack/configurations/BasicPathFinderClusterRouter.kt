@@ -92,9 +92,15 @@ private class BasicPathFinderRouter<T: PackUnit>(
 		// called immediately after this method, will update the net info with any pins
 		// that now exist in the cluster
 		private fun initNets(cluster: Cluster<*, *>) {
+			val pinsOfNets = cluster.cells.asSequence()
+				.flatMap { it.pins.asSequence() }
+				.filter { it.isInpin }
+				.filter { it.isConnectedToNet }
+				.groupBy { it.net!! }
+
 			cluster.nets.map { net ->
 				val source = initNetSource(net)
-				val sinks = initNetSinks(net)
+				val sinks = initNetSinks(net, pinsOfNets[net] ?: emptyList())
 				net to RoutePins(source, sinks)
 			}.toMap(routePins)
 		}
@@ -141,7 +147,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			if (belPin.drivesGeneralFabric)
 				source.wires += template.inputs
 
-			template.directSourcesOfCluster
+			template.directSourcesOfCluster.asSequence()
 				.filter { endSiteIndex == it.endSiteIndex && it.endPin == belPin.template }
 				.mapTo(source.wires) { it.clusterExit }
 		}
@@ -159,18 +165,27 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 		// Just create an object.  The sinks will be built when a source is added
 		// into the cluster.
-		private fun initNetSinks(net: CellNet): Sinks {
+		private fun initNetSinks(net: CellNet, pinsOfNets: List<CellPin>): Sinks {
 			val sourceInCluster = net.sourcePin.cell.getCluster<Cluster<*, *>>() === cluster
 			// update the sinks with external routes now
 			val netSinks = Sinks.Builder()
-			for (sinkPin in net.sinkPins) {
-				val sinkCluster = sinkPin.cell.getCluster<Cluster<*, *>>()
-				if (sinkCluster === cluster) {
+
+			if (sourceInCluster) {
+				val sourcePin = net.sourcePin
+				net.pins.asSequence().filter { it !== sourcePin }.forEach {
+					val sinkCluster = it.cell.getCluster<Cluster<*, *>>()
+					if (sinkCluster === cluster) {
+						initInsideClusterSink(netSinks, it)
+					} else if (sinkCluster !== cluster && sourceInCluster) {
+						initOutsideClusterSink(netSinks, it)
+					}
+				}
+			} else {
+				for (sinkPin in pinsOfNets) {
 					initInsideClusterSink(netSinks, sinkPin)
-				} else if (sinkCluster !== cluster && sourceInCluster) {
-					initOutsideClusterSink(netSinks, sinkPin)
 				}
 			}
+
 			return netSinks
 		}
 
@@ -182,9 +197,9 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 			val pinMap = Terminal.Builder()
 			pinMap.cellPin = sinkPin
-			belPins?.let {
-				pinMap.belPins.addAll(belPins)
-				pinMap.wires += belPins.map { it.wire!! }
+			belPins?.let { bps ->
+				pinMap.belPins.addAll(bps)
+				pinMap.wires += bps.map { it.wire!! }
 				sinks.sinkPinsInCluster += pinMap
 			}
 		}
@@ -501,7 +516,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					rt.children.forEach { stack.push(it as RouteTreeWithCost) }
 				}
 			}
-			routeTreeMap.put(net, sourceTrees)
+			routeTreeMap[net] = sourceTrees
 		}
 
 		// Convenience method for determining if pins drive/are driven by general fabric
@@ -525,7 +540,7 @@ private fun buildWireCosts(template: PackUnitTemplate): Map<Wire, Int> {
 			lutOutput = bel.getWireOfPin("O5")
 		}
 		if (lutOutput != null)
-			wireCosts.put(lutOutput, 2)
+			wireCosts[lutOutput] = 2
 		sites.add(bel.site)
 	}
 
