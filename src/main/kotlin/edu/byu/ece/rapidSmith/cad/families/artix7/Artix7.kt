@@ -34,12 +34,28 @@ class SiteCadFlow {
 //	var placer: Placer<SiteClusterSite>? = null
 //	var placer: RouteR? = null
 
+	var placeTime: Long? = null
+		private set
+
+	var packTime: Long? = null
+		private set
+
+	var packerLoadTime: Long? = null
+		private set
+
 	fun run(design: CellDesign, device: Device) {
+		val startTime = System.currentTimeMillis()
 		val packer = getSitePacker(device)
+		val packerLoadTime = System.currentTimeMillis()
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
+		val packTime = System.currentTimeMillis()
 		val placer = getGroupSAPlacer()
 		placer.place(design, clusters)
+		val placeTime = System.currentTimeMillis()
+		this.packerLoadTime = packerLoadTime - startTime
+		this.packTime = packTime - startTime
+		this.placeTime = placeTime - packTime
 		println(design)
 	}
 

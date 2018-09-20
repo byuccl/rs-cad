@@ -121,8 +121,8 @@ private class DirectPathClusterRouter<T: PackUnit>(
 		if (sinkTrees.size < belPins.size)
 			return null
 
-		pruneSourceTrees(sourceTrees, sinkTrees.toSet(), false)
-		return sourceTrees.single()
+		pruneSourceTrees(sourceTrees, sinkTrees.toSet(), true)
+		return sourceTrees
 	}
 }
 
