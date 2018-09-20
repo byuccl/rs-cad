@@ -14,7 +14,10 @@ class VivadoProject internal constructor(
 	override fun close() {
 		console.close(true)
 	}
-	
+
+	var exported_rscp: Path? = null
+		private set
+
 	fun addConstraintsFiles(vararg files: Path, options: List<String> = emptyList()): List<String> {
 		val opstring = if (options.isNotEmpty()) options.joinToString(" ", " ") else ""
 		val filesString = files.joinToString(" ", " ") { it.toAbsolutePath().toString() }
@@ -35,9 +38,11 @@ class VivadoProject internal constructor(
 
 	fun export_rscp(file: Path?=null, options: List<String> = emptyList()): MutableList<String> {
 		println("Exporting tcp")
-		val fpath = file ?: Paths.get(name)
+		val fpath = file ?: Paths.get("$name.rscp")
 		val opstring = options.joinToString(" ", " ")
-		return console.runCommand("tincr::write_rscp$opstring $fpath")
+		val output = console.runCommand("tincr::write_rscp$opstring $fpath")
+		exported_rscp = fpath
+		return output
 	}
 
 	fun timing_report(file: Path?=null): MutableList<String> {
