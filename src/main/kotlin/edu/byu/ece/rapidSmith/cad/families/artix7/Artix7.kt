@@ -9,7 +9,10 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.*
-import edu.byu.ece.rapidSmith.cad.place.annealer.*
+import edu.byu.ece.rapidSmith.cad.place.annealer.DefaultCoolingScheduleFactory
+import edu.byu.ece.rapidSmith.cad.place.annealer.EffortLevel
+import edu.byu.ece.rapidSmith.cad.place.annealer.MoveValidator
+import edu.byu.ece.rapidSmith.cad.place.annealer.SimulatedAnnealingPlacer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.BondedIOBPlacerRule
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.MismatchedRAMBValidator
 import edu.byu.ece.rapidSmith.design.NetType
@@ -215,9 +218,11 @@ private class SitePackerFactory(
 		packUnit: PackUnit, packUnits: PackUnitList<*>
 	): PackStrategy<SitePackUnit> {
 		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit) { p, b ->
-			val possibleBelPins = p.getPossibleBelPins(b)
-			check(possibleBelPins.size == 1)
-			listOf(possibleBelPins[0])
+			val mapping = p.findPinMapping(b)!!
+			// TODO mapping can actually have multiple pins
+			// I'm just take the first right now since the routing of the second
+			// should be a given
+			if (mapping.isNotEmpty()) mapping.take(1) else null
 		}
 		val packRules = listOf<PackRuleFactory>(
 			RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
@@ -556,9 +561,8 @@ private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
 		"RAMS32", "RAMS64E" -> mapRamsPin(pin, bel)
 		"CARRY4" -> mapCarryPin(pin, bel)
 		else -> {
-			val possibleBelPins = pin.getPossibleBelPins(bel)!!
-			check(possibleBelPins.size == 1)
-			listOf(possibleBelPins[0])
+			val possibleBelPins = pin.findPinMapping(bel)!!
+			possibleBelPins
 		}
 	}
 }
@@ -579,6 +583,25 @@ private fun mapCarryPin(pin: CellPin, bel: Bel): List<BelPin> {
 			check(possibleBelPins.size == 1)
 			listOf(possibleBelPins[0])
 		}
+	}
+}
+
+private fun CellPin.findPinMapping(b: Bel): List<BelPin>? {
+	val c = this.cell
+	if (c.getType().startsWith("RAMB") || c.getType().startsWith("FIFO")) {
+		// The limitation of following lines of code is that this cell is
+		// already placed and so we know the bel.  In reality, you will
+		// usually be asking the question regarding a potential cell placement
+		// onto a  bel.
+		var pm = PinMapping.findPinMappingForCell(c, b.fullName)
+		if (pm == null) {
+			println("    No pin mapping found for ${c.type} -> ${b.name}")
+			PinMapping.createPinMappings(c, b.name, b.site.tile.type, b.site.index, true)
+			pm = PinMapping.findPinMappingForCell(c, b.fullName)
+		}
+		return pm?.pins?.get(this.name)?.filter { it != "nc" }?.map { b.getBelPin(it)!! }
+	} else {
+		return this.getPossibleBelPins(b)
 	}
 }
 

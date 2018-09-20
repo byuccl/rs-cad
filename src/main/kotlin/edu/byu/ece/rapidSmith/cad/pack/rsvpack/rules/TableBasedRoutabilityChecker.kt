@@ -252,9 +252,11 @@ class TableBasedRoutabilityChecker(
 		val sinkCell = sinkPin.cell
 		val sinkBel = sinkCell.locationInCluster!!
 		val belPins = preferredPin(sinkPin, sinkBel)
-		sinks.sinkPinsInCluster += sinkPin
-		belPins.forEach { _bel2CellPinMap[it] = sinkPin }
-		_cell2BelPinMap[sinkPin] = belPins
+		if (belPins != null) {
+			sinks.sinkPinsInCluster += sinkPin
+			belPins.forEach { _bel2CellPinMap[it] = sinkPin }
+			_cell2BelPinMap[sinkPin] = belPins
+		}
 	}
 
 	private fun CellPin.getPossibleSinks(): List<BelPinTemplate> {
@@ -351,7 +353,7 @@ class TableBasedRoutabilityChecker(
 		val belPins = preferredPin(sinkPin, sinkBel)
 		val endSiteIndex = sinkBel.site.index
 
-		for (belPin in belPins) {
+		for (belPin in (belPins ?: emptyList())) {
 			// find any direct connections to this path
 			var directSink = false
 			val carrySinks = HashSet<Wire>()
@@ -380,8 +382,9 @@ class TableBasedRoutabilityChecker(
 			val pins = cell.pins
 			for (pin in pins) {
 				if (pin.isConnectedToNet) {
-					val belPins = cell2BelPinMap[pin]!!
-					belPins.mapTo(changedGroups) { pinGroups[it]!! }
+					val belPins = cell2BelPinMap[pin]
+					if (belPins != null)
+						belPins.mapTo(changedGroups) { pinGroups[it]!! }
 				} else if (isLUTOpin(pin)) {
 					// special code indicating that changing one output LUT may affect
 					// the validity of the other output on the LUT

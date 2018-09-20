@@ -182,9 +182,11 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 			val pinMap = Terminal.Builder()
 			pinMap.cellPin = sinkPin
-			pinMap.belPins.addAll(belPins)
-			pinMap.wires += belPins.map { it.wire!! }
-			sinks.sinkPinsInCluster += pinMap
+			belPins?.let {
+				pinMap.belPins.addAll(belPins)
+				pinMap.wires += belPins.map { it.wire!! }
+				sinks.sinkPinsInCluster += pinMap
+			}
 		}
 
 		/**
@@ -197,7 +199,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			val belPins = preferredPin(sinkPin, sinkBel)
 			val endSiteIndex = sinkBel.site.index
 
-			for (belPin in belPins) {
+			for (belPin in (belPins ?: emptyList())) {
 				// find any direct connections to this path
 				var directSink = false
 				val carrySinks = HashSet<Wire>()
