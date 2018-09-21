@@ -39,7 +39,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 				Artix7.SiteTypes.IOB33 -> {
 					var region = ioGroupsCache
 					if (region == null) {
-						val locs = device.grid.sites.asSequence()
+						val locs = device.grid.sites
 							.filter { it.isCompatibleWith(type) }
 							.mapNotNull { getIOPair(device.grid as SiteClusterGrid, it) }
 							.toList()
@@ -50,7 +50,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 				}
 				Artix7.SiteTypes.SLICEL -> {
 					sliceLGroupsCache.computeIfAbsent(group.size) { _ ->
-						val locs = device.grid.sites.asSequence()
+						val locs = device.grid.sites
 							.filter { it.isCompatibleWith(type) }
 							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
 								Artix7.SiteTypes.SLICEL, it, group.size) }
@@ -60,7 +60,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 				}
 				Artix7.SiteTypes.SLICEM -> {
 					sliceMGroupsCache.computeIfAbsent(group.size) { _ ->
-						val locs = device.grid.sites.asSequence()
+						val locs = device.grid.sites
 							.filter { it.isCompatibleWith(type) }
 							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
 								Artix7.SiteTypes.SLICEM, it, group.size) }
@@ -75,6 +75,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 				val locations = device.grid.sites
 					.filter { it.isCompatibleWith(type) }
 					.map { listOf(it) }
+					.toList()
 				SiteGroupPlacementRegion(locations)
 			}
 		}

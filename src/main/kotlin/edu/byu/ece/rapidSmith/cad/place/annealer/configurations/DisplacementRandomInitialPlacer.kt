@@ -2,6 +2,8 @@ package edu.byu.ece.rapidSmith.cad.place.annealer.configurations
 
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
 import edu.byu.ece.rapidSmith.cad.place.annealer.*
+import edu.byu.ece.rapidSmith.util.ArrayGrid
+import edu.byu.ece.rapidSmith.util.MutableGrid
 import java.util.*
 
 /**
@@ -62,7 +64,7 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 
 		return if (unplacedGroupQueue.isEmpty()) {
 			// everything is placed
-			println(" Displacement iterations = " + iteration)
+			println(" Displacement iterations = $iteration")
 			true
 		} else {
 			println(" Failed to place after $iteration iterations")
@@ -73,7 +75,7 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 	private fun placeNextGroup(
 		unplacedGroupQueue: PriorityQueue<PlacementGroup<S>>,
 		groupReplacementCountMap: HashMap<PlacementGroup<S>, Int>,
-		state: PlacerState<S>, siteCost: SiteCost
+		state: PlacerState<S>, siteCost: SiteCost<S>
 	) {
 		// Get the seemingly hardest to place group in the list, we'll place this and then
 		// try to place everything else around it.
@@ -96,8 +98,8 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 		val move = PlacerMove(moveList)
 		move.perform(state)
 		for (displacedGroup in toDisplace) {
-			if (!displacedGroup.equals(selectedMove.group) && state.getAnchorOfGroup(displacedGroup) != null)
-				throw AssertionError("Displaced group still placed: " + displacedGroup)
+			if (displacedGroup != selectedMove.group && state.getAnchorOfGroup(displacedGroup) != null)
+				throw AssertionError("Displaced group still placed: $displacedGroup")
 			unplacedGroupQueue += displacedGroup
 		}
 
@@ -111,10 +113,13 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 		g: PlacementGroup<S>, region: GroupPlacementRegion<S>, state: PlacerState<S>
 	): Pair<List<MoveComponent<S>>, Boolean> {
 		// Determine all of the valid placement sites for this group
+		// TODO cache this result?
+		// TODO We're using a move validator that checks the current state of the circuit and prevents moving it
 		val anchorSites = region.validSites
-		val validAnchorSites = anchorSites
+		val validAnchorSites = anchorSites.asSequence()
 			.map { MoveComponent(g, null, it) }
 			.filter { moveValidator.validate(state, it) }
+			.toList()
 
 		// TODO change this to filter overlapping sites
 		// Determine "sites to consider" for placement. First look for all unoccupied sites
@@ -132,7 +137,7 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 
 	private fun calculateMovePriorities(
 		movesToConsider: List<MoveComponent<S>>,
-		state: PlacerState<S>, siteCost: SiteCost
+		state: PlacerState<S>, siteCost: SiteCost<S>
 	): Map<MoveComponent<S>, Double> {
 		// Determine the probabilities of each site considered for placement. This probability
 		//  map is used to influence the displacement placer to chose those that are more likely
@@ -201,20 +206,22 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 	}
 }
 
-// TODO make ClusterSite have an index
-private class SiteCost(state: PlacerState<*>) {
-	private val siteUseMap = HashMap<ClusterSite, Int>()
+private class SiteCost<S: ClusterSite> (state: PlacerState<S>) {
+	private val siteUseMap: MutableGrid<Int>
 
 	init {
-		state.usedSites.associateTo(siteUseMap) { it to 1}
+		siteUseMap = ArrayGrid(state.device.grid.dimensions) {
+			val site = state.device.grid[it]
+			if (site != null && state.isSiteUsed(site)) 1 else 0
+		}
 	}
 
-	fun incrementSiteCost(s: ClusterSite) {
-		siteUseMap[s] = siteUseMap[s]?.plus(1) ?: 1
+	fun incrementSiteCost(s: S) {
+		siteUseMap[s.location] = siteUseMap[s.location] + 1
 	}
 
-	fun getSiteCost(s: ClusterSite): Int {
-		return siteUseMap[s] ?: return 0
+	fun getSiteCost(s: S): Int {
+		return siteUseMap[s.location]
 	}
 }
 
@@ -237,7 +244,7 @@ private class PlacementGroupPlacementComparator<S : ClusterSite>(
 			val possibleAnchorSites = grid.validSites
 			val placementProbability: Double
 			placementProbability = if (possibleAnchorSites.isEmpty()) {
-				println("Warning: no placement sites f or group " + g)
+				println("Warning: no placement sites f or group $g")
 				java.lang.Double.MIN_VALUE
 			} else {
 				(1.0 / possibleAnchorSites.size)
