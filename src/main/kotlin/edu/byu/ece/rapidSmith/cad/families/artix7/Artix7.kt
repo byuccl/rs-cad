@@ -335,13 +335,14 @@ private class SitePackerFactory(
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
 						val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
+						val netName = design.getUniqueNetName("${net.name}-${pin.name}-pass")
 						val newCell = Cell(cellName, cellLibrary["LUT1"])
 						newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
 						design.addCell(newCell)
 						net.disconnectFromPin(pin)
 						net.connectToPin(newCell.getPin("I0"))
 
-						val newNet = CellNet(cellName, NetType.WIRE)
+						val newNet = CellNet(netName, NetType.WIRE)
 						design.addNet(newNet)
 						newNet.connectToPin(pin)
 						newNet.connectToPin(newCell.getPin("O"))
