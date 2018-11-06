@@ -12,8 +12,11 @@ import java.nio.file.Path
  * Class representing a pack unit.
  */
 open class PackUnit(
+	@Transient
 	open val type: PackUnitType,
+	@Transient
 	open val template: PackUnitTemplate,
+	@Transient
 	open val belSelector: BelSelector<PackUnit>
 )
 
@@ -42,6 +45,7 @@ abstract class PackUnitTemplate {
 	abstract val inputs: Set<Wire>
 	/** The device that describes the resources and routing in this pack unit. */
 	abstract val device: Device
+
 }
 
 /** Class containing all of the pack units supported by a device */

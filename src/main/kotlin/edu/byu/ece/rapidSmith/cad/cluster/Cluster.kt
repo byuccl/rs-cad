@@ -6,6 +6,7 @@ import edu.byu.ece.rapidSmith.design.subsite.CellNet
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import edu.byu.ece.rapidSmith.design.subsite.RouteTree
 import edu.byu.ece.rapidSmith.device.*
+import java.io.Serializable
 import java.util.*
 
 /**
@@ -16,7 +17,7 @@ import java.util.*
  */
 abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	val name: String, val type: T, var anchor: Bel
-) {
+): Serializable {
 	// Field getters and setters
 	var cost: Double = 0.toDouble()
 	private var _chain: ClusterChain<*>? = null
@@ -404,7 +405,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
  *
  * @property location the index in the type grid for this site
  */
-abstract class ClusterSite{
+abstract class ClusterSite : Serializable{
 	/** The coordinates of this site */
 	abstract val location: Coordinates
 	/** The tile coordinates of this site */

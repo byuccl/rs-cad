@@ -31,6 +31,17 @@ private val family = Zynq.FAMILY_TYPE
 private val partsFolder = RSEnvironment.defaultEnv().getPartFolderPath(family)
 
 class ZynqSiteCadFlow {
+
+
+	fun pack(design: CellDesign, device: Device): List<Cluster<SitePackUnit, SiteClusterSite>> {
+		val packer = getZynqSitePacker(device)
+
+		@Suppress("UNCHECKED_CAST")
+		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
+
+		return clusters
+	}
+
 	fun run(design: CellDesign, device: Device) {
 
 		val runtime = Time()
