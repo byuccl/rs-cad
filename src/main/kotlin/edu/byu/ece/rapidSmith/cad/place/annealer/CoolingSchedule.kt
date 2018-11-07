@@ -147,7 +147,7 @@ class DefaultCoolingSchedule<S: ClusterSite>(
 		val tempDiffCost = currentCost - oldCost
 		val differencePercentage = tempDiffCost / currentCost * 100
 		val percentThresholdExceeded = differencePercentage <= 0 &&
-				-differencePercentage >= percentageThreshold
+			-differencePercentage >= percentageThreshold
 		val tempThresholdExceeded = tempDiffCost > 0 || -tempDiffCost < COST_THRESHOLD
 		if ((usePercentMode && !percentThresholdExceeded) || (!usePercentMode && tempThresholdExceeded)) {
 			numTemperaturesBelowCostThreshold++

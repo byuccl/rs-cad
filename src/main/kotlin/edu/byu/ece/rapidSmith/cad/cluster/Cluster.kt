@@ -16,8 +16,8 @@ import java.util.*
  * clusters in a packed design.
  */
 abstract class Cluster<out T: PackUnit, S: ClusterSite>(
-	val name: String, val type: T, var anchor: Bel
-): Serializable {
+	val name: String, val type: T, var anchor: Bel, val index: Int
+) : Serializable {
 	// Field getters and setters
 	var cost: Double = 0.toDouble()
 	private var _chain: ClusterChain<*>? = null
@@ -231,7 +231,6 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 				e.setValue(ArrayList(newRouteTree))
 			}
 		}
-
 
 	// Pin mapping methods
 	/**

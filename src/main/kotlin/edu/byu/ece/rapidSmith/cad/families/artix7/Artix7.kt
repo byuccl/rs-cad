@@ -9,7 +9,10 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.*
-import edu.byu.ece.rapidSmith.cad.place.annealer.*
+import edu.byu.ece.rapidSmith.cad.place.annealer.DefaultCoolingScheduleFactory
+import edu.byu.ece.rapidSmith.cad.place.annealer.EffortLevel
+import edu.byu.ece.rapidSmith.cad.place.annealer.MoveValidator
+import edu.byu.ece.rapidSmith.cad.place.annealer.SimulatedAnnealingPlacer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.BondedIOBPlacerRule
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.MismatchedRAMBValidator
 import edu.byu.ece.rapidSmith.design.NetType
@@ -18,6 +21,7 @@ import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.device.families.Artix7
 import edu.byu.ece.rapidSmith.device.families.Artix7.SiteTypes.*
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
+import java.lang.IllegalArgumentException
 import edu.byu.ece.rapidSmith.util.Time
 import edu.byu.ece.rapidSmith.util.getWireConnections
 import java.nio.file.Path
@@ -34,24 +38,41 @@ class SiteCadFlow {
 //	var placer: Placer<SiteClusterSite>? = null
 //	var placer: RouteR? = null
 
-	fun run(design: CellDesign, device: Device) {
-		val runtime = Time()
-		//println("Get the site packer")
-		runtime.setStartTime()
-		val packer = getSitePacker(device)
-		//runtime.setEndTime()
-		//println("  Took " + runtime.totalTime + " seconds")
+	var placeTime: Long? = null
+		private set
 
+	var packTime: Long? = null
+		private set
+
+	var packerLoadTime: Long? = null
+		private set
+
+	fun run(design: CellDesign, device: Device) {
+		val startTime = System.currentTimeMillis()
+		val packer = getSitePacker(device)
+		val packerLoadTime = System.currentTimeMillis()
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
-		runtime.setEndTime()
-		println("Took " + runtime.totalTime + " seconds to pack")
-		runtime.setStartTime()	
+		val packTime = System.currentTimeMillis()
 		val placer = getGroupSAPlacer()
 		placer.place(device, design, clusters)
-		runtime.setEndTime()
-		println("Took " + runtime.totalTime + " seconds to place")
+		val placeTime = System.currentTimeMillis()
+		this.packerLoadTime = packerLoadTime - startTime
+		this.packTime = packTime - startTime
+		this.placeTime = placeTime - packTime
 		println(design)
+	}
+
+	fun prepDesign(design: CellDesign, device: Device) {
+		design.unrouteDesignFull()
+		design.unplaceDesign()
+		design.leafCells.forEach { it.removePseudoPins() }
+		design.nets.forEach { it.disconnectFromPins(
+				it.pins.filter { it.isPseudoPin }) }
+		val ciPins = design.gndNet.sinkPins
+				.filter { it.cell.libCell.name == "CARRY4" }
+				.filter { it.name == "CI"  }
+		design.gndNet.disconnectFromPins(ciPins)
 	}
 
 	companion object {
@@ -60,17 +81,9 @@ class SiteCadFlow {
 			val rscp = VivadoInterface.loadRSCP(args[0])
 			val design = rscp.design
 			val device = rscp.device
-			design.unrouteDesignFull()
-			design.unplaceDesign()
-			//design.leafCells.forEach { it.removePseudoPins() }
-			design.inContextLeafCells.forEach { it.removePseudoPins() }
-			design.nets.forEach { it.disconnectFromPins(
-				it.pins.filter { it.isPseudoPin }) }
-			val ciPins = design.gndNet.sinkPins
-				.filter { it.cell.libCell.name == "CARRY4" }
-				.filter { it.name == "CI"  }
-			design.gndNet.disconnectFromPins(ciPins)
-			SiteCadFlow().run(design, device)
+			val flow = SiteCadFlow()
+			flow.prepDesign(design, device)
+			flow.run(design, device)
 			val rscpFile = Paths.get(args[0]).toFile()
 			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
 			println("writing to $tcp")
@@ -158,7 +171,7 @@ private class SitePackerFactory(
 	): PackStrategy<SitePackUnit> {
 		val packUnit = packUnits.first { it.type == SitePackUnitType(SLICEL) }
 		val cellSelector = SharedNetsCellSelector(false)
-		val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts)
+		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 			lutFFPairPrepacker,
 			di0LutSourcePrepacker,
@@ -182,7 +195,7 @@ private class SitePackerFactory(
 	): PackStrategy<SitePackUnit> {
 		val packUnit = packUnits.first { it.type == SitePackUnitType(SLICEM) }
 		val cellSelector = SharedNetsCellSelector(false)
-		val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts)
+		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 			lutFFPairPrepacker,
 			di0LutSourcePrepacker,
@@ -211,7 +224,7 @@ private class SitePackerFactory(
 	): MultiBelPackStrategy<SitePackUnit> {
 		val packUnit = packUnits.first { it.type == type }
 		val cellSelector = SharedNetsCellSelector(false)
-		val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts)
+		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 			ForcedRoutingPrepackerFactory(packUnit, packUnits.pinsDrivingGeneralFabric,
 				packUnits.pinsDrivenByGeneralFabric, Artix7.SWITCHBOX_TILES)
@@ -225,9 +238,11 @@ private class SitePackerFactory(
 		packUnit: PackUnit, packUnits: PackUnitList<*>
 	): PackStrategy<SitePackUnit> {
 		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit) { p, b ->
-			val possibleBelPins = p.getPossibleBelPins(b)
-			check(possibleBelPins.size == 1)
-			listOf(possibleBelPins[0])
+			val mapping = p.findPinMapping(b)!!
+			// TODO mapping can actually have multiple pins
+			// I'm just take the first right now since the routing of the second
+			// should be a given
+			if (mapping.isNotEmpty()) mapping.take(1) else null
 		}
 		val packRules = listOf<PackRuleFactory>(
 			RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
@@ -323,7 +338,8 @@ private class SitePackerFactory(
 				if (!net.isStaticNet) {
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
-						val cellName = "${net.name}-${pin.cell.name}/${pin.name}-pass"
+						// val cellName = "${net.name}-${pin.cell.name}/${pin.name}-pass"
+                        val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
 						val newCell = Cell(cellName, cellLibrary["LUT1"])
 						newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
 						design.addCell(newCell)
@@ -353,45 +369,46 @@ private class SitePackerFactory(
 	}
 }
 
+
 fun addFracLutPseudoPins(cluster: Cluster<*, *>) {
-	for (cell in cluster.cells) {
-		val vcc = cell.design.vccNet
-		val bel = cluster.getCellPlacement(cell)
-		if (bel!!.name.matches(Regex("[A-D]6LUT"))) {
-			when (cell.type) {
-				"LUT6", "RAMS64E", "RAMD64E" -> { /* nothing */ }
-				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> {
-					// If the corresponding 5LUT is also used, tie A6 to VCC
-					// TODO: Replace this by instead using a map w/ A,B,C,D that is updated in this loop?
-					val bel5Lut = bel.name[0] + "5" + bel.name.substring(2)
-					if (cluster.isBelOccupied(bel.site.getBel(bel5Lut))) {
-						//cluster.setPinMapping()
-						val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
-						val belPin = bel.getBelPin("A6")
-						// Assume that vcc can be routed to this pin.
-						cluster.setPinMapping(pin, listOf(belPin))
-						vcc.connectToPin(pin)
+    for (cell in cluster.cells) {
+        val vcc = cell.design.vccNet
+        val bel = cluster.getCellPlacement(cell)
+        if (bel!!.name.matches(Regex("[A-D]6LUT"))) {
+            when (cell.type) {
+                "LUT6", "RAMS64E", "RAMD64E" -> { /* nothing */ }
+                "LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> {
+                    // If the corresponding 5LUT is also used, tie A6 to VCC
+                    // TODO: Replace this by instead using a map w/ A,B,C,D that is updated in this loop?
+                    val bel5Lut = bel.name[0] + "5" + bel.name.substring(2)
+                    if (cluster.isBelOccupied(bel.site.getBel(bel5Lut))) {
+                        //cluster.setPinMapping()
+                        val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
+                        val belPin = bel.getBelPin("A6")
+                        // Assume that vcc can be routed to this pin.
+                        cluster.setPinMapping(pin, listOf(belPin))
+                        vcc.connectToPin(pin)
 
-						// Add a route tree for this pin to the cluster's route tree map.
-						val reverseConns = belPin.wire.reverseWireConnections
-						assert (reverseConns.size == 1)
-						val sitePinWire = reverseConns.iterator().next().sinkWire
-						val rt = RouteTreeWithCost(sitePinWire)
-						rt.connect<RouteTreeWithCost>(sitePinWire.getWireConnections(true).iterator().next())
+                        // Add a route tree for this pin to the cluster's route tree map.
+                        val reverseConns = belPin.wire.reverseWireConnections
+                        assert (reverseConns.size == 1)
+                        val sitePinWire = reverseConns.iterator().next().sinkWire
+                        val rt = RouteTreeWithCost(sitePinWire)
+                        rt.connect<RouteTreeWithCost>(sitePinWire.getWireConnections(true).iterator().next())
 
-						if (cluster.routeTreeMap[vcc] == null) {
-							val list = ArrayList<RouteTree>()
-							list.add(rt)
-							cluster.addRouteTree(vcc, list)
-						}
-						else {
-							cluster.routeTreeMap[vcc]!!.add(rt)
-						}
-					}
-				}
-			}
-		}
-	}
+                        if (cluster.routeTreeMap[vcc] == null) {
+                            val list = ArrayList<RouteTree>()
+                            list.add(rt)
+                            cluster.addRouteTree(vcc, list)
+                        }
+                        else {
+                            cluster.routeTreeMap[vcc]!!.add(rt)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 private fun addPseudoPins(cluster: Cluster<*, *>) {
@@ -402,14 +419,17 @@ private fun addPseudoPins(cluster: Cluster<*, *>) {
 			when (cell.type) {
 				"LUT6", "RAMS64E", "RAMD64E" -> { /* nothing */ }
 				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> {
-					// If the corresponding 5LUT is also used, tie A6 to VCC
-					// TODO: Is this necessary/helpful so we can check that VCC can be routed to any A6 pin on a LUT?
-					// If so, this unfortunately doesn't work in the case of static source BELs
-				//	val bel5Lut = bel.name[0] + "5" + bel.name.substring(2)
-				//	if (cluster.isBelOccupied(bel.site.getBel(bel5Lut))) {
-						//val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
-						//vcc.connectToPin(pin)
-				//	}
+                    // If the corresponding 5LUT is also used, tie A6 to VCC
+                    // TODO: Is this necessary/helpful so we can check that VCC can be routed to any A6 pin on a LUT?
+                    // If so, this unfortunately doesn't work in the case of static source BELs
+                    //	val bel5Lut = bel.name[0] + "5" + bel.name.substring(2)
+                    //	if (cluster.isBelOccupied(bel.site.getBel(bel5Lut))) {
+                    //val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
+                    //vcc.connectToPin(pin)
+                    //	}
+
+                    //val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
+					//vcc.connectToPin(pin)
 				}
 				"SRLC32E" -> {
 					val pin = cell.attachPseudoPin("pseudoA1", PinDirection.IN)
@@ -615,9 +635,8 @@ private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
 		"RAMS32", "RAMS64E" -> mapRamsPin(pin, bel)
 		"CARRY4" -> mapCarryPin(pin, bel)
 		else -> {
-			val possibleBelPins = pin.getPossibleBelPins(bel)!!
-			check(possibleBelPins.size == 1)
-			listOf(possibleBelPins[0])
+			val possibleBelPins = pin.findPinMapping(bel)!!
+			possibleBelPins
 		}
 	}
 }
@@ -641,6 +660,23 @@ private fun mapCarryPin(pin: CellPin, bel: Bel): List<BelPin> {
 			check(possibleBelPins.size == 1)
 			listOf(possibleBelPins[0])
 		}
+	}
+}
+
+private fun CellPin.findPinMapping(b: Bel): List<BelPin>? {
+	val c = this.cell
+	if (c.getType().startsWith("RAMB") || c.getType().startsWith("FIFO")) {
+		// The limitation of following lines of code is that this cell is
+		// already placed and so we know the bel.  In reality, you will
+		// usually be asking the question regarding a potential cell placement
+		// onto a  bel.
+		var pm = PinMapping.findPinMappingForCell(c, b.fullName)
+		if (pm == null) {
+			throw IllegalArgumentException("No pin mapping found for ${c.type} -> ${b.name}")
+		}
+		return pm.pins[this.name]?.filter { it != "nc" }?.map { b.getBelPin(it)!! }
+	} else {
+		return this.getPossibleBelPins(b)
 	}
 }
 

@@ -15,9 +15,9 @@ import java.nio.file.Path
  *
  */
 class SiteCluster(
-	name: String, packUnit: SitePackUnit
+	name: String, packUnit: SitePackUnit, index: Int
 ) : Cluster<SitePackUnit, SiteClusterSite>
-(name, packUnit, packUnit.template.anchor), Comparable<SiteCluster>, Serializable {
+(name, packUnit, packUnit.template.anchor, index), Comparable<SiteCluster>, Serializable {
 	override val isPlaceable: Boolean
 		get() = true
 
@@ -106,6 +106,7 @@ class SiteClusterFactory(
 ) : ClusterFactory<SitePackUnit, SiteClusterSite> {
 	private val numUsedSites: MutableMap<SiteType, Int> = HashMap()
 	private val numAvailableTypes: Map<SiteType, Int>
+	private var index = 0
 
 	override val supportedPackUnits = ArrayList(packUnits)
 
@@ -138,7 +139,7 @@ class SiteClusterFactory(
 
 	override fun createNewCluster(clusterName: String, packUnit: SitePackUnit)
 		: Cluster<SitePackUnit, SiteClusterSite> {
-		return SiteCluster(clusterName, packUnit)
+		return SiteCluster(clusterName, packUnit, index)
 	}
 
 	override fun commitCluster(cluster: Cluster<SitePackUnit, *>) {
@@ -149,6 +150,7 @@ class SiteClusterFactory(
 		sharedTypes[siteType]?.forEach {
 			numUsedSites.compute(it) { _, v -> v!! + 1 }
 		}
+		index++
 	}
 }
 
@@ -159,6 +161,7 @@ fun CellDesign.convertToSiteClusterDesign(packUnits: PackUnitList<SitePackUnit>)
 	val clusterDesign = ClusterDesign<SitePackUnit, SiteClusterSite>()
 
 	val clusters = HashMap<Site, SiteCluster>()
+	var index = 0
 	for (cell in inContextLeafCells) {
 		if (!cell.isGndSource && !cell.isVccSource) {
 			val bel = requireNotNull(cell.bel) { "Unplaced cells not allowed" }
@@ -166,7 +169,7 @@ fun CellDesign.convertToSiteClusterDesign(packUnits: PackUnitList<SitePackUnit>)
 
 			val cluster = clusters.computeIfAbsent(site) {
 				val pu = requireNotNull(puMap[site.type]) { "No pack unit for site: ${site.type}" }
-				SiteCluster(site.name, pu)
+				SiteCluster(site.name, pu, index++)
 			}
 			val puBel = cluster.type.template.bels.single { bel.name == it.name }
 			cluster.addCell(puBel, cell)

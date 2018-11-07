@@ -26,4 +26,4 @@ class ClusterRouterResult(
 	val belPinMap: Map<CellNet, Map<CellPin, List<BelPin>>> = emptyMap()
 )
 
-typealias PinMapper = (CellPin, Bel) -> List<BelPin>
+typealias PinMapper = (CellPin, Bel) -> List<BelPin>?

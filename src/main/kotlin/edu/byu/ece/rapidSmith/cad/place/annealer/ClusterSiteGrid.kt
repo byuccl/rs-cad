@@ -13,9 +13,9 @@ interface ClusterSiteGridFactory<S: ClusterSite> {
 	fun makeClusterSiteGrid(device: Device): ClusterSiteGrid<S>
 }
 
-abstract class ClusterSiteGrid<S: ClusterSite> : Grid<S> {
+abstract class ClusterSiteGrid<S: ClusterSite> : Grid<S?> {
 	abstract fun getSiteAt(location: Coordinates): S?
-	abstract val sites: List<S>
+	abstract val sites: Sequence<S>
 	abstract fun getRelatedClusterSites(site: Site): List<S>
 	abstract fun getRelatedClusterSites(tile: Tile): List<S>
 }

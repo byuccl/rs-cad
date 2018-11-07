@@ -15,9 +15,10 @@ open class PackUnit(
 	@Transient
 	open val type: PackUnitType,
 	@Transient
-	open val template: PackUnitTemplate,
-	@Transient
-	open val belSelector: BelSelector<PackUnit>
+	open val template: PackUnitTemplate
+	// Dallon version:
+	//@Transient
+	//open val belSelector: BelSelector<PackUnit>
 )
 
 /** The type of a pack unit. */

@@ -1,11 +1,16 @@
 package edu.byu.ece.rapidSmith.util
 
+import kotlin.math.max
 import java.io.Serializable
 
 /** Constant for Index(0, 0) */
 val ZERO_INDEX = Index(0, 0)
 /** Constant for Offset(0, 0) */
 val ZERO_OFFSET = Offset(0, 0)
+val DOWN = Offset(-1, 0)
+val UP = Offset(1, 0)
+val LEFT = Offset(0, -1)
+val RIGHT = Offset(0, 1)
 
 /**
  * Size of a grid as defined by the number of rows and columns in the grid.
@@ -15,7 +20,7 @@ val ZERO_OFFSET = Offset(0, 0)
  */
 data class Dimensions(val rows: Int, val columns: Int) {
 	init {
-		require(rows >= 0) { "rows ($rows) less than 0" }
+		require(rows >= 0) { "numRows ($rows) less than 0" }
 		require(columns >= 0) { "columns($columns) less than 0" }
 	}
 
@@ -23,7 +28,7 @@ data class Dimensions(val rows: Int, val columns: Int) {
 	val numElements: Int get() = rows * columns
 	
 	/** Returns a rectangle based at (0,0) with this size */
-	fun asRectangle() = Rectangle(ZERO_INDEX, Index(rows, columns))
+	fun asRectangle() = Rectangle(ZERO_INDEX, Index(rows-1, columns-1))
 	
 	override fun toString(): String = "Size{$rows rows x $columns columns)}"
 }
@@ -37,25 +42,30 @@ data class Index(val row: Int, val column: Int) : Serializable {
 	/**
 	 * Returns the index of this index shifted by [offset]
 	 */
-	operator fun plus(offset: Offset) : Index {
-		return Index(row + offset.rows, column + offset.columns)
-	}
+	operator fun plus(offset: Offset) : Index =
+		Index(row + offset.rows, column + offset.columns)
 
 	/**
 	 * Returns the index of this index reverse shifted by [offset]
 	 */
-	operator fun minus(offset: Offset) : Index {
-		return Index(row - offset.rows, column - offset.columns)
-	}
+	operator fun minus(offset: Offset) : Index =
+		Index(row - offset.rows, column - offset.columns)
 
 	/**
 	 * Returns the offset between this index and [other].
 	 */
-	operator fun minus(other: Index): Offset {
-		return Offset(row - other.row, column - other.column)
-	}
+	operator fun minus(other: Index): Offset =
+		Offset(row - other.row, column - other.column)
 
 	override fun toString() = "[$row, $column]"
+
+	operator fun rangeTo(other: Index): Rectangle = Rectangle(this, other)
+
+
+	fun until(other: Index): Rectangle = Rectangle(this, other - Offset(1, 1))
+
+
+	fun toOffset(): Offset = Offset(this.row, this.column)
 }
 
 /**
@@ -99,31 +109,25 @@ operator fun Int.times(offset: Offset) = offset * this
  * @property lower the lower bound index (inclusive) of the rectangle
  * @property upper the upper bound index (exclusive) of the rectangle
  */
-open class Rectangle(val lower: Index, val upper: Index): Iterable<Index> {
+data class Rectangle(val lower: Index, val upper: Index): Iterable<Index> {
 	constructor(top: Int, left: Int, bottom: Int, right: Int) :
 		this(Index(top, left), Index(bottom, right))
 
-	init {
-		require(upper.row > lower.row) { "lower row greater than upper row" }
-		require(upper.column > lower.column) { "lower column greater than upper column" }
-	}
-
 	/** The dimensions of this rectangle. */
 	val dimensions: Dimensions
-		get() {
-		val rows = upper.row - lower.row
-		val columns = upper.column - lower.column
-		return Dimensions(rows, columns)
-	}
+		get() = Dimensions(max(0, height), max(0, width))
 
 	/** The height of this rectangle (in rows). */
-	val height: Int get() = upper.row - lower.row
+	val height: Int get() = upper.row - lower.row + 1
 
 	/** The width of this rectangle (in columns). */
-	val width: Int get() = upper.column - lower.column
+	val width: Int get() = upper.column - lower.column + 1
 
-	val rows: Int get() = height
-	val columns: Int get() = width
+	val numRows: Int get() = height
+	val numColumns: Int get() = width
+
+	val rows: IntRange get() = lower.row..upper.row
+	val columns: IntRange get() = lower.column..upper.column
 
 	/**
 	 * Returns true if [index] exists inside this rectangle.
@@ -131,8 +135,8 @@ open class Rectangle(val lower: Index, val upper: Index): Iterable<Index> {
 	operator fun contains(index: Index): Boolean = contains(index.row, index.column)
 
 	fun contains(row: Int, column: Int): Boolean {
-		return row in lower.row until upper.row &&
-			column in lower.column until upper.column
+		return row in lower.row..upper.row &&
+			column in lower.column..upper.column
 	}
 
 	override fun iterator(): Iterator<Index> {
@@ -141,13 +145,13 @@ open class Rectangle(val lower: Index, val upper: Index): Iterable<Index> {
 
 		return object : Iterator<Index> {
 			override fun hasNext(): Boolean {
-				return row < upper.row
+				return row <= upper.row
 			}
 
 			override fun next(): Index {
 				val index = Index(row, column)
 				column += 1
-				if (column == upper.column) {
+				if (column > upper.column) {
 					column = lower.column
 					row += 1
 				}
@@ -155,24 +159,6 @@ open class Rectangle(val lower: Index, val upper: Index): Iterable<Index> {
 			}
 		}
 	}
-
-	override fun equals(other: Any?): Boolean {
-		if (this === other) return true
-		if (other !is Rectangle) return false
-
-		if (lower != other.lower) return false
-		if (upper != other.upper) return false
-
-		return true
-	}
-
-	override fun hashCode(): Int {
-		var result = lower.hashCode()
-		result = 31 * result + upper.hashCode()
-		return result
-	}
-
-	override fun toString() = "Rectangle{$lower, $upper}"
 }
 
 /**
@@ -191,7 +177,7 @@ interface Grid<out T>: Iterable<T> {
 
 	/**
 	 * The rectangle structure of this grid.  This is equivalent to
-	 * `Rectangle(Index(0, 0), Index(grid.size.rows, grid.size.columns))`.
+	 * `Rectangle(Index(0, 0), Index(grid.size.numRows-1, grid.size.columns-1))`.
 	 */
 	val rectangle: Rectangle
 
@@ -209,6 +195,15 @@ interface Grid<out T>: Iterable<T> {
 	operator fun get(row: Int, column: Int): T
 
 	/**
+	 * Shorthand for this.rectangle.lower.
+	 */
+	val lower: Index get() = rectangle.lower
+	/**
+	 * Shorthand for this.rectangle.upper.
+	 */
+	val upper: Index get() = rectangle.upper
+
+	/**
 	 * Returns the subgrid formed from the elements bound by [rectangle].  The
 	 * rectangle is always relative to the indices in this grid, not its parent
 	 * grid for subgrids.
@@ -219,7 +214,7 @@ interface Grid<out T>: Iterable<T> {
 	 *     this grid
 	 */
 	fun subgrid(rectangle: Rectangle, extendBounds: Boolean=false): Grid<T> {
-		subgridRectangleCheck(rectangle, dimensions)
+		subgridRectangleCheck(rectangle, this.rectangle)
 		return SubGrid(this, extendBounds, rectangle)
 	}
 
@@ -240,7 +235,7 @@ interface MutableGrid<T> : Grid<T>, MutableIterable<T> {
 	operator fun set(row: Int, column: Int, value: T)
 
 	override fun subgrid(rectangle: Rectangle, extendBounds: Boolean): MutableGrid<T>{
-		subgridRectangleCheck(rectangle, dimensions)
+		subgridRectangleCheck(rectangle, this.rectangle)
 		return SubMutableGrid(this, extendBounds, rectangle)
 	}
 
@@ -283,7 +278,7 @@ private open class BaseGridIterator<out T>(
 	protected val grid: Grid<T>
 ) : GridIterator<T> {
 	private var nextIndex: Index? =
-		if (grid.dimensions.rows > 0 && grid.dimensions.columns > 0) ZERO_INDEX else null
+		if (grid.isEmpty()) null else ZERO_INDEX
 	protected var curIndex: Index? = null
 
 	override fun hasNext(): Boolean = nextIndex != null
@@ -301,11 +296,11 @@ private open class BaseGridIterator<out T>(
 
 	/** Increments the index to the next location in the grid */
 	protected open fun Index.increment(): Index? {
-		var next = this + Offset(0, 1)
-		if (next.column < grid.dimensions.columns)
+		var next = this + RIGHT
+		if (next.column in grid.rectangle.columns)
 			return next
-		next = Index(this.row + 1, 0)
-		if (next.row < grid.dimensions.rows)
+		next = Index(next.row + 1, grid.rectangle.lower.column)
+		if (next.row in grid.rectangle.rows)
 			return next
 		return null
 	}
@@ -327,7 +322,7 @@ private open class SubGrid<out T>(
 	protected val extendBounds: Boolean,
 	bounds: Rectangle
 ) : Grid<T> {
-	val offset = Offset(bounds.lower.row, bounds.lower.column)
+	val offset = bounds.lower.toOffset()
 	override val rectangle: Rectangle = bounds.dimensions.asRectangle()
 	override val absolute: Rectangle
 		get() = Rectangle(ZERO_INDEX + offset, offset + rectangle.upper )
@@ -335,7 +330,7 @@ private open class SubGrid<out T>(
 	override val dimensions get() = rectangle.dimensions
 
 	override fun get(row: Int, column: Int): T {
-		if (!extendBounds) rangeCheck(row, column, dimensions)
+		if (!extendBounds) rangeCheck(row, column, rectangle)
 		val adjusted = adjustIndex(row, column)
 		return parent[adjusted]
 	}
@@ -347,7 +342,7 @@ private open class SubGrid<out T>(
 		adjustIndex(index.row, index.column)
 
 	override fun subgrid(rectangle: Rectangle, extendBounds: Boolean): Grid<T> {
-		subgridRectangleCheck(rectangle, dimensions)
+		subgridRectangleCheck(rectangle, rectangle)
 		val adjustedTL = adjustIndex(rectangle.lower)
 		val adjustedBR = adjustIndex(rectangle.upper)
 		val adjustedRect = Rectangle(adjustedTL, adjustedBR)
@@ -363,13 +358,13 @@ private open class SubMutableGrid<T>(
 	rectangle: Rectangle
 ) : SubGrid<T>(parent, extendBounds, rectangle), MutableGrid<T> {
 	override fun set(row: Int, column: Int, value: T) {
-		if (!extendBounds) rangeCheck(row, column, dimensions)
+		if (!extendBounds) rangeCheck(row, column, rectangle)
 		val adjusted = adjustIndex(row, column)
 		parent[adjusted] = value
 	}
 
 	override fun subgrid(rectangle: Rectangle, extendBounds: Boolean): MutableGrid<T> {
-		subgridRectangleCheck(rectangle, dimensions)
+		subgridRectangleCheck(rectangle, this.rectangle)
 		val adjustedTL = adjustIndex(rectangle.lower)
 		val adjustedBR = adjustIndex(rectangle.upper)
 		val adjustedRect = Rectangle(adjustedTL, adjustedBR)
@@ -379,20 +374,17 @@ private open class SubMutableGrid<T>(
 	override fun iterator(): MutableGridIterator<T> = BaseMutableGridIterator(this)
 }
 
-private fun rangeCheck(row: Int, column: Int, dimensions: Dimensions) {
-	if (row < 0 || column < 0 || row >= dimensions.rows ||
-		column >= dimensions.columns)
-		throw IndexOutOfBoundsException("Index: ${Index(row, column)}, Size: $dimensions")
+private fun rangeCheck(row: Int, column: Int, rectangle: Rectangle) {
+	if (Index(row ,column) !in rectangle)
+		throw IndexOutOfBoundsException("Index: ${Index(row, column)}, Bounds: $rectangle")
 }
 
-private fun subgridRectangleCheck(rectangle: Rectangle, dimensions: Dimensions) {
-	val topLeft = rectangle.lower
-	if (topLeft.row < 0 || topLeft.column < 0)
-		throw IndexOutOfBoundsException("Index: $topLeft, Size: $dimensions")
+private fun subgridRectangleCheck(new: Rectangle, old: Rectangle) {
+	if (new.lower !in old)
+		throw IndexOutOfBoundsException("Index: ${new.lower}, Bounds: $old")
 
-	val bottomRight = rectangle.upper
-	if (bottomRight.row > dimensions.rows || bottomRight.column > dimensions.columns)
-		throw IndexOutOfBoundsException("Index: $topLeft, Size: $dimensions")
+	if (new.upper !in old)
+		throw IndexOutOfBoundsException("Index: ${new.upper}, Bounds: $old")
 }
 
 private fun unflattenIndex(flat: Int, dimensions: Dimensions): Index {
@@ -422,7 +414,7 @@ class ArrayGrid<T>(
 	override val rectangle: Rectangle
 		get() {
 			val topLeft = Index(0, 0)
-			val bottomRight = Index(dimensions.rows, dimensions.columns)
+			val bottomRight = Index(dimensions.rows-1, dimensions.columns-1)
 			return Rectangle(topLeft, bottomRight)
 		}
 
@@ -430,13 +422,13 @@ class ArrayGrid<T>(
 		get() = rectangle
 
 	override operator fun get(row: Int, column: Int): T {
-		rangeCheck(row, column, dimensions)
+		rangeCheck(row, column, rectangle)
 		@Suppress("UNCHECKED_CAST")
 		return array[flattenIndex(row, column, dimensions)] as T
 	}
 
 	override operator fun set(row: Int, column: Int, value: T) {
-		rangeCheck(row, column, dimensions)
+		rangeCheck(row, column, rectangle)
 		array[flattenIndex(row, column, dimensions)] = value
 	}
 }
@@ -444,7 +436,7 @@ class ArrayGrid<T>(
 fun <T> gridOf(): Grid<T> {
 	return object : Grid<T> {
 		override val rectangle: Rectangle
-			get() = Rectangle(ZERO_INDEX, ZERO_INDEX)
+			get() = Rectangle(ZERO_INDEX, Index(-1, -1))
 
 		override val absolute: Rectangle
 			get() = rectangle
@@ -458,7 +450,7 @@ fun <T> gridOf(): Grid<T> {
 fun <T> gridOf(vararg rows: List<T>): Grid<T> {
 	if (rows.isEmpty())
 		return gridOf()
-	val size = Dimensions(rows.size, rows[0].size)
+	val size = Dimensions(rows.lastIndex, rows[0].lastIndex)
 	return ArrayGrid(size) {
 		val row = rows[it.row]
 		row[it.column]

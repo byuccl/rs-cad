@@ -57,7 +57,7 @@ class SiteClusterGrid(device: Device) : ClusterSiteGrid<SiteClusterSite>() {
 	override val absolute: Rectangle
 		get() = grid.absolute
 
-	override fun get(row: Int, column: Int): SiteClusterSite = requireNotNull(grid[row, column])
+	override fun get(row: Int, column: Int): SiteClusterSite? = grid[row, column]
 
 	override fun getSiteAt(location: Coordinates): SiteClusterSite? {
 		return if (location in grid.rectangle) grid[location] else null
@@ -78,8 +78,8 @@ class SiteClusterGrid(device: Device) : ClusterSiteGrid<SiteClusterSite>() {
 		}
 	}
 
-	override val sites: List<SiteClusterSite>
-		get() = grid.filterNotNull()
+	override val sites: Sequence<SiteClusterSite>
+		get() = grid.asSequence().filterNotNull()
 
 	private data class SiteIndex(
 		val row: Int, val col: Int, val index: Int

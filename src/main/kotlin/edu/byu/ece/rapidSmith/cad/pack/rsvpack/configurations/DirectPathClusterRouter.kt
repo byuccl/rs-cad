@@ -41,11 +41,14 @@ private class DirectPathClusterRouter<T: PackUnit>(
 
 			for (cellPin in outputs) {
 				val belPins = preferredPin(cellPin, bel)
-				assert(belPins.size == 1)
-				val net = cellPin.net
-				val rt = routeToOutput(belPins[0]) ?: return ClusterRouterResult(false)
-				belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
-				routeTreeMap.computeIfAbsent(net){ ArrayList() }.add(rt)
+				if (belPins != null) {
+					for (bp in belPins) {
+						val net = cellPin.net
+						val rt = routeToOutput(bp) ?: return ClusterRouterResult(false)
+						belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
+						routeTreeMap.computeIfAbsent(net) { ArrayList() }.add(rt)
+					}
+				}
 			}
 
 			val inputs = cell.pins
@@ -55,9 +58,11 @@ private class DirectPathClusterRouter<T: PackUnit>(
 			for (cellPin in inputs) {
 				val belPins = preferredPin(cellPin, bel)
 				val net = cellPin.net
-				val rt = routeToInput(belPins) ?: return ClusterRouterResult(false)
-				belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
-				routeTreeMap.computeIfAbsent(net) { ArrayList() }.add(rt)
+				if (belPins != null && belPins.isNotEmpty()) {
+					val rt = routeToInputs(belPins) ?: return ClusterRouterResult(false)
+					belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
+					routeTreeMap.computeIfAbsent(net) { ArrayList() }.addAll(rt)
+				}
 			}
 		}
 
@@ -90,7 +95,7 @@ private class DirectPathClusterRouter<T: PackUnit>(
 		return sourceTree
 	}
 
-	private fun routeToInput(belPins: List<BelPin>): RouteTree? {
+	private fun routeToInputs(belPins: List<BelPin>): List<RouteTree>? {
 		val site = belPins[0].bel.site
 		val sourceTrees = ArrayList(site.sinkPins.map { it.internalWire }.map { RouteTree(it) })
 
@@ -116,8 +121,8 @@ private class DirectPathClusterRouter<T: PackUnit>(
 		if (sinkTrees.size < belPins.size)
 			return null
 
-		pruneSourceTrees(sourceTrees, sinkTrees.toSet(), false)
-		return sourceTrees.single()
+		pruneSourceTrees(sourceTrees, sinkTrees.toSet(), true)
+		return sourceTrees
 	}
 }
 

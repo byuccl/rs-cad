@@ -10,9 +10,12 @@ import java.io.Serializable
 
 class SitePackUnit(
 	override val type: SitePackUnitType,
-	override val template: SitePackUnitTemplate,
-	override val belSelector: BelSelector<PackUnit>
-) : PackUnit(type, template, belSelector), Serializable {
+	override val template: SitePackUnitTemplate
+
+	// Dallon version:
+	//override val belSelector: BelSelector<PackUnit>
+//) : PackUnit(type, template, belSelector), Serializable {
+) : PackUnit(type, template), Serializable {
 	val siteType: SiteType get() = type.type
 	val site: Site get() = template.anchor.site
 	override fun toString(): String {
@@ -75,7 +78,7 @@ class SitePackUnitTemplate(
 			is SiteWire -> {
 				val newSite = newAnchor.site
 				return if (oldWire.siteType in newSite.possibleTypes) {
-					SiteWire(newAnchor.site, oldWire.wireEnum)
+					newAnchor.site.getWire(oldWire.name)
 				} else {
 					val newWireName = oldWire.name.replace(
 						curAnchor.defaultType(), newAnchor.defaultType())

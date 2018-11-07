@@ -4,6 +4,7 @@ import edu.byu.ece.rapidSmith.RSEnvironment
 import edu.byu.ece.rapidSmith.cad.cluster.*
 import edu.byu.ece.rapidSmith.cad.cluster.site.*
 import edu.byu.ece.rapidSmith.cad.families.artix7.RamMaker
+import edu.byu.ece.rapidSmith.cad.families.artix7.getSitePacker
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.*
@@ -32,6 +33,14 @@ private val partsFolder = RSEnvironment.defaultEnv().getPartFolderPath(family)
 
 class ZynqSiteCadFlow {
 
+	var placeTime: Long? = null
+		private set
+
+	var packTime: Long? = null
+		private set
+
+	var packerLoadTime: Long? = null
+		private set
 
 	fun pack(design: CellDesign, device: Device): List<Cluster<SitePackUnit, SiteClusterSite>> {
 		val packer = getZynqSitePacker(device)
@@ -43,43 +52,42 @@ class ZynqSiteCadFlow {
 	}
 
 	fun run(design: CellDesign, device: Device) {
-
-		val runtime = Time()
-		//println("Get the site packer")
-		runtime.setStartTime()
+		val startTime = System.currentTimeMillis()
 		val packer = getZynqSitePacker(device)
-		//runtime.setEndTime()
-		//println("  Took " + runtime.totalTime + " seconds")
-
+		val packerLoadTime = System.currentTimeMillis()
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
-        runtime.setEndTime()
-        println("Took " + runtime.totalTime + " seconds to pack")
-        runtime.setStartTime()
+		val packTime = System.currentTimeMillis()
 		val placer = getZynqGroupSAPlacer()
 		placer.place(device, design, clusters)
-        runtime.setEndTime()
-        println("Took " + runtime.totalTime + " seconds to place")
-        //println(design)
+		val placeTime = System.currentTimeMillis()
+		this.packerLoadTime = packerLoadTime - startTime
+		this.packTime = packTime - startTime
+		this.placeTime = placeTime - packTime
+		println(design)
+	}
+
+	fun prepDesign(design: CellDesign, device: Device) {
+		design.unrouteDesignFull()
+		design.unplaceDesign()
+		design.leafCells.forEach { it.removePseudoPins() }
+		design.nets.forEach { it.disconnectFromPins(
+				it.pins.filter { it.isPseudoPin }) }
+		val ciPins = design.gndNet.sinkPins
+				.filter { it.cell.libCell.name == "CARRY4" }
+				.filter { it.name == "CI"  }
+		design.gndNet.disconnectFromPins(ciPins)
 	}
 
 	companion object {
 		@JvmStatic
 		fun main(args: Array<String>) {
-			val rscp = VivadoInterface.loadRSCP(args[0])
+			val rscp = VivadoInterface.loadRSCP(args[0], true, EdifType.YOSYS)
 			val design = rscp.design
 			val device = rscp.device
-			design.unrouteDesignFull()
-			design.unplaceDesign()
-			//design.leafCells.forEach { it.removePseudoPins() }
-			design.inContextLeafCells.forEach { it.removePseudoPins() }
-			design.nets.forEach { it.disconnectFromPins(
-					it.pins.filter { it.isPseudoPin }) }
-			val ciPins = design.gndNet.sinkPins
-					.filter { it.cell.libCell.name == "CARRY4" }
-					.filter { it.name == "CI"  }
-			design.gndNet.disconnectFromPins(ciPins)
-			ZynqSiteCadFlow().run(design, device)
+			val flow = ZynqSiteCadFlow()
+			flow.prepDesign(design, device)
+			flow.run(design, device)
 			val rscpFile = Paths.get(args[0]).toFile()
 			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
 			println("writing to $tcp")
@@ -113,10 +121,11 @@ fun getZynqSitePacker(
 
 	//println("Create the site packer w/ the factory")
 	//runtime.setStartTime()
-	val packer = ZynqSitePackerFactory(device, packUnits, belCosts, cellLibrary).make()
+	//val packer = ZynqSitePackerFactory(device, packUnits, belCosts, cellLibrary).make()
 	//runtime.setEndTime()
 	//println("  Took " + runtime.totalTime + " seconds")
-	return packer
+	//return packer
+	return ZynqSitePackerFactory(device, packUnits, belCosts, cellLibrary).make()
 }
 
 fun getZynqGroupSAPlacer(): SimulatedAnnealingPlacer<SiteClusterSite> {
@@ -191,10 +200,7 @@ private class ZynqSitePackerFactory(
 		//val runtime = Time()
 		val packUnit = packUnits.first { it.type == SitePackUnitType(SLICEL) }
 		val cellSelector = SharedNetsCellSelector(false)
-
-		//val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts) // this seems to take some time..
-		val belSelector = packUnit.belSelector
-		//runtime.setStartTime()
+		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 				lutFFPairPrepacker,
 				di0LutSourcePrepacker,
@@ -220,11 +226,13 @@ private class ZynqSitePackerFactory(
 		//println("packRules: " + runtime.totalTime + " seconds")
 
 		//runtime.setStartTime()
-		val multiBelPackStrategy = MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
+		//val multiBelPackStrategy = MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
+		//val multiBelPackStrategy = MultiBelPackStrategy(cellSelector, prepackers, packRules)
 		//runtime.setEndTime()
 		//println("multiBelPackStrategy: " + runtime.totalTime + " seconds")
 
-		return multiBelPackStrategy
+		//return multiBelPackStrategy
+		return MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
 	}
 
 	private fun makeSliceMStrategy(
@@ -232,8 +240,7 @@ private class ZynqSitePackerFactory(
 	): PackStrategy<SitePackUnit> {
 		val packUnit = packUnits.first { it.type == SitePackUnitType(SLICEM) }
 		val cellSelector = SharedNetsCellSelector(false)
-		//val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts)
-		val belSelector = packUnit.belSelector
+		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 				lutFFPairPrepacker,
 				di0LutSourcePrepacker,
@@ -258,11 +265,11 @@ private class ZynqSitePackerFactory(
 	}
 
 	private fun makeUncheckedStrategy(
-			type: PackUnitType, packUnits: PackUnitList<*>, belCosts: BelCostMap
+		type: PackUnitType, packUnits: PackUnitList<*>, belCosts: BelCostMap
 	): MultiBelPackStrategy<SitePackUnit> {
 		val packUnit = packUnits.first { it.type == type }
 		val cellSelector = SharedNetsCellSelector(false)
-		val belSelector = ShortestRouteBelSelector(packUnit.template, belCosts)
+		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
 		val prepackers = listOf<PrepackerFactory<SitePackUnit>>(
 				ForcedRoutingPrepackerFactory(packUnit, packUnits.pinsDrivingGeneralFabric,
 						packUnits.pinsDrivenByGeneralFabric, Zynq.SWITCHBOX_TILES)
@@ -273,15 +280,17 @@ private class ZynqSitePackerFactory(
 	}
 
 	private fun makeSingleBelStrategy(
-			packUnit: PackUnit, packUnits: PackUnitList<*>
+		packUnit: PackUnit, packUnits: PackUnitList<*>
 	): PackStrategy<SitePackUnit> {
 		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit) { p, b ->
-			val possibleBelPins = p.getPossibleBelPins(b)
-			check(possibleBelPins.size == 1)
-			listOf(possibleBelPins[0])
+			val mapping = p.findPinMapping(b)!!
+			// TODO mapping can actually have multiple pins
+			// I'm just take the first right now since the routing of the second
+			// should be a given
+			if (mapping.isNotEmpty()) mapping.take(1) else null
 		}
 		val packRules = listOf<PackRuleFactory>(
-				RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
+			RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
 		)
 		return SingleBelPackStrategy(packRules)
 	}
@@ -309,7 +318,7 @@ private class ZynqSitePackerFactory(
 
 		val routerFactory = object : ClusterRouterFactory<SitePackUnit> {
 			val pfRouter = BasicPathFinderRouterFactory(
-					packUnits, ::slicePinMapper, ::wireInvalidator, 8)
+				packUnits, ::slicePinMapper, ::wireInvalidator, 8)
 			val directRouter = DirectPathClusterRouterFactory<SitePackUnit>(::slicePinMapper)
 			val routers = HashMap<PackUnit, ClusterRouter<SitePackUnit>>()
 
@@ -375,7 +384,8 @@ private class ZynqSitePackerFactory(
 				if (!net.isStaticNet) {
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
-						val cellName = "${net.name}-${pin.cell.name}/${pin.name}-pass"
+						// val cellName = "${net.name}-${pin.cell.name}/${pin.name}-pass"
+                        val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
 						val newCell = Cell(cellName, cellLibrary["LUT1"])
 						newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
 						design.addCell(newCell)
@@ -392,7 +402,7 @@ private class ZynqSitePackerFactory(
 		}
 
 		override fun finish(
-				design: List<Cluster<SitePackUnit, *>>
+			design: List<Cluster<SitePackUnit, *>>
 		) {
 			for (cluster in design) {
 //				upgradeRAM32s(cluster)  Many of these can be upgraded to ram64s
@@ -499,9 +509,9 @@ private fun addPseudoPins(cluster: Cluster<*, *>) {
 }
 
 private fun wireInvalidator(
-		packUnit: PackUnit,
-		source: Source,
-		sink: Terminal
+	packUnit: PackUnit,
+	source: Source,
+	sink: Terminal
 ): Set<Wire> {
 	if (sink.isPinMapping()) {
 		val cell = sink.cellPin!!.cell
@@ -528,8 +538,8 @@ private fun wireInvalidator(
 private val LUT_NAME_PATTERN = Regex("([A-D])([56])LUT")
 
 private fun releaseDIWires(
-		toInvalidate: MutableSet<Wire>, sinkBelPins: List<BelPin>,
-		sinkCellPin: CellPin, sourcePin: CellPin?
+	toInvalidate: MutableSet<Wire>, sinkBelPins: List<BelPin>,
+	sinkCellPin: CellPin, sourcePin: CellPin?
 ) {
 	for (sinkBelPin in sinkBelPins) {
 		val sinkBel = sinkBelPin.bel
@@ -539,11 +549,11 @@ private fun releaseDIWires(
 				if (sourcePin.name == "MC31") {
 					when (sinkBel.name) {
 						"A6LUT", "A5LUT" -> toInvalidate.remove(
-								site.getWire("intrasite:SLICEM/ADI1MUX.BMC31"))
+							site.getWire("intrasite:SLICEM/ADI1MUX.BMC31"))
 						"B6LUT", "B5LUT" -> toInvalidate.remove(
-								site.getWire("intrasite:SLICEM/BDI1MUX.CMC31"))
+							site.getWire("intrasite:SLICEM/BDI1MUX.CMC31"))
 						"C6LUT", "C5LUT" -> toInvalidate.remove(
-								site.getWire("intrasite:SLICEM/CDI1MUX.DMC31"))
+							site.getWire("intrasite:SLICEM/CDI1MUX.DMC31"))
 					}
 				}
 
@@ -555,11 +565,11 @@ private fun releaseDIWires(
 //			if (cellType in setOf("SRLC32E", "SRLC16E")) {
 				when (sinkBel.name) {
 					"A6LUT", "A5LUT" -> toInvalidate.remove(
-							site.getWire("intrasite:SLICEM/ADI1MUX.BDI1"))
+						site.getWire("intrasite:SLICEM/ADI1MUX.BDI1"))
 					"B6LUT", "B5LUT" -> toInvalidate.remove(
-							site.getWire("intrasite:SLICEM/BDI1MUX.DI"))
+						site.getWire("intrasite:SLICEM/BDI1MUX.DI"))
 					"C6LUT", "C5LUT" -> toInvalidate.remove(
-							site.getWire("intrasite:SLICEM/CDI1MUX.DI"))
+						site.getWire("intrasite:SLICEM/CDI1MUX.DI"))
 				}
 //			}
 			}
@@ -581,8 +591,8 @@ private fun driveSink(sourceTree: RouteTree): Boolean {
 }
 
 private fun finalRoute(
-		routerFactory: ClusterRouterFactory<SitePackUnit>,
-		cluster: Cluster<SitePackUnit, *>
+	routerFactory: ClusterRouterFactory<SitePackUnit>,
+	cluster: Cluster<SitePackUnit, *>
 ) {
 	// Reached the end of clustering, verify it and choose
 	// whether to commit it or roll it back
@@ -595,8 +605,8 @@ private fun finalRoute(
 
 	val routeTreeMap = result.routeTreeMap
 	val belPinMap = result.belPinMap.values
-			.flatMap { e -> e.map { it.toPair() } }
-			.toMap()
+		.flatMap { e -> e.map { it.toPair() } }
+		.toMap()
 
 	val routeTrees = routeTreeMap.mapValues { ArrayList(it.value) }
 	removeTileWires(routeTrees.values)
@@ -635,8 +645,8 @@ private fun removeTileWires(routeTrees: Collection<ArrayList<RouteTree>>) {
 }
 
 private fun removeOtherSiteWires(
-		packUnit: SitePackUnit,
-		routeTrees: Collection<ArrayList<RouteTree>>
+	packUnit: SitePackUnit,
+	routeTrees: Collection<ArrayList<RouteTree>>
 ) {
 	val site = packUnit.site
 	for (sourceTrees in routeTrees) {
@@ -645,16 +655,16 @@ private fun removeOtherSiteWires(
 }
 
 private val sharedTypes = mapOf(
-		SLICEM to listOf(SLICEL),
-		RAMBFIFO36E1 to listOf(FIFO36E1, RAMB36E1)
+	SLICEM to listOf(SLICEL),
+	RAMBFIFO36E1 to listOf(FIFO36E1, RAMB36E1)
 )
 
 private val compatibleTypes = mapOf(
-		SLICEL to listOf(SLICEM),
-		FIFO36E1 to listOf(RAMBFIFO36E1),
-		RAMB36E1 to listOf(RAMBFIFO36E1),
-		BUFG to listOf(BUFGCTRL),
-		IOB33 to listOf(IOB33M, IOB33S)
+	SLICEL to listOf(SLICEM),
+	FIFO36E1 to listOf(RAMBFIFO36E1),
+	RAMB36E1 to listOf(RAMBFIFO36E1),
+	BUFG to listOf(BUFGCTRL),
+	IOB33 to listOf(IOB33M, IOB33S)
 )
 
 private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
@@ -671,9 +681,8 @@ private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
 		"RAMS32", "RAMS64E" -> mapRamsPin(pin, bel)
 		"CARRY4" -> mapCarryPin(pin, bel)
 		else -> {
-			val possibleBelPins = pin.getPossibleBelPins(bel)!!
-			check(possibleBelPins.size == 1)
-			listOf(possibleBelPins[0])
+			val possibleBelPins = pin.findPinMapping(bel)!!
+			possibleBelPins
 		}
 	}
 }
@@ -697,6 +706,23 @@ private fun mapCarryPin(pin: CellPin, bel: Bel): List<BelPin> {
 			check(possibleBelPins.size == 1)
 			listOf(possibleBelPins[0])
 		}
+	}
+}
+
+private fun CellPin.findPinMapping(b: Bel): List<BelPin>? {
+	val c = this.cell
+	if (c.getType().startsWith("RAMB") || c.getType().startsWith("FIFO")) {
+		// The limitation of following lines of code is that this cell is
+		// already placed and so we know the bel.  In reality, you will
+		// usually be asking the question regarding a potential cell placement
+		// onto a  bel.
+		var pm = PinMapping.findPinMappingForCell(c, b.fullName)
+		if (pm == null) {
+			throw IllegalArgumentException("No pin mapping found for ${c.type} -> ${b.name}")
+		}
+		return pm.pins[this.name]?.filter { it != "nc" }?.map { b.getBelPin(it)!! }
+	} else {
+		return this.getPossibleBelPins(b)
 	}
 }
 

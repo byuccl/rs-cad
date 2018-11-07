@@ -8,7 +8,9 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterResult
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.PinMapper
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.Routability
 import edu.byu.ece.rapidSmith.design.NetType
-import edu.byu.ece.rapidSmith.design.subsite.*
+import edu.byu.ece.rapidSmith.design.subsite.CellNet
+import edu.byu.ece.rapidSmith.design.subsite.CellPin
+import edu.byu.ece.rapidSmith.design.subsite.RouteTree
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.getBelPin
 import edu.byu.ece.rapidSmith.util.getSitePinConnection
@@ -41,51 +43,22 @@ private class BasicPathFinderRouter<T: PackUnit>(
 	private val maxIterations: Int
 ) : ClusterRouter<T> {
 	private val clusterOutputs: Terminal
-	private val libCells: CellLibrary
 
 	init {
 		clusterOutputs = Terminal.Builder()
 		clusterOutputs.wires += template.outputs
-
-		// TODOO: Replace with parameter
-		libCells = CellLibrary(RSEnvironment.defaultEnv()
-				.getPartFolderPath(template.device.partName)
-				.resolve("cellLibrary.xml"))
 	}
 
 	private val template: PackUnitTemplate
 		get() = packUnit.template
 
-
 	override fun route(cluster: Cluster<T, *>): ClusterRouterResult {
 		val router = Impl(cluster)
 		val result = router.routeCluster(cluster)
-		if (result == Routability.VALID) {
-
-			// Identify Static Source BELs after path finding has completed
-			for (net in cluster.nets.stream().filter { t: CellNet? -> t!!.isStaticNet }) {
-				val rts = router.routeTreeMap[net]
-
-				for (rt in rts!!) {
-					val sourceWire = rt.wire
-					if (sourceWire.name.contains("O6") || sourceWire.name.contains("O5")) {
-						val bel = sourceWire.getBelPin(false)!!.bel
-						// If the LUT6 or LUT5 BEL is not occupied, this is an implied static source BEL.
-						if (!cluster.isBelOccupied(bel)) {
-							// Add a psuedo cell for the static source BEL so we can attach pseudo pins if needed.
-							val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"), true)
-							cell.initPackingInfo()
-							net.design.addCell(cell)
-							cluster.addCell(bel, cell)
-						}
-					}
-				}
-			}
-
-			return ClusterRouterResult(true, router.routeTreeMap, router.belPinMap)
-		}
+		return if (result == Routability.VALID)
+			ClusterRouterResult(true, router.routeTreeMap, router.belPinMap)
 		else
-			return ClusterRouterResult(false)
+			ClusterRouterResult(false)
 	}
 
 	private inner class Impl(val cluster: Cluster<T, *>) {
@@ -122,12 +95,17 @@ private class BasicPathFinderRouter<T: PackUnit>(
 		// set of cells.  at this time, all pins in the newly created nets are
 		// considered outside of the cluster.  the updateChangedNets method, which  is
 		// called immediately after this method, will update the net info with any pins
-		// that now exist in the cluster.
-		// FIXME: (This is an incorrect description)
+		// that now exist in the cluster
 		private fun initNets(cluster: Cluster<*, *>) {
+			val pinsOfNets = cluster.cells.asSequence()
+				.flatMap { it.pins.asSequence() }
+				.filter { it.isInpin }
+				.filter { it.isConnectedToNet }
+				.groupBy { it.net!! }
+
 			cluster.nets.map { net ->
 				val source = initNetSource(net)
-				val sinks = initNetSinks(net)
+				val sinks = initNetSinks(net, pinsOfNets[net] ?: emptyList())
 				net to RoutePins(source, sinks)
 			}.toMap(routePins)
 		}
@@ -184,7 +162,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			if (belPin.drivesGeneralFabric)
 				source.wires += template.inputs
 
-			template.directSourcesOfCluster
+			template.directSourcesOfCluster.asSequence()
 				.filter { endSiteIndex == it.endSiteIndex && it.endPin == belPin.template }
 				.mapTo(source.wires) { it.clusterExit }
 		}
@@ -202,21 +180,49 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 		// Just create an object.  The sinks will be built when a source is added
 		// into the cluster.
-		private fun initNetSinks(net: CellNet): Sinks {
+		private fun initNetSinks(net: CellNet, pinsOfNets: List<CellPin>): Sinks {
 
-			// TODO: Handle partition pins intelligently
-				val sourceInCluster = (!net.sourcePin.isPartitionPin && net.sourcePin.cell.getCluster<Cluster<*, *>>() === cluster)
-				// update the sinks with external routes now
-				val netSinks = Sinks.Builder()
-				for (sinkPin in net.sinkPins) {
-					val sinkCluster = if (sinkPin.isPartitionPin) null else sinkPin.cell.getCluster<Cluster<*, *>>()
-					if (!sinkPin.isPartitionPin && sinkCluster === cluster) {
-						initInsideClusterSink(netSinks, sinkPin)
+            // TODO: Handle partition pins intelligently
+         //  val sourceInCluster = (!net.sourcePin.isPartitionPin && net.sourcePin.cell.getCluster<Cluster<*, *>>() === cluster)
+            // update the sinks with external routes now
+          //  val netSinks = Sinks.Builder()
+          //  for (sinkPin in net.sinkPins) {
+          //      val sinkCluster = if (sinkPin.isPartitionPin) null else sinkPin.cell.getCluster<Cluster<*, *>>()
+          //      if (!sinkPin.isPartitionPin && sinkCluster === cluster) {
+          //          initInsideClusterSink(netSinks, sinkPin)
+          //      } else if (sinkCluster !== cluster && sourceInCluster) {
+          //          initOutsideClusterSink(netSinks, sinkPin)
+          //      }
+          //  }
+           // return netSinks
+
+
+
+            // TODO: Handle partition pins intelligently
+            val sourceInCluster = (!net.sourcePin.isPartitionPin && net.sourcePin.cell.getCluster<Cluster<*, *>>() === cluster)
+            // update the sinks with external routes now
+			val netSinks = Sinks.Builder()
+
+			if (sourceInCluster) {
+				val sourcePin = net.sourcePin
+				net.pins.asSequence().filter { it !== sourcePin }.forEach {
+					val sinkCluster = if (it.isPartitionPin) null else it.cell.getCluster<Cluster<*, *>>()
+					if (!it.isPartitionPin && sinkCluster === cluster) {
+						initInsideClusterSink(netSinks, it)
 					} else if (sinkCluster !== cluster && sourceInCluster) {
-						initOutsideClusterSink(netSinks, sinkPin)
+						initOutsideClusterSink(netSinks, it)
 					}
 				}
-				return netSinks
+			} else {
+				for (sinkPin in pinsOfNets) {
+					if (!sinkPin.isPartitionPin) {
+						initInsideClusterSink(netSinks, sinkPin)
+					}
+
+				}
+			}
+
+			return netSinks
 		}
 
 		/** Relocates [sinkPin] from outside the cluster to inside the cluster. */
@@ -225,21 +231,18 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			val sinkBel = sinkCell.locationInCluster!!
 			val belPins = preferredPin(sinkPin, sinkBel)
 
-			// What if there is contention over the BelPin wire?
-			// (ex: One net has sink A5LUT.A1 and another net has sink A6LUT.A1).
-			// These nets obviously can't both route to the shared A1 wire.
-			// maybe use sinkPinsInCluster to check? If a sink pin WIRE has already been used by a different net,
-			// then try another pin.
-
+            // What if there is contention over the BelPin wire?
+            // (ex: One net has sink A5LUT.A1 and another net has sink A6LUT.A1).
+            // These nets obviously can't both route to the shared A1 wire.
+            // maybe use sinkPinsInCluster to check? If a sink pin WIRE has already been used by a different net,
+            // then try another pin.
 			val pinMap = Terminal.Builder()
 			pinMap.cellPin = sinkPin
-			pinMap.belPins.addAll(belPins)
-			pinMap.wires += belPins.map { it.wire!! }
-			sinks.sinkPinsInCluster += pinMap
-
-			//val cellBelPinMap = HashMap<CellPin, List<BelPin>>()
-			//cellBelPinMap.put(sinkPin, belPins)
-			//belPinMap[net] = cellBelPinMap
+			belPins?.let { bps ->
+				pinMap.belPins.addAll(bps)
+				pinMap.wires += bps.map { it.wire!! }
+				sinks.sinkPinsInCluster += pinMap
+			}
 		}
 
 		/**
@@ -259,7 +262,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			val belPins = preferredPin(sinkPin, sinkBel)
 			val endSiteIndex = sinkBel.site.index
 
-			for (belPin in belPins) {
+			for (belPin in (belPins ?: emptyList())) {
 				// find any direct connections to this path
 				var directSink = false
 				val carrySinks = HashSet<Wire>()
@@ -334,11 +337,8 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					val wire = rt.wire
 					val wireInfo = wireUsage[wire]!!
 					val occupancy = wireInfo.occupancy
-					if (occupancy > 1) {
-						//println("Wire " + wire.name + " has occupancy " + occupancy)
+					if (occupancy > 1)
 						return false
-					}
-
 					rt.children.forEach { stack.push(it as RouteTreeWithCost) }
 				}
 			}
@@ -361,14 +361,15 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			val (source, sinks) = routePins
 			val pinMap = HashMap<CellPin, List<BelPin>>()
 			belPinMap[net] = pinMap
-			val sourceTrees = buildSources(source, pinMap, net.isStaticNet)
+
+			val sourceTrees = buildSources(source, pinMap)
+
 			var foundExternalPath = false
+
 			val sinkTrees = HashSet<RouteTreeWithCost>()
 			for (sink in sinks.sinkPinsInCluster) {
-				//println("  to sink " + sink.cellPin + " - " + sink.belPins) //TODO: Verbosity print
-
 				val (status, treeSink, terminal) = routeToSink(
-					sourceTrees, sinkTrees, source, sink, net)
+					sourceTrees, sinkTrees, source, sink)
 
 				if (status == RouteStatus.IMPOSSIBLE)
 					return RouteStatus.IMPOSSIBLE
@@ -382,9 +383,8 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			}
 			// take care of sink pins out of the cluster
 			if (sinks.mustRouteExternal) {
-
 				val (status, treeSink, terminal) =
-					routeToSink(sourceTrees, sinkTrees, source, clusterOutputs, net)
+					routeToSink(sourceTrees, sinkTrees, source, clusterOutputs)
 				if (status == RouteStatus.IMPOSSIBLE)
 					return RouteStatus.IMPOSSIBLE
 
@@ -395,7 +395,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 			for (sink in sinks.requiredCarryChains) {
 				val (status, treeSink, terminal) =
-					routeToSink(sourceTrees, sinkTrees, source, sink, net)
+					routeToSink(sourceTrees, sinkTrees, source, sink)
 
 				if (status == RouteStatus.IMPOSSIBLE)
 					return RouteStatus.IMPOSSIBLE
@@ -409,7 +409,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 				if (foundExternalPath)
 					break
 				val (status, treeSink, terminal) =
-					routeToSink(sourceTrees, sinkTrees, source, sink, net)
+					routeToSink(sourceTrees, sinkTrees, source, sink)
 
 				if (status == RouteStatus.IMPOSSIBLE)
 					break
@@ -430,38 +430,12 @@ private class BasicPathFinderRouter<T: PackUnit>(
 				RouteStatus.SUCCESS
 		}
 
-		private fun buildSources(source: Source, pinMap: HashMap<CellPin, List<BelPin>>, isPowerNet: Boolean): ArrayList<RouteTreeWithCost> {
+		private fun buildSources(source: Source, pinMap: HashMap<CellPin, List<BelPin>>): ArrayList<RouteTreeWithCost> {
 			val sourceTrees = ArrayList<RouteTreeWithCost>()
 			for (sourceWire in source.wires) {
 				val rt = RouteTreeWithCost(sourceWire)
 				wireUsage.computeIfAbsent(sourceWire) { OccupancyHistoryPair() }
 				rt.cost = calculateSourceCost(sourceWire)
-
-				if (isPowerNet) {
-					// Add an extra cost if the source tree's pin is a LUT output pin and the net is VCC/GND
-					// Vivado prefers to not use LUT static sources and will first use the AX, BX, ... , DX pins to route
-					// power nets and will only use LUT static sources as a last resort.
-					// TODO: Don't use a string comparison
-					if (sourceWire.source?.bel != null) {
-						if (sourceWire.source.bel.name.contains("LUT")) {
-							rt.cost += 50
-						}
-					}
-
-					// Intrasite tie-offs should be preferred - even if GND is already being routed from sitepin AX to Carry4.DI0.
-					// Not using the tie-offs leads to errors with manual routing.
-					// Increase cost of all non-tie off sources by 1 in order to prefer tie-offs.
-					// TODO: Don't use a string comparison (or at least use equals)
-					//if (!sourceWire.name.contains("CYINITGND.0") && !sourceWire.name.contains("SRUSEDGND.0") && !sourceWire.name.contains("CYINITVCC.1") && !sourceWire.name.contains("CEUSEDVCC.1")) {
-
-						//for (tree in rt.typedIterator<RouteTreeWithCost>()) {
-						//	rt.cost += 50
-						//	tree.cost += 50
-						//}
-					//}
-				}
-
-
 				sourceTrees.add(rt)
 			}
 			if (source.belPin != null)
@@ -486,57 +460,17 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 		private fun routeToSink(
 			sourceTrees: ArrayList<RouteTreeWithCost>,
-			sinkTrees: MutableSet<RouteTreeWithCost>, // sinks routed to so far for this net/cluster
+			sinkTrees: MutableSet<RouteTreeWithCost>,
 			source: Source,
-			sink: Terminal,
-			net: CellNet
+			sink: Terminal
 		): RouteToSinkReturn {
 			val pq = PriorityQueue<RouteTreeWithCost>()
 			val wireCosts = HashMap<Wire, Int>()
 
 			for (sourceTree in sourceTrees) {
-
-				// If routing VCC/GND to CYINIT of a carry cell, use the tie-off.
-				//TODO: Add other tie-off cases, improve code
-
-				if (net.isVCCNet) {
-					if (sink.belPins.size == 1 && sink.belPins[0].bel.name.equals("CARRY4") && sink.belPins[0].template.name.equals("CYINIT")) {
-						if (sourceTree.wire.name.contains("CYINITVCC.1")) {
-							for (rt in sourceTree.typedIterator<RouteTreeWithCost>()) {
-								pq.add(rt)
-								wireCosts[rt.wire] = rt.cost
-							}
-						}
-					}
-					else {
-						for (rt in sourceTree.typedIterator<RouteTreeWithCost>()) {
-							pq.add(rt)
-							wireCosts[rt.wire] = rt.cost
-						}
-					}
-				}
-				else if (net.isGNDNet) {
-					if (sink.belPins.size == 1 && sink.belPins[0].bel.name.equals("CARRY4") && sink.belPins[0].template.name.equals("CYINIT")) {
-						if (sourceTree.wire.name.contains("CYINITGND.0")) {
-							for (rt in sourceTree.typedIterator<RouteTreeWithCost>()) {
-								pq.add(rt)
-								wireCosts[rt.wire] = rt.cost
-							}
-						}
-					}
-					else {
-						for (rt in sourceTree.typedIterator<RouteTreeWithCost>()) {
-							pq.add(rt)
-							wireCosts[rt.wire] = rt.cost
-						}
-					}
-
-				}
-				else {
-					for (rt in sourceTree.typedIterator<RouteTreeWithCost>()) {
-						pq.add(rt)
-						wireCosts[rt.wire] = rt.cost
-					}
+				for (rt in sourceTree.typedIterator<RouteTreeWithCost>()) {
+					pq.add(rt)
+					wireCosts[rt.wire] = rt.cost
 				}
 			}
 
@@ -601,7 +535,6 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			pruneSourceTrees(sourceTrees, sinkTrees, false)
 			invalidatedWires.clear()
 
-
 			return ret
 		}
 
@@ -636,7 +569,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					rt.children.forEach { stack.push(it as RouteTreeWithCost) }
 				}
 			}
-			routeTreeMap.put(net, sourceTrees)
+			routeTreeMap[net] = sourceTrees
 		}
 
 		// Convenience method for determining if pins drive/are driven by general fabric
@@ -660,7 +593,7 @@ private fun buildWireCosts(template: PackUnitTemplate): Map<Wire, Int> {
 			lutOutput = bel.getWireOfPin("O5")
 		}
 		if (lutOutput != null)
-			wireCosts.put(lutOutput, 2)
+			wireCosts[lutOutput] = 2
 		sites.add(bel.site)
 	}
 
@@ -692,7 +625,7 @@ abstract class Source {
  * The different sinks in a net that must be reached.
  */
 private abstract class Sinks {
-	// Must this net leave to the general routing fabric? (ie are there one or more
+	// Must this net leave to the general routing fabric (ie are there one or more
 	// sinks on this net that are placed outside by accessible only via the general
 	// routing fabric.
 	abstract val mustRouteExternal: Boolean

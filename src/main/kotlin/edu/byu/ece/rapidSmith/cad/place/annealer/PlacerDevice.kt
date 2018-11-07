@@ -17,7 +17,7 @@ class PlacerDevice<S: ClusterSite>(
 	 fun getRelatedClusterSites(tile: Tile): List<S> =
 		 grid.getRelatedClusterSites(tile)
 
-	val rows: Int = grid.dimensions.rows
-	val columns: Int = grid.dimensions.columns
+	val rows: Int get() = grid.dimensions.rows
+	val columns: Int get() = grid.dimensions.columns
 }
 

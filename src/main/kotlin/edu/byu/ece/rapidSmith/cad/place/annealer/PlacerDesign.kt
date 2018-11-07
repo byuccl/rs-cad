@@ -34,14 +34,14 @@ class PlacerDesign<S : ClusterSite>(
 	val clustersNotToPlace: Set<Cluster<*, S>>
 	val clustersToPlace: Set<Cluster<*, S>>
 
-	private val clusterGroupMap: Map<Cluster<*, S>, PlacementGroup<S>>
+	private val clusterGroups: Array<PlacementGroup<S>>
 
 	init {
 		val (toNotPlace, toPlace) = identifyPlaceableClusters(clusters)
 		clustersToPlace = toPlace
 		clustersNotToPlace = toNotPlace
-		clusterGroupMap = createPlacementGroups(clusters, toNotPlace)
-		groups = clusterGroupMap.values.distinct().sortedBy { it.index }
+		clusterGroups = createPlacementGroups(clusters, toNotPlace)
+		groups = clusterGroups.distinct().sortedBy { it.index }
 		assert(groups.withIndex().all { it.index == it.value.index })
 	}
 
@@ -50,7 +50,7 @@ class PlacerDesign<S : ClusterSite>(
 	 * clusters are not in groups and `null` will be returned for such clusters.
 	 */
 	fun getGroup(i: Cluster<*, S>): PlacementGroup<S>? {
-		return clusterGroupMap[i]
+		return clusterGroups[i.index]
 	}
 
 	val nets: Collection<CellNet>
@@ -140,7 +140,7 @@ private fun <S: ClusterSite> identifyPlaceableClusters(
 private fun <S: ClusterSite> createPlacementGroups(
 	clusters: List<Cluster<*, S>>,
 	clustersNotToPlace: Set<Cluster<*, S>>
-): Map<Cluster<*, S>, PlacementGroup<S>> {
+): Array<PlacementGroup<S>> {
 	val clusterGroupMap = HashMap<Cluster<*, S>, PlacementGroup<S>>()
 	val remainingClusters = HashSet(clusters)
 	remainingClusters -= clustersNotToPlace
@@ -160,5 +160,6 @@ private fun <S: ClusterSite> createPlacementGroups(
 		it to SingleClusterPlacementGroup(numGroups++, it)
 	}
 
-	return clusterGroupMap
+	return clusterGroupMap.toSortedMap(Comparator.comparingInt { it.index })
+		.values.toTypedArray()
 }

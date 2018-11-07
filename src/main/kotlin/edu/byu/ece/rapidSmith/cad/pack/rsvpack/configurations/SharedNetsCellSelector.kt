@@ -9,9 +9,9 @@ import java.util.*
 
 class SharedNetsCellSelector(
 	val searchTwoDeep: Boolean,
-	val HIGH_FANOUT_LIMIT: Int = 400,
+	val HIGH_FANOUT_LIMIT: Int = 200, // 400
 	val AB: Double = 0.9,
-	val MAX_ATTEMPTS: Int = 50
+	val MAX_ATTEMPTS: Int = 20 // 50
 ) : CellSelector<PackUnit> {
 	private lateinit var cluster: Cluster<*, *>
 
@@ -59,7 +59,7 @@ class SharedNetsCellSelector(
 		val netCellPairs = cell.netList
 			.filter { !it.isFilteredNet() }
 			.flatMap { net ->
-				net.pins.filter { pin -> !pin.isPartitionPin }.map{ pin -> Pair(net, pin.cell as Cell) }
+				net.pins.filter { pin -> !pin.isPartitionPin }.map{ pin -> Pair(net, pin.cell) }
 			}
 		val sharedNetsGroup = netCellPairs.groupingBy { it.second }
 		val sharedNets = sharedNetsGroup

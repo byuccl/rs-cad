@@ -79,9 +79,12 @@ abstract class SitePackUnitGenerator {
 
 			findDirectSourcesAndSinks(builder, tileMaps, siteTemplates, actualInstance)
 			val template = builder.build()
-			val belSelector = ShortestRouteBelSelector(template, belCosts)
-			val sitePackUnit = SitePackUnit(SitePackUnitType(type), template, belSelector)
-			packUnits += sitePackUnit
+
+			// Dallon's version:
+			//val belSelector = ShortestRouteBelSelector(template, belCosts)
+			//val sitePackUnit = SitePackUnit(SitePackUnitType(type), template, belSelector)
+			//packUnits += sitePackUnit
+			packUnits += SitePackUnit(SitePackUnitType(type), template)
 		}
 
 		return packUnits

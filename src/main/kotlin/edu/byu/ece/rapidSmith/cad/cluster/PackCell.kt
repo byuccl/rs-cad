@@ -41,6 +41,8 @@ var Cell.isValid: Boolean
  */
 fun <C: Cluster<*, *>> Cell.getCluster(): C? {
 	@Suppress("UNCHECKED_CAST")
+	//if (packingInfo.cluster == null)
+	//	println("why null")
 	return packingInfo.cluster as C?
 }
 
