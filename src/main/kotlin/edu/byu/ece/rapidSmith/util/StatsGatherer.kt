@@ -3,6 +3,7 @@ package edu.byu.ece.rapidSmith.util
 import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellNet
+import edu.byu.ece.rapidSmith.design.subsite.RouteTree
 import edu.byu.ece.rapidSmith.device.Tile
 import edu.byu.ece.rapidSmith.device.families.FamilyInfos
 import java.io.PrintWriter
@@ -40,8 +41,8 @@ fun computeWireLength(design: CellDesign): Int {
 		for (trees in net.intersiteRouteTreeList) {
 			for (tree in trees) {
 				for (c in tree) {
-					if (c.sourceTree != null) {
-						wireLength += manhattanDistance(c.sourceTree.wire.tile, c.wire.tile)
+					if (c.getParent<RouteTree>() != null) {
+						wireLength += manhattanDistance(c.getParent<RouteTree>().wire.tile, c.wire.tile)
 					}
 				}
 			}
