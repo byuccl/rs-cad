@@ -9,7 +9,10 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.*
-import edu.byu.ece.rapidSmith.cad.place.annealer.*
+import edu.byu.ece.rapidSmith.cad.place.annealer.DefaultCoolingScheduleFactory
+import edu.byu.ece.rapidSmith.cad.place.annealer.EffortLevel
+import edu.byu.ece.rapidSmith.cad.place.annealer.MoveValidator
+import edu.byu.ece.rapidSmith.cad.place.annealer.SimulatedAnnealingPlacer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.BondedIOBPlacerRule
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.MismatchedRAMBValidator
 import edu.byu.ece.rapidSmith.design.NetType
@@ -18,6 +21,7 @@ import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.device.families.Artix7
 import edu.byu.ece.rapidSmith.device.families.Artix7.SiteTypes.*
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
+import java.lang.IllegalArgumentException
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
@@ -31,13 +35,41 @@ class SiteCadFlow {
 //	var placer: Placer<SiteClusterSite>? = null
 //	var placer: RouteR? = null
 
+	var placeTime: Long? = null
+		private set
+
+	var packTime: Long? = null
+		private set
+
+	var packerLoadTime: Long? = null
+		private set
+
 	fun run(design: CellDesign, device: Device) {
+		val startTime = System.currentTimeMillis()
 		val packer = getSitePacker(device)
+		val packerLoadTime = System.currentTimeMillis()
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
+		val packTime = System.currentTimeMillis()
 		val placer = getGroupSAPlacer()
 		placer.place(design, clusters)
+		val placeTime = System.currentTimeMillis()
+		this.packerLoadTime = packerLoadTime - startTime
+		this.packTime = packTime - startTime
+		this.placeTime = placeTime - packTime
 		println(design)
+	}
+
+	fun prepDesign(design: CellDesign, device: Device) {
+		design.unrouteDesignFull()
+		design.unplaceDesign()
+		design.leafCells.forEach { it.removePseudoPins() }
+		design.nets.forEach { it.disconnectFromPins(
+				it.pins.filter { it.isPseudoPin }) }
+		val ciPins = design.gndNet.sinkPins
+				.filter { it.cell.libCell.name == "CARRY4" }
+				.filter { it.name == "CI"  }
+		design.gndNet.disconnectFromPins(ciPins)
 	}
 
 	companion object {
@@ -46,16 +78,9 @@ class SiteCadFlow {
 			val rscp = VivadoInterface.loadRSCP(args[0])
 			val design = rscp.design
 			val device = rscp.device
-			design.unrouteDesignFull()
-			design.unplaceDesign()
-			design.leafCells.forEach { it.removePseudoPins() }
-			design.nets.forEach { it.disconnectFromPins(
-				it.pins.filter { it.isPseudoPin }) }
-			val ciPins = design.gndNet.sinkPins
-				.filter { it.cell.libCell.name == "CARRY4" }
-				.filter { it.name == "CI"  }
-			design.gndNet.disconnectFromPins(ciPins)
-			SiteCadFlow().run(design, device)
+			val flow = SiteCadFlow()
+			flow.prepDesign(design, device)
+			flow.run(design, device)
 			val rscpFile = Paths.get(args[0]).toFile()
 			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
 			println("writing to $tcp")
@@ -210,9 +235,11 @@ private class SitePackerFactory(
 		packUnit: PackUnit, packUnits: PackUnitList<*>
 	): PackStrategy<SitePackUnit> {
 		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit) { p, b ->
-			val possibleBelPins = p.getPossibleBelPins(b)
-			check(possibleBelPins.size == 1)
-			listOf(possibleBelPins[0])
+			val mapping = p.findPinMapping(b)!!
+			// TODO mapping can actually have multiple pins
+			// I'm just take the first right now since the routing of the second
+			// should be a given
+			if (mapping.isNotEmpty()) mapping.take(1) else null
 		}
 		val packRules = listOf<PackRuleFactory>(
 			RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
@@ -307,14 +334,15 @@ private class SitePackerFactory(
 				if (!net.isStaticNet) {
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
-						val cellName = "${net.name}-${pin.name}-pass"
+						val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
+						val netName = design.getUniqueNetName("${net.name}-${pin.name}-pass")
 						val newCell = Cell(cellName, cellLibrary["LUT1"])
 						newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
 						design.addCell(newCell)
 						net.disconnectFromPin(pin)
 						net.connectToPin(newCell.getPin("I0"))
 
-						val newNet = CellNet(cellName, NetType.WIRE)
+						val newNet = CellNet(netName, NetType.WIRE)
 						design.addNet(newNet)
 						newNet.connectToPin(pin)
 						newNet.connectToPin(newCell.getPin("O"))
@@ -551,9 +579,8 @@ private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
 		"RAMS32", "RAMS64E" -> mapRamsPin(pin, bel)
 		"CARRY4" -> mapCarryPin(pin, bel)
 		else -> {
-			val possibleBelPins = pin.getPossibleBelPins(bel)!!
-			check(possibleBelPins.size == 1)
-			listOf(possibleBelPins[0])
+			val possibleBelPins = pin.findPinMapping(bel)!!
+			possibleBelPins
 		}
 	}
 }
@@ -574,6 +601,23 @@ private fun mapCarryPin(pin: CellPin, bel: Bel): List<BelPin> {
 			check(possibleBelPins.size == 1)
 			listOf(possibleBelPins[0])
 		}
+	}
+}
+
+private fun CellPin.findPinMapping(b: Bel): List<BelPin>? {
+	val c = this.cell
+	if (c.getType().startsWith("RAMB") || c.getType().startsWith("FIFO")) {
+		// The limitation of following lines of code is that this cell is
+		// already placed and so we know the bel.  In reality, you will
+		// usually be asking the question regarding a potential cell placement
+		// onto a  bel.
+		var pm = PinMapping.findPinMappingForCell(c, b.fullName)
+		if (pm == null) {
+			throw IllegalArgumentException("No pin mapping found for ${c.type} -> ${b.name}")
+		}
+		return pm.pins[this.name]?.filter { it != "nc" }?.map { b.getBelPin(it)!! }
+	} else {
+		return this.getPossibleBelPins(b)
 	}
 }
 

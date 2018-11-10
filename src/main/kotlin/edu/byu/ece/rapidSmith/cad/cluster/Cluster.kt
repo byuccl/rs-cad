@@ -15,7 +15,7 @@ import java.util.*
  * clusters in a packed design.
  */
 abstract class Cluster<out T: PackUnit, S: ClusterSite>(
-	val name: String, val type: T, var anchor: Bel
+	val name: String, val type: T, var anchor: Bel, val index: Int
 ) {
 	// Field getters and setters
 	var cost: Double = 0.toDouble()

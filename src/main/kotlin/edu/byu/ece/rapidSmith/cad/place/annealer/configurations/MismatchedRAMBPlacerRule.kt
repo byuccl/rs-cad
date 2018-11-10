@@ -46,7 +46,7 @@ private class StateHelper(
 		anchor: SiteClusterSite
 	): Set<Tile> {
 		val origSites = getRelocatedSites(groupToPlace, anchor)
-		return origSites.map { it.site.tile }.toSet()
+		return origSites.asSequence().map { it.site.tile }.toSet()
 	}
 
 	fun getAdjacentSitesOfType(
@@ -60,7 +60,7 @@ private class StateHelper(
 	}
 
 	fun anySitesOccupied(sites: List<SiteClusterSite>): Boolean {
-		return sites.any { it in state.usedSites }
+		return sites.any { state.isSiteUsed(it) }
 	}
 
 	fun anyOfTypeUsed(

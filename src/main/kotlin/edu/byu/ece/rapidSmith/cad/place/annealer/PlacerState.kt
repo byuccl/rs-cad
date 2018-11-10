@@ -2,8 +2,8 @@ package edu.byu.ece.rapidSmith.cad.place.annealer
 
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
+import edu.byu.ece.rapidSmith.util.ArrayGrid
 import java.util.*
-import kotlin.collections.HashMap
 
 /**
  * This class manages the dynamic placement state of all placement
@@ -21,7 +21,7 @@ import kotlin.collections.HashMap
  * considered "unplaced" when it does not have an entry in this map. This object
  * also stores a map between sites and instances:
  *
- * protected Map<PrimitiveSite></PrimitiveSite>, Instance> siteInstanceMap;
+ * protected Map<PrimitiveSite></PrimitiveSite>, Instance> siteInstances;
  *
  * This provides the ability to go from groups to sites or from
  * sites to groups(instances). This object must be consistent with the
@@ -54,7 +54,7 @@ class PlacerState<S : ClusterSite>(
 	private val costFunction: CostFunction<S>
 ) {
 	private val groupAnchorList = MutableList<S?>(design.groups.size) { null }
-	private val siteInstanceMap = HashMap<S, Cluster<*, S>>()
+	private val usedSitesGrid = ArrayGrid<Cluster<*, S>?>(device.grid.dimensions) { null } // TODO replace with gridOfNulls
 	private val _placedGroups = ArrayList<PlacementGroup<S>>()
 	private val _unplacedGroups = ArrayList(design.groups)
 
@@ -77,8 +77,7 @@ class PlacerState<S : ClusterSite>(
 	/**
 	 * Returns all sites used in the placement
 	 */
-	val usedSites: Set<S>
-		get() = siteInstanceMap.keys
+	fun isSiteUsed(site: S) = usedSitesGrid[site.location] != null
 
 	val canBePlaced: Boolean
 
@@ -113,7 +112,7 @@ class PlacerState<S : ClusterSite>(
 
 	/** Returns the cluster that is placed at a cluster site [site]. */
 	fun getClusterAt(site: S): Cluster<*, S>? {
-		return siteInstanceMap[site]
+		return usedSitesGrid[site.location]
 	}
 
 	/**
@@ -137,18 +136,18 @@ class PlacerState<S : ClusterSite>(
 	 * This method will update both placement state objects to keep them
 	 * consistent:
 	 * - groupAnchorList
-	 * - siteInstanceMap.
+	 * - siteInstances.
 	 */
 	fun placeGroup(group: PlacementGroup<S>, newSite: S) {
 		// Update the new anchor location of the group
 		groupAnchorList[group.index] = newSite
 
-		// Update the siteInstanceMap with the Instances of the group
+		// Update the siteInstances with the Instances of the group
 		val region = groupRegions[group.index]
 		val locations = requireNotNull(region.getLocations(newSite)) { "Illegal site for group" }
 		for ((i, site) in locations.withIndex()) {
 			val cluster = group.clusters[i]
-			siteInstanceMap[site] = cluster
+			usedSitesGrid[site.location] = cluster
 			currentCost += costFunction.place(cluster, site)
 		}
 	}
@@ -158,7 +157,7 @@ class PlacerState<S : ClusterSite>(
 	 * considered "unplaced" with no location after calling this method.
 	 *
 	 * Both placement state objects are updated in this method: the groupAnchorList
-	 * and the siteInstanceMap.
+	 * and the siteInstances.
 	 */
 	fun unplaceGroup(group: PlacementGroup<S>) {
 		// get the old location.  If the group was not already placed, just return
@@ -169,7 +168,7 @@ class PlacerState<S : ClusterSite>(
 		val locations = region.getLocations(oldAnchor)!!
 		for ((i, site) in locations.withIndex()) {
 			val cluster = group.clusters[i]
-			siteInstanceMap.remove(site)
+			usedSitesGrid[site.location] = null
 			currentCost += costFunction.unplace(cluster, site)
 		}
 
