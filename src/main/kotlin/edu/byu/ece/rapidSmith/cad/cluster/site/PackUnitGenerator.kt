@@ -21,7 +21,6 @@ abstract class SitePackUnitGenerator {
 	protected abstract val TIEOFF_SITE_TYPE: SiteType
 	protected abstract val SWITCH_MATRIX_TILES: Set<TileType>
 	protected abstract val INTERFACE_TILES: Set<TileType>
-	protected abstract val VERSION: String
 	protected abstract val VCC_SOURCES: Map<BelId, PinName>
 	protected abstract val GND_SOURCES: Map<BelId, PinName>
 
@@ -34,7 +33,7 @@ abstract class SitePackUnitGenerator {
 		val templates = makePackUnits(device)
 		val drivers = buildDrivesGeneralFabric(device, SWITCH_MATRIX_TILES)
 		val drivens = buildDrivenByGeneralFabric(device, SWITCH_MATRIX_TILES)
-		return PackUnitList(VERSION, device.partName, templates, drivers, drivens)
+		return PackUnitList(device.partName, templates, drivers, drivens)
 	}
 
 	private fun makePackUnits(device: Device): ArrayList<SitePackUnit> {
@@ -77,7 +76,7 @@ abstract class SitePackUnitGenerator {
 
 			findDirectSourcesAndSinks(builder, tileMaps, siteTemplates, actualInstance)
 			val template = builder.build()
-			packUnits += SitePackUnit(SitePackUnitType(type), template)
+			packUnits += SitePackUnit(SitePackUnitType(type), template, SitePackUnit.LATEST_VERSION)
 		}
 
 		return packUnits
