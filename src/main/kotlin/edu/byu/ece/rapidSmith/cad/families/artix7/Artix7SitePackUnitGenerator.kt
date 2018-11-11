@@ -5,9 +5,10 @@ import com.caucho.hessian.io.Deserializer
 import com.caucho.hessian.io.Serializer
 import com.caucho.hessian.io.UnsafeSerializer
 import edu.byu.ece.rapidSmith.RSEnvironment
+import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnitList
+import edu.byu.ece.rapidSmith.cad.cluster.loadPackUnits
 import edu.byu.ece.rapidSmith.cad.cluster.site.PinName
-import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnit
 import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnitGenerator
 import edu.byu.ece.rapidSmith.cad.cluster.site.use
 import edu.byu.ece.rapidSmith.device.*
@@ -157,10 +158,7 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 
 			if (Files.exists(templatesPath) && !forceRebuild(args)) {
 				val o = try {
-					FileTools.getCompactReader(templatesPath).use { his ->
-						@Suppress("UNCHECKED_CAST")
-						his.readObject() as PackUnitList<SitePackUnit>
-					}
+					loadPackUnits<PackUnit>(templatesPath)
 				} catch (e: Exception) {
 					println("error reading device: $e")
 					null
@@ -193,13 +191,14 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 					hos.serializerFactory.addFactory(serializeFactory)
 					hos.writeObject(packUnits)
 				}
+				println("Packunits written to file $templatesPath")
 			} catch (e: IOException) {
 				println("Error writing for device ...")
 			}
 		}
 
 		private fun forceRebuild(args: Array<String>) =
-			args.size >= 3 && args[2] == "rebuild"
+			args.size >= 2 && args[1] == "rebuild"
 
 	}
 }
