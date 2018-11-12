@@ -588,9 +588,9 @@ class TableBasedRoutabilityChecker(
 					// claim this source preventing any other pins from
 					// trying to use it
 
-                    val isPassThru = cellPin.cell.libCell.isLut	&& cellPin.cell.properties.get("INIT").stringValue.equals("0x2'h2")
+                   // val isPassThru = cellPin.cell.libCell.isLut	&& cellPin.cell.properties.get("INIT").stringValue.equals("0x2'h2")
 
-                    if (!isPassThru)
+                   // if (!isPassThru)
                     	 rowStatus.claimedSources[result.claimedSource!!] = net
 				}
 			}
@@ -663,19 +663,20 @@ class TableBasedRoutabilityChecker(
 		val claimedSource: Any?
 		var conditionalSource: Bel? = null
 
-		if (cellPin.net.sourcePin.isPartitionPin && entry.drivenByGeneralFabric) {
+		//if (cellPin.net.sourcePin.isPartitionPin && entry.drivenByGeneralFabric) {
 			// claimedSource = sourcePin
 
 			// the source for this row comes from general routing
-			claimedSource = entry.sourceClusterPin
-			assert (claimedSource != null)
+		//	claimedSource = entry.sourceClusterPin
+		//	assert (claimedSource != null)
 			// we're coming from outside the cluster.  Let's just make sure the
 			// source can reach general fabric
-			if (source.drivesGeneralFabric) {
-				status = Routability.VALID
-			}
-		}
-		else if (entry.sourcePin != null) {
+		//	if (source.drivesGeneralFabric) {
+		//		status = Routability.VALID
+		//	}
+	//	}
+		//else
+		if (entry.sourcePin != null) {
 			// the source for this pin is in the pin group
 			val entryPin = entry.sourcePin
 			claimedSource = entryPin

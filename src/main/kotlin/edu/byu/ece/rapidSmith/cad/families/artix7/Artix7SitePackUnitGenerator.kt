@@ -17,7 +17,6 @@ import edu.byu.ece.rapidSmith.device.families.Artix7.TileTypes
 import edu.byu.ece.rapidSmith.util.FileTools
 import java.io.IOException
 import java.nio.file.Files
-import java.nio.file.Paths
 
 class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 	override val PACKABLE_SITE_TYPES: List<SiteType>
@@ -25,7 +24,6 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 	override val TIEOFF_SITE_TYPE: SiteType
 	override val SWITCH_MATRIX_TILES: Set<TileType>
 	override val INTERFACE_TILES: Set<TileType>
-	override val VERSION = CURRENT_VERSION
 	override val VCC_SOURCES: Map<BelId, PinName>
 	override val GND_SOURCES: Map<BelId, PinName>
 	private val IGNORED_TILE_TYPES: Set<TileType>

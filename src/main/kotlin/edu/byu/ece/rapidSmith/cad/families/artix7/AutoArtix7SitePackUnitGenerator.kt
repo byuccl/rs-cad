@@ -21,7 +21,6 @@ class AutoArtix7SitePackUnitGenerator(val device: Device) : SitePackUnitGenerato
 	override val TIEOFF_SITE_TYPE: SiteType
 	override val SWITCH_MATRIX_TILES: Set<TileType>
 	override val INTERFACE_TILES: Set<TileType>
-	override val VERSION = CURRENT_VERSION
 	override val VCC_SOURCES: Map<BelId, PinName>
 	override val GND_SOURCES: Map<BelId, PinName>
 	private val IGNORED_TILE_TYPES: Set<TileType>
@@ -220,10 +219,10 @@ class AutoArtix7SitePackUnitGenerator(val device: Device) : SitePackUnitGenerato
 					null
 				}
 
-				if (o?.version == CURRENT_VERSION) {
-					println("Part $part already exists, skipping")
-					return
-				}
+			//	if (o?.version == CURRENT_VERSION) {
+			//		println("Part $part already exists, skipping")
+			//		return
+			//	}
 			}
 			println("Generating template for " + part)
 
