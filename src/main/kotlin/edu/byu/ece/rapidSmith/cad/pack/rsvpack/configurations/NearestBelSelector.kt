@@ -263,7 +263,8 @@ private class BelPinSaver(val site: String, val bel: String, val pin: String) : 
 
 private class CachedClusterConnections(
 	val sourcesOfSinks: Map<BelPinSaver, Map<BelPinSaver, CCCList>>,
-	val sinksOfSources: Map<BelPinSaver, Map<BelPinSaver, CCCList>>
+	val sinksOfSources: Map<BelPinSaver, Map<BelPinSaver, CCCList>>,
+	val version: Version = LATEST_VERSION
 ) : Serializable {
 	fun resolve(packUnit: PackUnit): ClusterConnections {
 		val sosi = sourcesOfSinks.mapKeys { (k1, _) -> k1.resolve(packUnit) }
@@ -285,6 +286,10 @@ private class CachedClusterConnections(
 			}
 		}
 		return ClusterConnections(sosi, siso)
+	}
+
+	companion object {
+		val LATEST_VERSION = Version(1, 0)
 	}
 }
 
@@ -343,9 +348,13 @@ private class ClusterConnectionsBuilder {
 		try {
 			FileTools.getCompactReader(path).use {
 				val ccc = it.readObject() as CachedClusterConnections
+				if (ccc.version < CachedClusterConnections.LATEST_VERSION)
+					throw VersionException(ccc.version, CachedClusterConnections.LATEST_VERSION)
 				return ccc.resolve(packUnit)
 			}
 		} catch (e: IOException) {
+			// just catch it
+		} catch (e: VersionException) {
 			// just catch it
 		}
 

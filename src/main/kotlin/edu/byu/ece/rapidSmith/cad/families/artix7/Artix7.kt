@@ -96,8 +96,8 @@ fun getSitePacker(
         device: Device,
         cellLibraryPath: Path = partsFolder.resolve("cellLibrary.xml"),
         belCostsPath: Path = partsFolder.resolve("belCosts.xml"),
-		//packUnitsPath: Path = partsFolder.resolve(device.partName + "_packunits_site.rpu")
-		packUnitsPath: Path = partsFolder.resolve("packunits-site.rpu")
+		// 		//packUnitsPath: Path = partsFolder.resolve(device.partName + "_packunits_site.rpu")
+        packUnitsPath: Path = partsFolder.resolve("packunits-site.rpu")
 ): RSVPack<SitePackUnit> {
 	val packUnits = loadPackUnits<SitePackUnit>(packUnitsPath)
 	val belCosts = loadBelCostsFromFile(belCostsPath)
@@ -339,15 +339,15 @@ private class SitePackerFactory(
 				if (!net.isStaticNet) {
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
-						// val cellName = "${net.name}-${pin.cell.name}/${pin.name}-pass"
-                        val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
+						val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
+						val netName = design.getUniqueNetName("${net.name}-${pin.name}-pass")
 						val newCell = Cell(cellName, cellLibrary["LUT1"])
 						newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
 						design.addCell(newCell)
 						net.disconnectFromPin(pin)
 						net.connectToPin(newCell.getPin("I0"))
 
-						val newNet = CellNet(cellName, NetType.WIRE)
+						val newNet = CellNet(netName, NetType.WIRE)
 						design.addNet(newNet)
 						newNet.connectToPin(pin)
 						newNet.connectToPin(newCell.getPin("O"))
@@ -626,11 +626,6 @@ private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
 	if (pin.isPseudoPin)
 		return listOf(bel.getBelPin(pin.name.substring(6)))
 
-	//val isPassThru = pin.cell.libCell.isLut	&& pin.cell.properties.get("INIT").stringValue.equals("0x2'h2")
-
-	//if (isPassThru)
-	//	return pin.findPinMapping(bel)!!
-
 	return when (pin.cell.libCell.name) {
 		"LUT1" -> mapLutPin(pin, bel)
 		"LUT2" -> mapLutPin(pin, bel)
@@ -675,13 +670,8 @@ private fun CellPin.findPinMapping(b: Bel): List<BelPin>? {
 		// already placed and so we know the bel.  In reality, you will
 		// usually be asking the question regarding a potential cell placement
 		// onto a  bel.
-
-		//if (b.name.equals("RAMB36E1"))
-			//println("???")
-
 		var pm = PinMapping.findPinMappingForCell(c, b.fullName)
 		if (pm == null) {
-			//PinMapping.createPinMappings(c, b.name, true)
 			throw IllegalArgumentException("No pin mapping found for ${c.type} -> ${b.name}")
 		}
 		return pm.pins[this.name]?.filter { it != "nc" }?.map { b.getBelPin(it)!! }

@@ -2,24 +2,24 @@ package edu.byu.ece.rapidSmith.cad.cluster
 
 import com.caucho.hessian.io.*
 import edu.byu.ece.rapidSmith.cad.cluster.site.use
-import edu.byu.ece.rapidSmith.cad.pack.rsvpack.BelSelector
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.FileTools
+import edu.byu.ece.rapidSmith.util.Version
 import java.io.Serializable
 import java.nio.file.Path
 
 /**
  * Class representing a pack unit.
  */
-open class PackUnit(
-	@Transient
+abstract class PackUnit(
+    @Transient
 	open val type: PackUnitType,
 	@Transient
 	open val template: PackUnitTemplate
-	// Dallon version:
-	//@Transient
-	//open val belSelector: BelSelector<PackUnit>
-)
+) {
+	abstract val version: Version
+	abstract val latestVersion: Version
+}
 
 /** The type of a pack unit. */
 open class PackUnitType(val name: String)
@@ -46,13 +46,10 @@ abstract class PackUnitTemplate {
 	abstract val inputs: Set<Wire>
 	/** The device that describes the resources and routing in this pack unit. */
 	abstract val device: Device
-
 }
 
 /** Class containing all of the pack units supported by a device */
 class PackUnitList<out T: PackUnit>(
-	/** Version of this class. */
-	val version: String,
 	/** The part this list was made from */
 	val part: String,
 	val packUnits: List<T>,
@@ -80,6 +77,12 @@ fun <T: PackUnit> loadPackUnits(path: Path): PackUnitList<T> {
 		his.serializerFactory.addFactory(serializeFactory)
 
 		@Suppress("UNCHECKED_CAST")
-		his.readObject() as PackUnitList<T>
+		val pus = his.readObject() as PackUnitList<T>
+		for (pu in pus)
+			if (pu.version < pu.latestVersion) {
+				System.err.println("Using outdated pack unit version")
+				break
+			}
+		pus
 	}
 }

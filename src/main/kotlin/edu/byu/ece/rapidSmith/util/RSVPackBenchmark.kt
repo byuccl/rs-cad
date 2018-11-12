@@ -34,7 +34,7 @@ fun main(argv: Array<String>) {
 				var l = line
 				l = l.replace(Regex("%TIMING%"), constraint.toString())
 				l = l.replace(Regex("%TIMINGD2%"), (constraint/2).toString())
-				o.write(l)
+				o.write(l + System.lineSeparator())
 			}
 		}
 	}
@@ -45,7 +45,6 @@ fun main(argv: Array<String>) {
 	var routeTime: Long = -1
 	val final = VivadoProject.from_tcp(benchname, tcp).use {
 		println(it.addConstraintsFiles(new_xdc).joinToString(System.lineSeparator()) { it })
-		println(it.console.runCommand("place_design"))
 		startTime = System.currentTimeMillis()
 		println(it.route().joinToString(System.lineSeparator()) { it })
 		routeTime = System.currentTimeMillis()

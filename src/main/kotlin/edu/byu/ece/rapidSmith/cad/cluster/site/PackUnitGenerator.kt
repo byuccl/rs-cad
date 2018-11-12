@@ -3,8 +3,6 @@ package edu.byu.ece.rapidSmith.cad.cluster.site
 import com.caucho.hessian.io.Hessian2Input
 import com.caucho.hessian.io.Hessian2Output
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnitList
-import edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations.BelCostMap
-import edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations.ShortestRouteBelSelector
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.getWireConnections
 import java.awt.Point
@@ -23,25 +21,21 @@ abstract class SitePackUnitGenerator {
 	protected abstract val TIEOFF_SITE_TYPE: SiteType
 	protected abstract val SWITCH_MATRIX_TILES: Set<TileType>
 	protected abstract val INTERFACE_TILES: Set<TileType>
-	protected abstract val VERSION: String
 	protected abstract val VCC_SOURCES: Map<BelId, PinName>
 	protected abstract val GND_SOURCES: Map<BelId, PinName>
 
-	abstract protected fun findClusterInstances(siteType: SiteType, device: Device): List<Site>
+	protected abstract fun findClusterInstances(siteType: SiteType, device: Device): List<Site>
 
 	private var numBuiltTiles = 0
 	private val tileMapsMap = HashMap<SiteType, Map<Site, Map<Tile, Tile>>>()
 
-	//fun buildFromDevice(device: Device, belCosts: BelCostMap): PackUnitList<SitePackUnit> {
 	fun buildFromDevice(device: Device): PackUnitList<SitePackUnit> {
-		//val templates = makePackUnits(device, belCosts)
 		val templates = makePackUnits(device)
 		val drivers = buildDrivesGeneralFabric(device, SWITCH_MATRIX_TILES)
 		val drivens = buildDrivenByGeneralFabric(device, SWITCH_MATRIX_TILES)
-		return PackUnitList(VERSION, device.partName, templates, drivers, drivens)
+		return PackUnitList(device.partName, templates, drivers, drivens)
 	}
 
-	//private fun makePackUnits(device: Device, belCosts: BelCostMap): ArrayList<SitePackUnit> {
 	private fun makePackUnits(device: Device): ArrayList<SitePackUnit> {
 		val packUnits = ArrayList<SitePackUnit>()
 		val instancesMap = HashMap<SiteType, List<Site>>()
@@ -51,10 +45,10 @@ abstract class SitePackUnitGenerator {
 		for (clusterSiteType in PACKABLE_SITE_TYPES) {
 			val clusterInstances = findClusterInstances(clusterSiteType, device)
 			if (clusterInstances.isEmpty()) {
-				println("No instances of type " + clusterSiteType)
+				println("No instances of type $clusterSiteType")
 				continue
 			}
-			instancesMap.put(clusterSiteType, clusterInstances)
+			instancesMap[clusterSiteType] = clusterInstances
 		}
 
 		// Build the new tiles in the cluster
@@ -82,12 +76,7 @@ abstract class SitePackUnitGenerator {
 
 			findDirectSourcesAndSinks(builder, tileMaps, siteTemplates, actualInstance)
 			val template = builder.build()
-
-			// Dallon's version:
-			//val belSelector = ShortestRouteBelSelector(template, belCosts)
-			//val sitePackUnit = SitePackUnit(SitePackUnitType(type), template, belSelector)
-			//packUnits += sitePackUnit
-			packUnits += SitePackUnit(SitePackUnitType(type), template)
+			packUnits += SitePackUnit(SitePackUnitType(type), template, SitePackUnit.LATEST_VERSION)
 		}
 
 		return packUnits
@@ -131,7 +120,6 @@ abstract class SitePackUnitGenerator {
 		device.constructTileMap()
 		device.constructDependentResources()
 		device.wireEnumerator = makeWireEnumerator(oldDevice.wireEnumerator)
-		// val usedWires = makeDeviceRouting(templateSites, tileMaps, type, tilePointMap)
 		makeDeviceRouting(templateSites, tileMaps, type, tilePointMap)
 //		device.wireEnumerator = makeWireEnumerator(oldDevice.wireEnumerator, usedWires)
 
@@ -206,7 +194,7 @@ abstract class SitePackUnitGenerator {
 			val columnOffset = tile.column - instanceTile.column
 			val rowOffset = tile.row - instanceTile.row
 			val tileOffset = Point(columnOffset, rowOffset)
-			retMap.put(tile, tileMap[tileOffset]!!)
+			retMap[tile] = tileMap[tileOffset]!!
 		}
 		return retMap
 	}
@@ -222,7 +210,7 @@ abstract class SitePackUnitGenerator {
 				val types = arrayOf<SiteType>(instance.type)
 				newSite.possibleTypes = types
 				val externalWires = HashMap(instance.externalWires)
-				externalWires.keys.removeIf({ type -> type !== instance.type })
+				externalWires.keys.removeIf { type -> type !== instance.type }
 				newSite.externalWires = externalWires
 				newSite
 			}
@@ -233,15 +221,15 @@ abstract class SitePackUnitGenerator {
 	}
 
 	private fun buildWireSites(oldTile: Tile, instance: Site): Map<Int, Int>? {
-		return if (isMainTile(oldTile, instance)) {
-			val wireSites = HashMap(oldTile.wireSites)
-			wireSites.values.removeIf({ idx -> idx != instance.index })
-			wireSites.entries.forEach { e -> e.setValue(0) }
-			wireSites
-		} else if (oldTile.wireSites != null) {
-			  HashMap(oldTile.wireSites)
-		} else {
-			null
+		return when {
+			isMainTile(oldTile, instance) -> {
+				val wireSites = HashMap(oldTile.wireSites)
+				wireSites.values.removeIf { idx -> idx != instance.index }
+				wireSites.entries.forEach { e -> e.setValue(0) }
+				wireSites
+			}
+			oldTile.wireSites != null -> HashMap(oldTile.wireSites)
+			else -> null
 		}
 	}
 
@@ -254,7 +242,7 @@ abstract class SitePackUnitGenerator {
 		newSite.possibleTypes = possTypes
 
 		val externalWires = HashMap<SiteType, MutableMap<String, Int>>(1, 100.0f)
-		externalWires.put(type, oldSite.externalWires[type]!!)
+		externalWires[type] = oldSite.externalWires[type]!!
 		newSite.externalWires = externalWires
 		return newSite
 	}
@@ -356,8 +344,8 @@ abstract class SitePackUnitGenerator {
 
 		val pinwiresMap = sites.map { it to findSiteSourcesAndSinks(it) }.toMap()
 		val newRouteThroughs = HashMap<Int, MutableMap<Int, PIPRouteThrough>>()
-		sites.map {
-				val pinwires = pinwiresMap[it]!!
+		sites.map { site ->
+			val pinwires = pinwiresMap[site]!!
 				// keep only if this route through is used in the device
 				flattened.filter {
 					it.third.type in siteTypes &&
@@ -398,8 +386,8 @@ abstract class SitePackUnitGenerator {
 	}
 
 	private fun makeWireEnumerator(
-		oldWE: WireEnumerator,
-		usedWires: Set<Int> = emptySet()
+		oldWE: WireEnumerator /*,
+		usedWires: Set<Int> = emptySet() */
 	): WireEnumerator {
 //		val maxWire = usedWires.max()!!
 //		val wireDirections = arrayOfNulls<WireDirection>(maxWire+1)
@@ -420,21 +408,13 @@ abstract class SitePackUnitGenerator {
 		return oldWE
 	}
 
-	private fun Sequence<Wire>.andSinks(): Sequence<Sequence<Wire>> {
-		return map {
-			val sinks = it.wireConnections.asSequence()
-				.map { it.sinkWire }
-			sequenceOf(it) + sinks
-		}
-	}
-
 	private fun buildClusterRouting(
 		type: SiteType,
 		templates: List<Site>,
 		actual: Site,
 		tileMaps: Map<Site, Map<Tile, Tile>>
 	): Triple<Map<Tile, WireHashMap>, Map<Tile, WireHashMap>, Set<Int>> {
-		System.out.println("Building clusterChain routing for " + type)
+		System.out.println("Building clusterChain routing for $type")
 		val crb = ClusterRoutingBuilder(SWITCH_MATRIX_TILES)
 		templates.forEach { crb.traverse(it, actual, tileMaps[it]!!) }
 		crb.finish()

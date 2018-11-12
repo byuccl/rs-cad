@@ -4,24 +4,27 @@ import edu.byu.ece.rapidSmith.cad.cluster.DirectConnection
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnitTemplate
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnitType
-import edu.byu.ece.rapidSmith.cad.pack.rsvpack.BelSelector
 import edu.byu.ece.rapidSmith.device.*
+import edu.byu.ece.rapidSmith.util.Version
 import java.io.Serializable
 
 class SitePackUnit(
 	override val type: SitePackUnitType,
-	override val template: SitePackUnitTemplate
-
-	// Dallon version:
-	//override val belSelector: BelSelector<PackUnit>
-//) : PackUnit(type, template, belSelector), Serializable {
+	override val template: SitePackUnitTemplate,
+	override val version: Version
 ) : PackUnit(type, template), Serializable {
 	val siteType: SiteType get() = type.type
 	val site: Site get() = template.anchor.site
+
+	override val latestVersion get() = SitePackUnit.LATEST_VERSION
+
 	override fun toString(): String {
 		return "SitePackUnit(${type.type})"
 	}
 
+	companion object {
+		val LATEST_VERSION = Version(1, 0)
+	}
 }
 
 data class SitePackUnitType(val type: SiteType) :

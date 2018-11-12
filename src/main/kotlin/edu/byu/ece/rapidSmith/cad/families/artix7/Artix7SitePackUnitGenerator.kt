@@ -1,15 +1,19 @@
 package edu.byu.ece.rapidSmith.cad.families.artix7
 
-import com.caucho.hessian.io.*
+import com.caucho.hessian.io.AbstractSerializerFactory
+import com.caucho.hessian.io.Deserializer
+import com.caucho.hessian.io.Serializer
+import com.caucho.hessian.io.UnsafeSerializer
 import edu.byu.ece.rapidSmith.RSEnvironment
+import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnitList
+import edu.byu.ece.rapidSmith.cad.cluster.loadPackUnits
 import edu.byu.ece.rapidSmith.cad.cluster.site.PinName
-import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnit
 import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnitGenerator
 import edu.byu.ece.rapidSmith.cad.cluster.site.use
-import edu.byu.ece.rapidSmith.design.subsite.CellLibrary
 import edu.byu.ece.rapidSmith.device.*
-import edu.byu.ece.rapidSmith.device.families.Artix7.*
+import edu.byu.ece.rapidSmith.device.families.Artix7.SiteTypes
+import edu.byu.ece.rapidSmith.device.families.Artix7.TileTypes
 import edu.byu.ece.rapidSmith.util.FileTools
 import java.io.IOException
 import java.nio.file.Files
@@ -140,23 +144,14 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 	}
 
 	override fun findClusterInstances(siteType: SiteType, device: Device): List<Site> {
-		//println(siteType.name())
-
-		if (siteType.name().equals("IOB33"))
-			println("wh")
-
 		return INSTANCE_NAMES[siteType]!!.map { device.getSite(it)!! }
 	}
 
 	companion object {
-		val CURRENT_VERSION = "1.0.0"
-
 		@JvmStatic fun main(args: Array<String>) {
 			val part = args[0]
-			//val cellLibraryPath = args[1]
 
 			val device = Device.getInstance(part, true)
-			//val cellLibrary = CellLibrary(Paths.get(cellLibraryPath))
 
 			val env = RSEnvironment.defaultEnv()
 			val family = device.family
@@ -165,21 +160,18 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 
 			if (Files.exists(templatesPath) && !forceRebuild(args)) {
 				val o = try {
-					FileTools.getCompactReader(templatesPath).use { his ->
-						@Suppress("UNCHECKED_CAST")
-						his.readObject() as PackUnitList<SitePackUnit>
-					}
+					loadPackUnits<PackUnit>(templatesPath)
 				} catch (e: Exception) {
 					println("error reading device: $e")
 					null
 				}
 
-				if (o?.version == CURRENT_VERSION) {
+				if (o != null) {
 					println("Part $part already exists, skipping")
 					return
 				}
 			}
-			println("Generating template for " + part)
+			println("Generating template for $part")
 
 			val packUnits = Artix7SitePackUnitGenerator().buildFromDevice(device)
 
@@ -201,13 +193,14 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 					hos.serializerFactory.addFactory(serializeFactory)
 					hos.writeObject(packUnits)
 				}
+				println("Packunits written to file $templatesPath")
 			} catch (e: IOException) {
 				println("Error writing for device ...")
 			}
 		}
 
 		private fun forceRebuild(args: Array<String>) =
-				args.size >= 3 && args[2] == "rebuild"
+			args.size >= 2 && args[1] == "rebuild"
 
 	}
 }
