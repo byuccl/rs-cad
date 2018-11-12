@@ -32,14 +32,17 @@ abstract class SitePackUnitGenerator {
 	private var numBuiltTiles = 0
 	private val tileMapsMap = HashMap<SiteType, Map<Site, Map<Tile, Tile>>>()
 
-	fun buildFromDevice(device: Device, belCosts: BelCostMap): PackUnitList<SitePackUnit> {
-		val templates = makePackUnits(device, belCosts)
+	//fun buildFromDevice(device: Device, belCosts: BelCostMap): PackUnitList<SitePackUnit> {
+	fun buildFromDevice(device: Device): PackUnitList<SitePackUnit> {
+		//val templates = makePackUnits(device, belCosts)
+		val templates = makePackUnits(device)
 		val drivers = buildDrivesGeneralFabric(device, SWITCH_MATRIX_TILES)
 		val drivens = buildDrivenByGeneralFabric(device, SWITCH_MATRIX_TILES)
 		return PackUnitList(VERSION, device.partName, templates, drivers, drivens)
 	}
 
-	private fun makePackUnits(device: Device, belCosts: BelCostMap): ArrayList<SitePackUnit> {
+	//private fun makePackUnits(device: Device, belCosts: BelCostMap): ArrayList<SitePackUnit> {
+	private fun makePackUnits(device: Device): ArrayList<SitePackUnit> {
 		val packUnits = ArrayList<SitePackUnit>()
 		val instancesMap = HashMap<SiteType, List<Site>>()
 

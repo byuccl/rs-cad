@@ -223,10 +223,11 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 					return
 				}
 			}
-			println("Generating template for " + part)
+			println("Generating template for $part")
 
             val belCosts = loadBelCostsFromFile(belCostsPath)
-			val packUnits = ZynqSitePackUnitGenerator(device).buildFromDevice(device, belCosts)
+			//val packUnits = ZynqSitePackUnitGenerator(device).buildFromDevice(device, belCosts)
+			val packUnits = ZynqSitePackUnitGenerator(device).buildFromDevice(device)
 
 			// write the templates
 			try {

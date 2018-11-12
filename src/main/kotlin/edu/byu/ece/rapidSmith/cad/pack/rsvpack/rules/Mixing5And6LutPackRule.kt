@@ -24,21 +24,21 @@ class Mixing5And6LutsRuleFactory : PackRuleFactory {
 
 	// TODO make this a parameter
 	companion object {
-//		private val LUT6TYPES: Set<String> = setOf(
-//			"LUT6", "SRLC32E", "RAMS64E", "RAMD64E"
-//		)
-		// Yosys supported only:
 		private val LUT6TYPES: Set<String> = setOf(
-				"LUT6", "RAMD64E"
+			"LUT6", "SRLC32E", "RAMS64E", "RAMD64E"
 		)
-//		private val LUT5TYPES: Set<String> = setOf(
-//				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5",
-//				"SRL16E", "RAMS32", "RAMD32"
-//		)
 		// Yosys supported only:
+		//private val LUT6TYPES: Set<String> = setOf(
+		//		"LUT6", "RAMD64E"
+	//	)
 		private val LUT5TYPES: Set<String> = setOf(
-				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5"
+				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5",
+				"SRL16E", "RAMS32", "RAMD32"
 		)
+		// Yosys supported only:
+	//	private val LUT5TYPES: Set<String> = setOf(
+//				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5"
+//		)
 	}
 }
 
@@ -70,7 +70,8 @@ private class Mixing5And6LutsRule(
 		if (cluster.isBelOccupied(lut6) && cluster.isBelOccupied(lut5)) {
 			val cellAtLut6 = cluster.getCellAtBel(lut6)!!
 			if (cellAtLut6.libCell.name in LUT6TYPES) {
-				// val cellAtLut5 = cluster.getCellAtBel(lut5)!!
+				// QUESTION: Why did I comment this out before?
+				val cellAtLut5 = cluster.getCellAtBel(lut5)!!
 				return false
 				// TODO See if we can do a 5UT and 6LUT together
 				// return areEquationsCompatible(cellAtLut6, cellAtLut5)

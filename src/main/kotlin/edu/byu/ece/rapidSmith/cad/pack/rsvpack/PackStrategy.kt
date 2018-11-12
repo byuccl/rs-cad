@@ -118,9 +118,9 @@ class MultiBelPackStrategy<in T: PackUnit>(
 					// but conditional. hold on. IF we come back here, ...
 					PackStatus.CONDITIONAL -> {
 						assert(state.nextConditionals != null)
-						if (packMore(cluster)) {
+						if (packMore(cluster)) { // if we can pack more into the cluster (it's not full)
 							commitCellBelPair(state, state.nextConditionals!!.keys) // commit cells and bels packed so far
-							nextCell(state)
+							nextCell(state) // get a next cell from the conditionals
 						} else {
 							breakFromLoop = true
 						}

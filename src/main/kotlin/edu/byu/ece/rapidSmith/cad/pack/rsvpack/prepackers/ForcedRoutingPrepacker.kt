@@ -5,6 +5,7 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.*
 import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import edu.byu.ece.rapidSmith.design.subsite.LibraryPin
+import edu.byu.ece.rapidSmith.design.subsite.PropertyType
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.getBelPinConnection
 import edu.byu.ece.rapidSmith.util.getSitePinConnection
@@ -211,7 +212,7 @@ class ForcedRoutingPrepacker(
 // Null indicate the connections are possible through general fabric
 // Empty set indicates an invalid configuration
 // One element indicates a forced packing
-// More than one element indicates multiple possible packings
+// More than one element indicates multiple possible packings (Answers the question: do these cell pins need to be in the same cluster?)
 	private fun getPossibleSourceBels(
 		sinkCellPin: CellPin, sourceCellPin: CellPin, candidate: Cluster<*, *>
 	): Set<Bel>? {
@@ -233,6 +234,11 @@ class ForcedRoutingPrepacker(
 				}
 			}
 		}
+
+		// Check if the source is a route-through LUT
+		// TODO: Add a "isPassThruLut" method to cell class.
+		// In this method, check that the cell is a LUT1
+		//val sourceIsRoutethrough = sourceCell.libCell.isLut	&& sourceCell.properties.get("INIT").stringValue.equals("0x2'h2")
 
 		// test if the connection is possible between sites
 		val sourceDrivesFabric = sourceCellPin.cellPinDrivesFabric()

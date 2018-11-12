@@ -96,7 +96,8 @@ fun getSitePacker(
         device: Device,
         cellLibraryPath: Path = partsFolder.resolve("cellLibrary.xml"),
         belCostsPath: Path = partsFolder.resolve("belCosts.xml"),
-		packUnitsPath: Path = partsFolder.resolve(device.partName + "_packunits_site.rpu")
+		//packUnitsPath: Path = partsFolder.resolve(device.partName + "_packunits_site.rpu")
+		packUnitsPath: Path = partsFolder.resolve("packunits-site.rpu")
 ): RSVPack<SitePackUnit> {
 	val packUnits = loadPackUnits<SitePackUnit>(packUnitsPath)
 	val belCosts = loadBelCostsFromFile(belCostsPath)
@@ -625,6 +626,11 @@ private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
 	if (pin.isPseudoPin)
 		return listOf(bel.getBelPin(pin.name.substring(6)))
 
+	//val isPassThru = pin.cell.libCell.isLut	&& pin.cell.properties.get("INIT").stringValue.equals("0x2'h2")
+
+	//if (isPassThru)
+	//	return pin.findPinMapping(bel)!!
+
 	return when (pin.cell.libCell.name) {
 		"LUT1" -> mapLutPin(pin, bel)
 		"LUT2" -> mapLutPin(pin, bel)
@@ -642,8 +648,7 @@ private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
 }
 
 private fun mapLutPin(pin: CellPin, bel: Bel): List<BelPin> {
-	//if (bel.belPins.count().toInt() == 6) // if a LUT 5 BEL
-//		return listOf(bel.getBelPin("A${pin.name.last() - '0' + 2}")!!)
+
 // LUT cell input pins are named I0, I1, ..., I4, I5.
 	return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
 }
@@ -670,8 +675,13 @@ private fun CellPin.findPinMapping(b: Bel): List<BelPin>? {
 		// already placed and so we know the bel.  In reality, you will
 		// usually be asking the question regarding a potential cell placement
 		// onto a  bel.
+
+		//if (b.name.equals("RAMB36E1"))
+			//println("???")
+
 		var pm = PinMapping.findPinMappingForCell(c, b.fullName)
 		if (pm == null) {
+			//PinMapping.createPinMappings(c, b.name, true)
 			throw IllegalArgumentException("No pin mapping found for ${c.type} -> ${b.name}")
 		}
 		return pm.pins[this.name]?.filter { it != "nc" }?.map { b.getBelPin(it)!! }

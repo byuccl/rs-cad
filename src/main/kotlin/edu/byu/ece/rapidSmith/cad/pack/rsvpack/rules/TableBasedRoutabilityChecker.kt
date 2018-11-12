@@ -587,7 +587,11 @@ class TableBasedRoutabilityChecker(
 				} else {
 					// claim this source preventing any other pins from
 					// trying to use it
-					rowStatus.claimedSources[result.claimedSource!!] = net
+
+                    val isPassThru = cellPin.cell.libCell.isLut	&& cellPin.cell.properties.get("INIT").stringValue.equals("0x2'h2")
+
+                    if (!isPassThru)
+                    	 rowStatus.claimedSources[result.claimedSource!!] = net
 				}
 			}
 		}
@@ -622,7 +626,7 @@ class TableBasedRoutabilityChecker(
 	}
 
 	/**
-	 * Merge each of the conitional cells for a row to produce a single set of
+	 * Merge each of the conditional cells for a row to produce a single set of
 	 * conditional build requirements
 	 */
 	private fun mergeConditionalsInRow(
