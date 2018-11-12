@@ -549,6 +549,10 @@ class TableBasedRoutabilityChecker(
 				val sourceCell = cellPin.net.sourcePin.cell
 				val condMap = mapOf(sourceCell to setOf(result.conditionalSource!!))
 				mergeConditionalsInRow(rowStatus, condMap)
+
+				// exit early if the sink cannot be routed to
+				if (rowStatus.feasibility == Routability.INFEASIBLE)
+					return
 			}
 
 			if (rowStatus.feasibility != Routability.INFEASIBLE) {
