@@ -271,7 +271,7 @@ private class SitePackerFactory(
 			val pfRouter = BasicPathFinderRouterFactory(
 				packUnits, ::slicePinMapper, ::wireInvalidator, 8)
 			val directRouter = DirectPathClusterRouterFactory<SitePackUnit>(::slicePinMapper)
-			val routers = HashMap<PackUnit, ClusterRouter<SitePackUnit>>()
+			val routers = LinkedHashMap<PackUnit, ClusterRouter<SitePackUnit>>()
 
 			override fun get(packUnit: SitePackUnit): ClusterRouter<SitePackUnit> {
 				return routers.computeIfAbsent(packUnit) {
@@ -299,6 +299,7 @@ private class SitePackerFactory(
 			val muxf7 = cellLibrary["MUXF7"]
 
 			val cells = ArrayList(design.leafCells.toList())
+			cells.sortBy { it.name }
 			for (cell in cells) {
 				when (cell.libCell) {
 					carry4 -> {
@@ -422,7 +423,7 @@ private fun wireInvalidator(
 		if (site.type != Artix7.SiteTypes.SLICEM)
 			return emptySet()
 
-		val wiresToInvalidate = HashSet<Wire>()
+		val wiresToInvalidate = LinkedHashSet<Wire>()
 		wiresToInvalidate.add(site.getWire("intrasite:SLICEM/CDI1MUX.DI"))
 		wiresToInvalidate.add(site.getWire("intrasite:SLICEM/BDI1MUX.DI"))
 		wiresToInvalidate.add(site.getWire("intrasite:SLICEM/ADI1MUX.BDI1"))

@@ -24,7 +24,7 @@ class HPWLCostFunction<S : ClusterSite>(
 	 * the cost of the placement when only a few nets are chanced.
 	 */
 
-	private val netToCostMap = HashMap<CellNet, Double>()
+	private val netToCostMap = LinkedHashMap<CellNet, Double>()
 
 	/**
 	 * Used to identify those nets that are used within the cost function

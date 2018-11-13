@@ -31,12 +31,12 @@ class PinGroup(
 		get() = sinkPins.map { it.bel }
 
 	class Builder {
-		val sourceWires = HashSet<Wire>()
-		val sinkWires = HashSet<Wire>()
-		val sourcePins = HashSet<BelPin>()
-		val sinkPins = HashSet<BelPin>()
-		val carryChainSinks = HashSet<Wire>()
-		val carryChainSources = HashSet<Wire>()
+		val sourceWires = LinkedHashSet<Wire>()
+		val sinkWires = LinkedHashSet<Wire>()
+		val sourcePins = LinkedHashSet<BelPin>()
+		val sinkPins = LinkedHashSet<BelPin>()
+		val carryChainSinks = LinkedHashSet<Wire>()
+		val carryChainSources = LinkedHashSet<Wire>()
 		var routingTable: RoutingTable? = null
 
 		fun build(): PinGroup {
@@ -54,7 +54,7 @@ class PinGroup(
 }
 
 private class PinGroupBuilder(private val packUnit: PackUnitTemplate) {
-	private val pinGroups = HashMap<BelPin, PinGroup.Builder>()
+	private val pinGroups = LinkedHashMap<BelPin, PinGroup.Builder>()
 
 	fun build(): Map<BelPin, PinGroup> {
 		val outputs = packUnit.outputs.toSet()
@@ -82,7 +82,7 @@ private class PinGroupBuilder(private val packUnit: PackUnitTemplate) {
 		sourceWire: Wire, pg: PinGroup.Builder, outputs: Set<Wire>, inputs: Set<Wire>
 	) {
 		val q = LinkedList<Wire>()
-		val processed = HashSet<Wire>()
+		val processed = LinkedHashSet<Wire>()
 		q.offer(sourceWire)
 
 		while (!q.isEmpty()) {
@@ -172,8 +172,8 @@ class RoutingTable(val rows: List<Row>) {
 		val sinkPins: Map<BelPin, SinkPinEntry>
 	) {
 		class Builder {
-			val sourcePins = HashMap<BelPin, SourcePinEntry.Builder>()
-			val sinkPins = HashMap<BelPin, SinkPinEntry.Builder>()
+			val sourcePins = LinkedHashMap<BelPin, SourcePinEntry.Builder>()
+			val sinkPins = LinkedHashMap<BelPin, SinkPinEntry.Builder>()
 			fun build(): Row {
 				val sources = sourcePins.mapValues { (_, v) -> v.build() }
 				val sinks = sinkPins.mapValues { (_, v) -> v.build() }
@@ -249,7 +249,7 @@ private class RoutingTableBuilder(val packUnit: PackUnitTemplate) {
 
 			val sourceWire = sourcePin.wire
 			val q: Queue<Wire> = ArrayDeque()
-			val processed = HashSet<Wire>()
+			val processed = LinkedHashSet<Wire>()
 			q += sourceWire
 
 			while (!q.isEmpty()) {
@@ -298,7 +298,7 @@ private class RoutingTableBuilder(val packUnit: PackUnitTemplate) {
 	) {
 		for (sourceWire in pg.sourceWires) {
 			val q: Queue<Wire> = ArrayDeque()
-			val processed = HashSet<Wire>()
+			val processed = LinkedHashSet<Wire>()
 			q += sourceWire
 
 			while (!q.isEmpty()) {
@@ -336,7 +336,7 @@ private class RoutingTableBuilder(val packUnit: PackUnitTemplate) {
 	) {
 		for (sourceWire in pg.carryChainSources) {
 			val q: Queue<Wire> = ArrayDeque()
-			val processed = HashSet<Wire>()
+			val processed = LinkedHashSet<Wire>()
 			q += sourceWire
 
 			while (!q.isEmpty()) {
@@ -366,7 +366,7 @@ private class RoutingTableBuilder(val packUnit: PackUnitTemplate) {
 
 	// TODO can this be performed while building the pin groups
 	private fun findMuxes(pg: PinGroup.Builder): Map<Wire, Set<Wire>> {
-		val muxes = HashMap<Wire, HashSet<Wire>>()
+		val muxes = LinkedHashMap<Wire, HashSet<Wire>>()
 
 		val queue: Queue<Wire> = ArrayDeque()
 		queue.addAll(pg.sinkPins.map(BelPin::getWire))
@@ -376,7 +376,7 @@ private class RoutingTableBuilder(val packUnit: PackUnitTemplate) {
 		//
 		//		}
 
-		val processed = HashSet<Wire>()
+		val processed = LinkedHashSet<Wire>()
 		while (!queue.isEmpty()) {
 			val wire = queue.poll()
 			if (!processed.add(wire))
@@ -455,7 +455,7 @@ private class MuxConfigurationIterator(
 	}
 
 	private fun buildNext(): Map<Wire, Wire> {
-		val next = HashMap<Wire, Wire>()
+		val next = LinkedHashMap<Wire, Wire>()
 		for (i in status.indices) {
 			next.put(sinks[i], sources[i][status[i]])
 		}

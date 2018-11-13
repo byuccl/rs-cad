@@ -7,6 +7,7 @@ import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import java.util.*
+import kotlin.streams.asSequence
 
 /**
  *
@@ -15,14 +16,14 @@ class HighestPinCountSeedSelector : SeedSelector<PackUnit> {
 	/* different lists for clustering */
 	private var maxCellInputs: Int = 0
 	private var unclusteredCellsMap: HashMap<Int, ArrayList<Cell>>? = null
-	private val carryChains = HashSet<Cell>()
+	private val carryChains = LinkedHashSet<Cell>()
 
 	override fun init(packUnits: Collection<PackUnit>, design: CellDesign) {
-		unclusteredCellsMap = HashMap()
+		unclusteredCellsMap = LinkedHashMap()
 
 		// Add all the cells to the appropriate location
 		maxCellInputs = 0
-		for (cell in design.leafCells) {
+		for (cell in design.leafCells.asSequence().sortedBy { it.name }) {
 			val numInputPins = getNumExternalPinsOfCell(cell)
 			unclusteredCellsMap!!.computeIfAbsent(numInputPins) { ArrayList() }.add(cell)
 			if (numInputPins > maxCellInputs)

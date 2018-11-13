@@ -16,7 +16,7 @@ import kotlin.collections.HashMap
 class DirectPathClusterRouterFactory<in T: PackUnit>(
 	private val preferredPin: PinMapper
 ) : ClusterRouterFactory<T> {
-	private val routers = HashMap<T, ClusterRouter<T>>()
+	private val routers = LinkedHashMap<T, ClusterRouter<T>>()
 
 	override fun get(packUnit: T): ClusterRouter<T> {
 		return routers.computeIfAbsent(packUnit) {
@@ -30,8 +30,8 @@ private class DirectPathClusterRouter<T: PackUnit>(
 	val preferredPin: PinMapper
 ) : ClusterRouter<T> {
 	override fun route(cluster: Cluster<T, *>): ClusterRouterResult {
-		val routeTreeMap = HashMap<CellNet, ArrayList<RouteTree>>()
-		val belPinMap = HashMap<CellNet, HashMap<CellPin, List<BelPin>>>()
+		val routeTreeMap = LinkedHashMap<CellNet, ArrayList<RouteTree>>()
+		val belPinMap = LinkedHashMap<CellNet, HashMap<CellPin, List<BelPin>>>()
 
 		for (cell in cluster.cells) {
 			val bel = cluster.getCellPlacement(cell)!!

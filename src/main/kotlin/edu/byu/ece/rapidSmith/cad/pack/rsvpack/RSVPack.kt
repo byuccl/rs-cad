@@ -72,7 +72,7 @@ private class _RSVPack<out T: PackUnit>(
 	private val design: CellDesign
 ) {
 	private val clusters = ArrayList<Cluster<T, ClusterSite>>()
-	private val unclusteredCells = HashSet<Cell>(
+	private val unclusteredCells = LinkedHashSet<Cell>(
 		(design.leafCells.count() * 1.5).toInt())
 
 	fun pack(): List<Cluster<T, *>> {
@@ -87,7 +87,7 @@ private class _RSVPack<out T: PackUnit>(
 		utils.prepareDesign(design)
 
 		// set the unclustered cells to all cells in the design
-		unclusteredCells += design.leafCells.toList()
+		unclusteredCells += design.leafCells.toList().sortedBy { it.name }
 		// remove the shared gnd and vcc cells
 		unclusteredCells -= design.vccNet.sourcePin.cell
 		unclusteredCells -= design.gndNet.sourcePin.cell

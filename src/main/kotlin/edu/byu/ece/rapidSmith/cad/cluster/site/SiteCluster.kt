@@ -103,7 +103,7 @@ class SiteClusterFactory(
 	private val sharedTypes: Map<SiteType, List<SiteType>>,
 	compatibleTypes: Map<SiteType, List<SiteType>>
 ) : ClusterFactory<SitePackUnit, SiteClusterSite> {
-	private val numUsedSites: MutableMap<SiteType, Int> = HashMap()
+	private val numUsedSites: MutableMap<SiteType, Int> = LinkedHashMap()
 	private val numAvailableTypes: Map<SiteType, Int>
 	private var index = 0
 
@@ -159,7 +159,7 @@ fun CellDesign.convertToSiteClusterDesign(packUnits: PackUnitList<SitePackUnit>)
 	val puMap = packUnits.packUnits.associateBy { it.siteType }
 	val clusterDesign = ClusterDesign<SitePackUnit, SiteClusterSite>()
 
-	val clusters = HashMap<Site, SiteCluster>()
+	val clusters = LinkedHashMap<Site, SiteCluster>()
 	var index = 0
 	for (cell in leafCells) {
 		if (!cell.isGndSource && !cell.isVccSource) {

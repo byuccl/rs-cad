@@ -24,9 +24,9 @@ import kotlin.math.*
  *
  */
 class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterSite>() {
-	private val singleClusterCache = HashMap<PackUnit, SiteGroupPlacementRegion>()
-	private val sliceLGroupsCache = HashMap<Int, SiteGroupPlacementRegion>()
-	private val sliceMGroupsCache = HashMap<Int, SiteGroupPlacementRegion>()
+	private val singleClusterCache = LinkedHashMap<PackUnit, SiteGroupPlacementRegion>()
+	private val sliceLGroupsCache = LinkedHashMap<Int, SiteGroupPlacementRegion>()
+	private val sliceMGroupsCache = LinkedHashMap<Int, SiteGroupPlacementRegion>()
 	private var ioGroupsCache: SiteGroupPlacementRegion? = null
 
 	override fun make(

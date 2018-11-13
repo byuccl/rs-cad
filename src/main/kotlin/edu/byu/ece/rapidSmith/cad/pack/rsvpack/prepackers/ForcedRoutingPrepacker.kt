@@ -40,8 +40,8 @@ class ForcedRoutingPrepacker(
 	private val sourcesOfSinks: Map<BelPin, List<BelPin>>,
 	private val sinksOfSources: Map<BelPin, List<BelPin>>
 ) : Prepacker<PackUnit>() {
-	private val drivenLibraryPins = HashMap<LibraryPin, Boolean>()
-	private val drivingLibraryPins = HashMap<LibraryPin, Boolean>()
+	private val drivenLibraryPins = LinkedHashMap<LibraryPin, Boolean>()
+	private val drivingLibraryPins = LinkedHashMap<LibraryPin, Boolean>()
 
 	override fun packRequired(
 		cluster: Cluster<*, *>, changedCells: MutableMap<Cell, Bel>
@@ -293,8 +293,8 @@ class ForcedRoutingPrepacker(
 private class ClusterConnectionsBuilder(
 	val SWITCHBOX_TYPES: Collection<TileType>
 ) {
-	val sourcesOfSinks = HashMap<BelPin, List<BelPin>>()
-	val sinksOfSources = HashMap<BelPin, List<BelPin>>()
+	val sourcesOfSinks = LinkedHashMap<BelPin, List<BelPin>>()
+	val sinksOfSources = LinkedHashMap<BelPin, List<BelPin>>()
 
 	fun build(
 		packUnit: PackUnit
@@ -318,7 +318,7 @@ private class ClusterConnectionsBuilder(
 	): List<BelPin> {
 		val connections = ArrayList<BelPin>()
 		val sourceWire = sourcePin.wire
-		val visited = HashSet<Wire>()
+		val visited = LinkedHashSet<Wire>()
 
 		val q: Queue<Wire> = ArrayDeque()
 		q += sourceWire

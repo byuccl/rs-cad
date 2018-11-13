@@ -8,7 +8,7 @@ import java.util.*
  * A design comprised of clusters.
  */
 class ClusterDesign<T: PackUnit, S : ClusterSite> {
-	private val clusterMap = HashMap<String, Cluster<T, S>>()
+	private val clusterMap = LinkedHashMap<String, Cluster<T, S>>()
 	/** A map used to keep track of all used primitive sites used by the design  */
 	private val placementMap = HashMap<S, Cluster<T, S>>()
 

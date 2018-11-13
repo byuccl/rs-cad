@@ -67,8 +67,8 @@ fun <S: ClusterSite> buildSwapMove(
 	// to take place.
 	// TODO: cache this member so that it doesn't have to be continually created
 	// and destroyed.
-	val displacedMainGroups = HashMap<PlacementGroup<S>, MoveComponent<S>>()
-	val newMainPlacementSitesMap = HashMap<PlacementGroup<S>, Collection<S>>()
+	val displacedMainGroups = LinkedHashMap<PlacementGroup<S>, MoveComponent<S>>()
+	val newMainPlacementSitesMap = LinkedHashMap<PlacementGroup<S>, Collection<S>>()
 
 	val canDisplace = displaceOverlappingElements(displacedMainGroups,
 		newMainPlacementSitesMap, state, initialGroup, initialMove.newAnchor,

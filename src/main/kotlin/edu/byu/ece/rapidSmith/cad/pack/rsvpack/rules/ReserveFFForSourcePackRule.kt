@@ -12,6 +12,7 @@ import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.util.StackedHashMap
 import java.util.HashMap
 import java.util.HashSet
+import kotlin.streams.asSequence
 
 /**
  *
@@ -22,15 +23,15 @@ class ReserveFFForSourcePackRuleFactory(cellLibrary: CellLibrary) : PackRuleFact
 	private var mergedCells: MutableMap<Cell, Cell>? = null
 
 	init {
-		ffLibCells = HashSet()
+		ffLibCells = LinkedHashSet()
 		ffLibCells.add(cellLibrary.get("FF_INIT"))
 		ffLibCells.add(cellLibrary.get("REG_INIT"))
 	}
 
 	override fun init(design: CellDesign) {
-		mergedCells = HashMap()
+		mergedCells = LinkedHashMap()
 
-		for (cell in design.leafCells) {
+		for (cell in design.leafCells.asSequence().sortedBy { it.name }) {
 			if (cell.libCell === ccLibCell) {
 				val packCell = cell as Cell
 				var le = 'A'

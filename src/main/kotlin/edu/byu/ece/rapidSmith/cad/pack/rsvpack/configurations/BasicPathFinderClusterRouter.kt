@@ -20,7 +20,7 @@ class BasicPathFinderRouterFactory<in T: PackUnit>(
 	private val wireInvalidator: (PackUnit, Source, Terminal) -> Set<Wire>,
 	private val maxIterations: Int = 10
 ) : ClusterRouterFactory<T> {
-	private val routers = HashMap<T, ClusterRouter<T>>()
+	private val routers = LinkedHashMap<T, ClusterRouter<T>>()
 
 	override fun get(packUnit: T): ClusterRouter<T> {
 		return routers.computeIfAbsent(packUnit) {
@@ -60,12 +60,12 @@ private class BasicPathFinderRouter<T: PackUnit>(
 	}
 
 	private inner class Impl(val cluster: Cluster<T, *>) {
-		val routeTreeMap = HashMap<CellNet, ArrayList<RouteTreeWithCost>>()
-		val belPinMap = HashMap<CellNet, HashMap<CellPin, List<BelPin>>>()
+		val routeTreeMap = LinkedHashMap<CellNet, ArrayList<RouteTreeWithCost>>()
+		val belPinMap = LinkedHashMap<CellNet, HashMap<CellPin, List<BelPin>>>()
 
-		private val wireUsage = HashMap<Wire, OccupancyHistoryPair>()
-		private val routePins = HashMap<CellNet, RoutePins>()
-		private val invalidatedWires = HashSet<Wire>()
+		private val wireUsage = LinkedHashMap<Wire, OccupancyHistoryPair>()
+		private val routePins = LinkedHashMap<CellNet, RoutePins>()
+		private val invalidatedWires = LinkedHashSet<Wire>()
 
 		fun routeCluster(cluster: Cluster<T, *>): Routability {
 			initNets(cluster)
@@ -217,7 +217,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			for (belPin in (belPins ?: emptyList())) {
 				// find any direct connections to this path
 				var directSink = false
-				val carrySinks = HashSet<Wire>()
+				val carrySinks = LinkedHashSet<Wire>()
 				for (dc in template.directSinksOfCluster) {
 					if (endSiteIndex == dc.endSiteIndex && dc.endPin == belPin.template) {
 						carrySinks.add(dc.clusterExit)
@@ -306,14 +306,14 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 		private fun routeNet(net: CellNet, routePins: RoutePins): RouteStatus {
 			val (source, sinks) = routePins
-			val pinMap = HashMap<CellPin, List<BelPin>>()
+			val pinMap = LinkedHashMap<CellPin, List<BelPin>>()
 			belPinMap[net] = pinMap
 
 			val sourceTrees = buildSources(source, pinMap)
 
 			var foundExternalPath = false
 
-			val sinkTrees = HashSet<RouteTreeWithCost>()
+			val sinkTrees = LinkedHashSet<RouteTreeWithCost>()
 			for (sink in sinks.sinkPinsInCluster) {
 				val (status, treeSink, terminal) = routeToSink(
 					sourceTrees, sinkTrees, source, sink)
@@ -412,7 +412,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			sink: Terminal
 		): RouteToSinkReturn {
 			val pq = PriorityQueue<RouteTreeWithCost>()
-			val wireCosts = HashMap<Wire, Int>()
+			val wireCosts = LinkedHashMap<Wire, Int>()
 
 			for (sourceTree in sourceTrees) {
 				for (rt in sourceTree.typedIterator<RouteTreeWithCost>()) {
@@ -428,7 +428,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 
 			val ret = RouteToSinkReturn()
 			ret.status = RouteStatus.IMPOSSIBLE
-			val processedWires = HashSet<Wire>()
+			val processedWires = LinkedHashSet<Wire>()
 
 			// Allows for rechecking for the output
 			while (!pq.isEmpty()) {
@@ -530,8 +530,8 @@ private class BasicPathFinderRouter<T: PackUnit>(
 }
 
 private fun buildWireCosts(template: PackUnitTemplate): Map<Wire, Int> {
-	val wireCosts = HashMap<Wire, Int>()
-	val sites = HashSet<Site>()
+	val wireCosts = LinkedHashMap<Wire, Int>()
+	val sites = LinkedHashSet<Site>()
 	for (bel in template.bels) {
 		var lutOutput: Wire? = null
 		if (bel.name.matches("[A-D]6LUT".toRegex())) {
@@ -586,9 +586,9 @@ private abstract class Sinks {
 	/** Builder class to separate usage from creation */
 	class Builder : Sinks() {
 		override var mustRouteExternal: Boolean = false
-		override val sinkPinsInCluster = HashSet<Terminal>()
-		override val requiredCarryChains = HashSet<Terminal>()
-		override val optionalCarryChains = HashSet<Terminal>()
+		override val sinkPinsInCluster = LinkedHashSet<Terminal>()
+		override val requiredCarryChains = LinkedHashSet<Terminal>()
+		override val optionalCarryChains = LinkedHashSet<Terminal>()
 	}
 }
 
@@ -604,7 +604,7 @@ abstract class Terminal {
 	class Builder: Terminal() {
 		override var cellPin: CellPin? = null
 		override var belPins = ArrayList<BelPin>()
-		override val wires = HashSet<Wire>()
+		override val wires = LinkedHashSet<Wire>()
 	}
 }
 

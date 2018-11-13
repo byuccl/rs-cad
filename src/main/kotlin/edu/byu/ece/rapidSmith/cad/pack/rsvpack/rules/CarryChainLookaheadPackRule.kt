@@ -23,7 +23,7 @@ class CarryChainLookAheadRuleFactory(
 	private val RamTypes: Set<LibraryCell>,
 	private val sliceMType: SiteType
 ) : PackRuleFactory {
-	private val requiresSLICEM = HashMap<CarryChain, Boolean>()
+	private val requiresSLICEM = LinkedHashMap<CarryChain, Boolean>()
 
 override fun init(design: CellDesign) {
 		getCarryChains(design)
@@ -31,7 +31,7 @@ override fun init(design: CellDesign) {
 	}
 
 	private fun getCarryChains(design: CellDesign): Set<CarryChain> {
-		return design.leafCells.asSequence()
+		return design.leafCells.asSequence().sortedBy { it.name }
 			.map { it.carryChain }
 			.filterNotNull()
 			.toSet()

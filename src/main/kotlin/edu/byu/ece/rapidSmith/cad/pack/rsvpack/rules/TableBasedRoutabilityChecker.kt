@@ -321,7 +321,7 @@ class TableBasedRoutabilityChecker(
 
 		// identify any direct sinks paths
 		var directSink = false
-		val carryExits = HashSet<Wire>()
+		val carryExits = LinkedHashSet<Wire>()
 		for (dc in template.directSinksOfCluster) {
 			if (dc.endPin in possibleSinks) {
 				carryExits += dc.clusterExit
@@ -356,7 +356,7 @@ class TableBasedRoutabilityChecker(
 		for (belPin in (belPins ?: emptyList())) {
 			// find any direct connections to this path
 			var directSink = false
-			val carrySinks = HashSet<Wire>()
+			val carrySinks = LinkedHashSet<Wire>()
 			for (dc in template.directSinksOfCluster) {
 				if (endSiteIndex == dc.endSiteIndex && dc.endPin == belPin.template) {
 					carrySinks.add(dc.clusterExit)
@@ -377,7 +377,7 @@ class TableBasedRoutabilityChecker(
 	}
 
 	private fun getChangedPinGroups(changed: Collection<Cell>): Set<PinGroup> {
-		val changedGroups = HashSet<PinGroup>()
+		val changedGroups = LinkedHashSet<PinGroup>()
 		for (cell in changed) {
 			val pins = cell.pins
 			for (pin in pins) {
@@ -616,7 +616,7 @@ class TableBasedRoutabilityChecker(
 				if (prevBels.isEmpty())
 					rowStatus.feasibility = Routability.INFEASIBLE
 			} else {
-				rowStatus.conditionals[cell] = HashSet(bels)
+				rowStatus.conditionals[cell] = LinkedHashSet(bels)
 			}
 		}
 	}
@@ -772,7 +772,7 @@ class TableBasedRoutabilityChecker(
 
 		// stores the unplaced pins that must be packed into the cluster to be
 		// routable
-		val conditionals = HashSet<CellPin>()
+		val conditionals = LinkedHashSet<CellPin>()
 
 		if (sinks.mustLeave) {
 			/*
@@ -851,7 +851,7 @@ class TableBasedRoutabilityChecker(
 		if (entry.drivenSinks.size < conditionals.size)
 			return Pair(Routability.INFEASIBLE, null)
 
-		val conditionalSinks = HashMap<Cell, List<Bel>>()
+		val conditionalSinks = LinkedHashMap<Cell, List<Bel>>()
 		val connectedSinks = entry.drivenSinks
 		for (sinkPin in conditionals) {
 			val conditionalBels = getConditionalSinks(connectedSinks, sinkPin)
@@ -866,8 +866,8 @@ class TableBasedRoutabilityChecker(
 	private fun getConditionalSinks(
 		connectedSinks: List<BelPin>, sinkPin: CellPin
 	): List<Bel> {
-		val anchors = HashSet(sinkPin.cell.possibleLocations)
-		val conditionals = HashSet<Bel>()
+		val anchors = LinkedHashSet(sinkPin.cell.possibleLocations)
+		val conditionals = LinkedHashSet<Bel>()
 		for (belPin in connectedSinks) {
 			val bel = belPin.bel
 			if (isPossibleConditionalPinMapping(sinkPin, belPin, anchors))
@@ -889,7 +889,7 @@ class TableBasedRoutabilityChecker(
 	 * Joins the conditionals from each of the pin groups
 	 */
 	private fun joinGroupConditionals(): Map<Cell, Set<Bel>> {
-		val conditionals = HashMap<Cell, HashSet<Bel>>()
+		val conditionals = LinkedHashMap<Cell, HashSet<Bel>>()
 		for (pgStatus in pinGroupsStatuses.values) {
 			if (pgStatus.feasibility == Routability.VALID)
 				continue
@@ -909,7 +909,7 @@ class TableBasedRoutabilityChecker(
 	 * row conditionals.
 	 */
 	private fun buildGroupConditionals(pgStatus: PinGroupStatus) {
-		val conditionals = HashMap<Cell, HashSet<Bel>>()
+		val conditionals = LinkedHashMap<Cell, HashSet<Bel>>()
 		for (rowStatus in pgStatus.rowStatuses!!) {
 			if (rowStatus.feasibility === Routability.INFEASIBLE)
 				continue
@@ -945,13 +945,13 @@ class TableBasedRoutabilityChecker(
 	}
 
 	companion object {
-		private val possiblePins = HashMap<LibraryPin, List<BelPinTemplate>>()
+		private val possiblePins = LinkedHashMap<LibraryPin, List<BelPinTemplate>>()
 	}
 }
 
 private class RowStatus(var feasibility: Routability = Routability.VALID) {
-	val conditionals: MutableMap<Cell, MutableSet<Bel>> = HashMap()
-	val claimedSources: MutableMap<Any, CellNet> = HashMap()
+	val conditionals: MutableMap<Cell, MutableSet<Bel>> = LinkedHashMap()
+	val claimedSources: MutableMap<Any, CellNet> = LinkedHashMap()
 }
 
 private data class PinGroupStatus(
@@ -1044,19 +1044,19 @@ private abstract class Sinks {
 		constructor(): super() {
 			mustLeave = false
 			sinkPinsInCluster = ArrayList()
-			conditionalMustLeaves = HashSet()
-			conditionals = HashSet()
-			requiredCarryChains = HashMap()
-			optionalCarryChains = HashMap()
+			conditionalMustLeaves = LinkedHashSet()
+			conditionals = LinkedHashSet()
+			requiredCarryChains = LinkedHashMap()
+			optionalCarryChains = LinkedHashMap()
 		}
 
 		constructor(other: Sinks): super() {
 			sinkPinsInCluster = ArrayList(other.sinkPinsInCluster)
 			mustLeave = other.mustLeave
-			conditionals = HashSet(other.conditionals)
-			conditionalMustLeaves = HashSet(other.conditionalMustLeaves)
-			requiredCarryChains = HashMap(other.requiredCarryChains)
-			optionalCarryChains = HashMap(other.optionalCarryChains)
+			conditionals = LinkedHashSet(other.conditionals)
+			conditionalMustLeaves = LinkedHashSet(other.conditionalMustLeaves)
+			requiredCarryChains = LinkedHashMap(other.requiredCarryChains)
+			optionalCarryChains = LinkedHashMap(other.optionalCarryChains)
 		}
 	}
 }

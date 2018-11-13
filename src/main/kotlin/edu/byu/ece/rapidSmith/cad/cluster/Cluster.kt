@@ -20,9 +20,9 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	// Field getters and setters
 	var cost: Double = 0.toDouble()
 	private var _chain: ClusterChain<*>? = null
-	private var placementMap = HashMap<Bel, Cell>()
-	private var cellLocationMap = HashMap<Cell, Bel>()
-	private var pinMap = HashMap<CellPin, List<BelPin>>()
+	private var placementMap = LinkedHashMap<Bel, Cell>()
+	private var cellLocationMap = LinkedHashMap<Cell, Bel>()
+	private var pinMap = LinkedHashMap<CellPin, List<BelPin>>()
 	private var internalNets: MutableMap<CellNet, ArrayList<RouteTree>>? = null
 	private var externalNets: MutableMap<CellNet, ArrayList<RouteTree>>? = null
 
@@ -104,8 +104,8 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	 * routing of this cluster.
 	 */
 	fun constructNets() {
-		internalNets = HashMap()
-		externalNets = HashMap()
+		internalNets = LinkedHashMap()
+		externalNets = LinkedHashMap()
 
 		val nets = cells
 			.flatMap { it.pins }
@@ -207,7 +207,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 			checkNotNull(externalNets)
 			checkNotNull(internalNets)
 
-			val routeTreeMap = HashMap<CellNet, List<RouteTree>>()
+			val routeTreeMap = LinkedHashMap<CellNet, List<RouteTree>>()
 			routeTreeMap.putAll(internalNets!!)
 			routeTreeMap.putAll(externalNets!!)
 			return routeTreeMap
@@ -305,21 +305,21 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	 * new anchor BEL.
 	 */
 	fun relocate(newAnchor: Bel) {
-		val relocatedBelMap = HashMap<Bel, Cell>()
+		val relocatedBelMap = LinkedHashMap<Bel, Cell>()
 		for (e in placementMap.entries)
 			relocateBel(newAnchor, relocatedBelMap, e)
 		placementMap = relocatedBelMap
 
-		cellLocationMap = HashMap()
+		cellLocationMap = LinkedHashMap()
 		placementMap.entries.associateTo(cellLocationMap) { (k, v) -> v to k }
 
-		val relocatePinMap = HashMap<CellPin, List<BelPin>>()
+		val relocatePinMap = LinkedHashMap<CellPin, List<BelPin>>()
 		pinMap.entries.associateTo(relocatePinMap) { (k, v) ->
 			k to v.map { relocatePin(it, newAnchor) }
 		}
 		pinMap = relocatePinMap
 
-		val relocateTreeMap = HashMap<CellNet, List<RouteTree>>()
+		val relocateTreeMap = LinkedHashMap<CellNet, List<RouteTree>>()
 		routeTreeMap.entries.associateTo(relocateTreeMap) { (k, v) ->
 			k to v.map { relocateRouteTree(it, newAnchor) }
 		}
@@ -341,7 +341,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	}
 
 	private fun relocateRouteTree(template: RouteTree, newAnchor: Bel): RouteTree {
-		val map = HashMap<RouteTree, RouteTree>()
+		val map = LinkedHashMap<RouteTree, RouteTree>()
 
 		for (rt in template) {
 			if (rt.getParent<RouteTree>() == null) {
