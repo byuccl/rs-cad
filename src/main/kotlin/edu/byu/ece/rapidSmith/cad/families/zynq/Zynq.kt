@@ -102,29 +102,10 @@ fun getZynqSitePacker(
 		belCostsPath: Path = partsFolder.resolve("belCosts.xml"),
 		packUnitsPath: Path = partsFolder.resolve(device.partName + "_packunits_site.rpu")
 ): RSVPack<SitePackUnit> {
-	//val runtime = Time()
-	//println("Load pack units from file")
-	//runtime.setStartTime()
 	val packUnits = loadPackUnits<SitePackUnit>(packUnitsPath)
-	//runtime.setEndTime()
-	//println("  Took " + runtime.totalTime + " seconds")
-	//runtime.setStartTime()
-	//println("Load Bel Costs from file")
 	val belCosts = loadBelCostsFromFile(belCostsPath)
-	//runtime.setEndTime()
-	//println("  Took " + runtime.totalTime + " seconds")
-	//println("Load cell library from file")
-	//runtime.setStartTime()
 	val cellLibrary = CellLibrary(cellLibraryPath)
-	//runtime.setEndTime()
-	//println("  Took " + runtime.totalTime + " seconds")
 
-	//println("Create the site packer w/ the factory")
-	//runtime.setStartTime()
-	//val packer = ZynqSitePackerFactory(device, packUnits, belCosts, cellLibrary).make()
-	//runtime.setEndTime()
-	//println("  Took " + runtime.totalTime + " seconds")
-	//return packer
 	return ZynqSitePackerFactory(device, packUnits, belCosts, cellLibrary).make()
 }
 
@@ -164,8 +145,6 @@ private class ZynqSitePackerFactory(
 	)
 
 	fun make(): RSVPack<SitePackUnit> {
-		val runtime = Time()
-//		runtime.setStartTime()
 		val packStrategies: Map<PackUnitType, PackStrategy<SitePackUnit>> = packUnits.map {
 			val type = it.type
 			val siteType = it.siteType
@@ -180,8 +159,6 @@ private class ZynqSitePackerFactory(
 
 			type to strategy
 		}.toMap()
-//		runtime.setEndTime()
-//		println("PackStrategies: " + runtime.totalTime + " seconds")
 
 		val clusterFactory = SiteClusterFactory(
 				packUnits, device, sharedTypes, compatibleTypes)
@@ -197,7 +174,6 @@ private class ZynqSitePackerFactory(
 	private fun makeSliceLStrategy(
 			packUnits: PackUnitList<*>, belCosts: BelCostMap
 	): PackStrategy<SitePackUnit> {
-		//val runtime = Time()
 		val packUnit = packUnits.first { it.type == SitePackUnitType(SLICEL) }
 		val cellSelector = SharedNetsCellSelector(false)
 		val belSelector = ShortestRouteBelSelector(packUnit, belCosts)
@@ -208,30 +184,13 @@ private class ZynqSitePackerFactory(
 						packUnit, packUnits.pinsDrivingGeneralFabric,
 						packUnits.pinsDrivenByGeneralFabric, Zynq.SWITCHBOX_TILES)
 		)
-		//runtime.setEndTime()
-		//println("Prepackers: " + runtime.totalTime + " seconds")
-		//runtime.setStartTime()
 		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, ::slicePinMapper)
-		//runtime.setEndTime()
-		//println("TableBasedRoutabilityCheckerFactory: " + runtime.totalTime + " seconds")
-
-		//runtime.setStartTime()
 		val packRules = listOf(
 				mixing5And6LutPackRuleFactory,
 				reserveFFForSourcePackRuleFactory,
 				carryChainLookAheadRuleFactory,
 				RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
 		)
-		//runtime.setEndTime()
-		//println("packRules: " + runtime.totalTime + " seconds")
-
-		//runtime.setStartTime()
-		//val multiBelPackStrategy = MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
-		//val multiBelPackStrategy = MultiBelPackStrategy(cellSelector, prepackers, packRules)
-		//runtime.setEndTime()
-		//println("multiBelPackStrategy: " + runtime.totalTime + " seconds")
-
-		//return multiBelPackStrategy
 		return MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
 	}
 
@@ -254,12 +213,12 @@ private class ZynqSitePackerFactory(
 		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, ::slicePinMapper)
 
 		val packRules = listOf(
-				mixing5And6LutPackRuleFactory,
-				reserveFFForSourcePackRuleFactory,
-				ramFullyPackedPackRuleFactory,
-				ramPositionsPackRuleFactory,
-				d6LutUsedRamPackRuleFactory,
-				RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
+			mixing5And6LutPackRuleFactory,
+			reserveFFForSourcePackRuleFactory,
+			ramFullyPackedPackRuleFactory,
+			ramPositionsPackRuleFactory,
+			d6LutUsedRamPackRuleFactory,
+			RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
 		)
 		return MultiBelPackStrategy(cellSelector, belSelector, prepackers, packRules)
 	}
@@ -384,15 +343,15 @@ private class ZynqSitePackerFactory(
 				if (!net.isStaticNet) {
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
-						// val cellName = "${net.name}-${pin.cell.name}/${pin.name}-pass"
-                        val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
+						val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
+						val netName = design.getUniqueNetName("${net.name}-${pin.name}-pass")
 						val newCell = Cell(cellName, cellLibrary["LUT1"])
 						newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
 						design.addCell(newCell)
 						net.disconnectFromPin(pin)
 						net.connectToPin(newCell.getPin("I0"))
 
-						val newNet = CellNet(cellName, NetType.WIRE)
+						val newNet = CellNet(netName, NetType.WIRE)
 						design.addNet(newNet)
 						newNet.connectToPin(pin)
 						newNet.connectToPin(newCell.getPin("O"))

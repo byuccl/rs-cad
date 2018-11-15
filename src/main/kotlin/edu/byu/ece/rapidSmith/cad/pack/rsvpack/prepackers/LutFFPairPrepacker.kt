@@ -54,12 +54,12 @@ class Artix7LutFFPrepackerFactory(
 
 		// The following should be removed for Maverick:
 
-		lutramLibCells[cellLibrary["SRLC16E"]] = "Q"
-		lutramLibCells[cellLibrary["SRLC32E"]] = "Q"
-		lutramLibCells[cellLibrary["SRL16E"]] = "Q"
-		lutramLibCells[cellLibrary["RAMD32"]] = "O"
-		lutramLibCells[cellLibrary["RAMS32"]] = "O"
-		lutramLibCells[cellLibrary["RAMS64E"]] = "O"
+//		lutramLibCells[cellLibrary["SRLC16E"]] = "Q"
+//		lutramLibCells[cellLibrary["SRLC32E"]] = "Q"
+//		lutramLibCells[cellLibrary["SRL16E"]] = "Q"
+//		lutramLibCells[cellLibrary["RAMD32"]] = "O"
+//		lutramLibCells[cellLibrary["RAMS32"]] = "O"
+//		lutramLibCells[cellLibrary["RAMS64E"]] = "O"
 	}
 
 	override fun init(design: CellDesign) {

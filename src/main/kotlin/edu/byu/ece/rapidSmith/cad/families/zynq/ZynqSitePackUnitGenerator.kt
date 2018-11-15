@@ -2,12 +2,12 @@ package edu.byu.ece.rapidSmith.cad.families.zynq
 
 import com.caucho.hessian.io.*
 import edu.byu.ece.rapidSmith.RSEnvironment
+import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnitList
+import edu.byu.ece.rapidSmith.cad.cluster.loadPackUnits
 import edu.byu.ece.rapidSmith.cad.cluster.site.PinName
-import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnit
 import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnitGenerator
 import edu.byu.ece.rapidSmith.cad.cluster.site.use
-import edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations.loadBelCostsFromFile
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.device.families.Zynq
 import edu.byu.ece.rapidSmith.device.families.Zynq.*
@@ -194,12 +194,9 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
     }
 
 	companion object {
-		val CURRENT_VERSION = "1.0.0"
-
 		@JvmStatic fun main(args: Array<String>) {
 			val part = args[0]
             val partsFolder = RSEnvironment.defaultEnv().getPartFolderPath(Zynq.FAMILY_TYPE)
-            val belCostsPath = partsFolder.resolve("belCosts.xml")
 			val device = Device.getInstance(part, true)
 			val env = RSEnvironment.defaultEnv()
 			val family = device.family
@@ -208,23 +205,19 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 
 			if (Files.exists(templatesPath) && !forceRebuild(args)) {
 				val o = try {
-					FileTools.getCompactReader(templatesPath).use { his ->
-						@Suppress("UNCHECKED_CAST")
-						his.readObject() as PackUnitList<SitePackUnit>
-					}
+					loadPackUnits<PackUnit>(templatesPath)
 				} catch (e: Exception) {
 					println("error reading device: $e")
 					null
 				}
 
-	//			if (o?.version == CURRENT_VERSION) {
-			//		println("Part $part already exists, skipping")
-			//		return
-			//	}
+				if (o != null) {
+					println("Part $part already exists, skipping")
+					return
+				}
 			}
 			println("Generating template for $part")
 
-            val belCosts = loadBelCostsFromFile(belCostsPath)
 			//val packUnits = ZynqSitePackUnitGenerator(device).buildFromDevice(device, belCosts)
 			val packUnits = ZynqSitePackUnitGenerator(device).buildFromDevice(device)
 
@@ -246,6 +239,7 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 					hos.serializerFactory.addFactory(serializeFactory)
 					hos.writeObject(packUnits)
 				}
+				println("Packunits written to file $templatesPath")
 			} catch (e: IOException) {
 				println("Error writing for device ...")
 			}

@@ -20,7 +20,6 @@ typealias BelCostMap = Map<BelId, Double>
  */
 class ShortestRouteBelSelector
 constructor(
-        // template: PackUnitTemplate,
 	packUnit: PackUnit,
 	private val baseBelCostMap: BelCostMap,
 	private val HIGH_FANOUT_LIMIT: Int = 500,
@@ -37,7 +36,6 @@ constructor(
 	private var pq: PriorityQueue<BelCandidate>? = null
 
 	init {
-        // 		val ccb = ClusterConnectionsBuilder().build(template)
 		val ccb = ClusterConnectionsBuilder().get(packUnit)
 		sinksOfSources = ccb.sinksOfSources
 		sourcesOfSinks = ccb.sourcesOfSinks
