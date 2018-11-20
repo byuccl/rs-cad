@@ -40,7 +40,7 @@ private class DirectPathClusterRouter<T: PackUnit>(
 				.filter { it.isConnectedToNet }
 
 			for (cellPin in outputs) {
-				val belPins = preferredPin(cellPin, bel)
+				val belPins = preferredPin(cluster, cellPin, bel)
 				if (belPins != null) {
 					for (bp in belPins) {
 						val net = cellPin.net
@@ -56,7 +56,7 @@ private class DirectPathClusterRouter<T: PackUnit>(
 				.filter { it.isConnectedToNet }
 
 			for (cellPin in inputs) {
-				val belPins = preferredPin(cellPin, bel)
+				val belPins = preferredPin(cluster, cellPin, bel)
 				val net = cellPin.net
 				if (belPins != null && belPins.isNotEmpty()) {
 					val rt = routeToInputs(belPins) ?: return ClusterRouterResult(false)

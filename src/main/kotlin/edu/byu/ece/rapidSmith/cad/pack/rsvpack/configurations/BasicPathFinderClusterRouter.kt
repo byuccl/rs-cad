@@ -193,7 +193,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 		private fun initInsideClusterSink(sinks: Sinks.Builder, sinkPin: CellPin) {
 			val sinkCell = sinkPin.cell
 			val sinkBel = sinkCell.locationInCluster!!
-			val belPins = preferredPin(sinkPin, sinkBel)
+			val belPins = preferredPin(cluster, sinkPin, sinkBel)
 
 			val pinMap = Terminal.Builder()
 			pinMap.cellPin = sinkPin
@@ -211,7 +211,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			// The source cell has already been placed so we know where it is and
 			// where it enters this cluster.
 			val sinkBel = sinkPin.cell.locationInCluster!!
-			val belPins = preferredPin(sinkPin, sinkBel)
+			val belPins = preferredPin(cluster, sinkPin, sinkBel)
 			val endSiteIndex = sinkBel.site.index
 
 			for (belPin in (belPins ?: emptyList())) {

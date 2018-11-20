@@ -251,7 +251,7 @@ class TableBasedRoutabilityChecker(
 		// update info on the sinkpin
 		val sinkCell = sinkPin.cell
 		val sinkBel = sinkCell.locationInCluster!!
-		val belPins = preferredPin(sinkPin, sinkBel)
+		val belPins = preferredPin(cluster, sinkPin, sinkBel)
 		if (belPins != null) {
 			sinks.sinkPinsInCluster += sinkPin
 			belPins.forEach { _bel2CellPinMap[it] = sinkPin }
@@ -350,7 +350,7 @@ class TableBasedRoutabilityChecker(
 		// The source cell has already been placed so we know where it is and
 		// where it enters this cluster.
 		val sinkBel = sinkCell.locationInCluster!!
-		val belPins = preferredPin(sinkPin, sinkBel)
+		val belPins = preferredPin(cluster, sinkPin, sinkBel)
 		val endSiteIndex = sinkBel.site.index
 
 		for (belPin in (belPins ?: emptyList())) {

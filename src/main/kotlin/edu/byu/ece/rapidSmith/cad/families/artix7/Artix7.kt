@@ -234,7 +234,7 @@ private class SitePackerFactory(
 	private fun makeSingleBelStrategy(
 		packUnit: PackUnit, packUnits: PackUnitList<*>
 	): PackStrategy<SitePackUnit> {
-		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit) { p, b ->
+		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit) { _, p, b ->
 			val mapping = p.findPinMapping(b)!!
 			// TODO mapping can actually have multiple pins
 			// I'm just take the first right now since the routing of the second
@@ -566,17 +566,17 @@ private val compatibleTypes = mapOf(
 	IOB33 to listOf(IOB33M, IOB33S)
 )
 
-private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
+private fun slicePinMapper(cluster: Cluster<*, *>, pin: CellPin, bel: Bel): List<BelPin> {
 	if (pin.isPseudoPin)
 		return listOf(bel.getBelPin(pin.name.substring(6)))
 
 	return when (pin.cell.libCell.name) {
-		"LUT1" -> mapLutPin(pin, bel)
-		"LUT2" -> mapLutPin(pin, bel)
-		"LUT3" -> mapLutPin(pin, bel)
-		"LUT4" -> mapLutPin(pin, bel)
-		"LUT5" -> mapLutPin(pin, bel)
-		"LUT6" -> mapLutPin(pin, bel)
+		"LUT1" -> mapLutPin(cluster, pin, bel)
+		"LUT2" -> mapLutPin(cluster, pin, bel)
+		"LUT3" -> mapLutPin(cluster, pin, bel)
+		"LUT4" -> mapLutPin(cluster, pin, bel)
+		"LUT5" -> mapLutPin(cluster, pin, bel)
+		"LUT6" -> mapLutPin(cluster, pin, bel)
 		"RAMS32", "RAMS64E" -> mapRamsPin(pin, bel)
 		"CARRY4" -> mapCarryPin(pin, bel)
 		else -> {
@@ -586,8 +586,27 @@ private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
 	}
 }
 
-private fun mapLutPin(pin: CellPin, bel: Bel): List<BelPin> {
-	return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
+private fun mapLutPin(cluster: Cluster<*, *>, pin: CellPin, bel: Bel): List<BelPin> {
+	val site = bel.site
+	val leName = bel.name[0]
+	val lut6 = site.getBel(leName + "6LUT")
+	val lut5 = site.getBel(leName + "5LUT")
+
+	if (cluster.isBelOccupied(lut6) && cluster.isBelOccupied(lut5)) {
+		val cellAtLut6 = cluster.getCellAtBel(lut6)!!
+		if (cellAtLut6.libCell.name == "LUT6") {
+			val cellAtLut5 = cluster.getCellAtBel(lut5)!!
+			return false
+			// TODO See if we can do a 5UT and 6LUT together
+			// return areEquationsCompatible(cellAtLut6, cellAtLut5)
+		} else {
+			assert(cellAtLut6.libCell.name in LUT5TYPES) { "LUT type is: ${cellAtLut6.libCell.name}" }
+		}
+	} else if (bel.name[1] == '6') {
+		return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
+	} else if (bel.name[1] == '5') {
+		return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
+	}
 }
 
 private fun mapRamsPin(pin: CellPin, bel: Bel): List<BelPin> {
