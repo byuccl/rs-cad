@@ -197,7 +197,7 @@ class TableBasedRoutabilityChecker(
 	 * could potentially be placed on.  This value is lazily computed and then cached.
 	 */
 	private fun CellPin.getPossibleBelPinsUnplaced(): List<BelPinTemplate> {
-		return possiblePins.computeIfAbsent(libraryPin) {
+		return possiblePins.computeIfAbsent(libraryPin) { _ ->
 			val compatibleBels = this.cell.libCell.possibleAnchors
 			packUnits.flatMap { it.template.bels }
 				.filter { it.id in compatibleBels }
@@ -371,7 +371,7 @@ class TableBasedRoutabilityChecker(
 			} else if (drivenGenerally) {
 				sinks.mustLeave = true
 			} else {
-				sinks.requiredCarryChains.put(sinkPin, carrySinks)
+				sinks.requiredCarryChains[sinkPin] = carrySinks
 			}
 		}
 	}
@@ -382,9 +382,7 @@ class TableBasedRoutabilityChecker(
 			val pins = cell.pins
 			for (pin in pins) {
 				if (pin.isConnectedToNet) {
-					val belPins = cell2BelPinMap[pin]
-					if (belPins != null)
-						belPins.mapTo(changedGroups) { pinGroups[it]!! }
+					cell2BelPinMap[pin]?.mapTo(changedGroups) { pinGroups[it]!! }
 				} else if (isLUTOpin(pin)) {
 					// special code indicating that changing one output LUT may affect
 					// the validity of the other output on the LUT

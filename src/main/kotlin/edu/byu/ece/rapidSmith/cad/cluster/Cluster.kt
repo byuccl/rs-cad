@@ -36,8 +36,8 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		require(cell !in this)
 		require(!placementMap.containsKey(bel))
 
-		placementMap.put(bel, cell)
-		cellLocationMap.put(cell, bel)
+		placementMap[bel] = cell
+		cellLocationMap[cell] = bel
 
 		return cell
 	}
@@ -170,14 +170,14 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 			var routeTrees: MutableList<RouteTree>? = intNets[net]
 			if (routeTrees == null) {
 				routeTrees = ArrayList()
-				intNets.put(net, routeTrees)
+				intNets[net] = routeTrees
 			}
 			routeTrees.add(routeTree)
 		} else if (net in extNets) {
 			var routeTrees: MutableList<RouteTree>? = extNets[net]
 			if (routeTrees == null) {
 				routeTrees = ArrayList()
-				extNets.put(net, routeTrees)
+				extNets[net] = routeTrees
 			}
 			routeTrees.add(routeTree)
 		} else {
@@ -229,7 +229,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	 * Sets the pin mapping for [cellPin] in this cluster.
 	 */
 	fun setPinMapping(cellPin: CellPin, belPin: List<BelPin>) {
-		pinMap.put(cellPin, belPin)
+		pinMap[cellPin] = belPin
 	}
 
 	/**
@@ -333,7 +333,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		val cell = e.value
 		val relocatedBel = getRelocatedBel(e.key, newAnchor)
 		relocatedBel.site.type = relocatedBel.id.siteType
-		relocatedMap.put(relocatedBel, cell)
+		relocatedMap[relocatedBel] = cell
 	}
 
 	private fun relocatePin(belPin: BelPin, newAnchor: Bel): BelPin {
@@ -346,14 +346,14 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		for (rt in template) {
 			if (rt.getParent<RouteTree>() == null) {
 				val newWire = getRelocatedWire(rt.wire, newAnchor)
-				map.put(rt, RouteTree(newWire))
+				map[rt] = RouteTree(newWire)
 			} else {
 				check(rt.wire !is TileWire)
 
 				val sourceTree = map[rt.getParent()]!!
 				val newConn = getRelocatedConnection(
 					sourceTree.wire, rt.connection, newAnchor)
-				map.put(rt, sourceTree.connect<RouteTree>(newConn))
+				map[rt] = sourceTree.connect<RouteTree>(newConn)
 			}
 		}
 
