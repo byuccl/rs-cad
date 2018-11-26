@@ -27,5 +27,5 @@ class ClusterRouterResult(
 )
 
 interface PinMapper {
-	operator fun invoke(cluster: Cluster<*, *>, pin: CellPin, bel: Bel): List<BelPin>?
+	operator fun invoke(cluster: Cluster<*, *>, pin: CellPin, bel: Bel, existing: Map<CellPin, BelPin>): List<BelPin>?
 }

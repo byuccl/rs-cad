@@ -51,6 +51,7 @@ class TableBasedRoutabilityChecker(
 
 	// The current statuses of each pin group.
 	private val pinGroupsStatuses: StackedHashMap<PinGroup, PinGroupStatus> = StackedHashMap()
+	private val pinMapping: StackedHashMap<CellPin, BelPin> = StackedHashMap()
 
 	// Convenience method for determining if pins drive/are driven by general fabric
 	private val BelPin.drivesGeneralFabric: Boolean
@@ -251,11 +252,22 @@ class TableBasedRoutabilityChecker(
 		// update info on the sinkpin
 		val sinkCell = sinkPin.cell
 		val sinkBel = sinkCell.locationInCluster!!
-		val belPins = preferredPin(cluster, sinkPin, sinkBel)
+		val belPins = preferredPin(cluster, sinkPin, sinkBel, pinMapping)
 		if (belPins != null) {
 			sinks.sinkPinsInCluster += sinkPin
 			belPins.forEach { _bel2CellPinMap[it] = sinkPin }
 			_cell2BelPinMap[sinkPin] = belPins
+
+			if (belPins.isEmpty()) {
+				println("bel pins is empty for pin $sinkPin")
+			} else if (belPins.size > 1) {
+				println("multiple bel pins for pin $sinkPin")
+				pinMapping[sinkPin] = belPins[0]
+			} else {
+				pinMapping[sinkPin] = belPins[0]
+			}
+		} else {
+			println("Pin mapping is null for pin $sinkPin")
 		}
 	}
 
@@ -350,8 +362,22 @@ class TableBasedRoutabilityChecker(
 		// The source cell has already been placed so we know where it is and
 		// where it enters this cluster.
 		val sinkBel = sinkCell.locationInCluster!!
-		val belPins = preferredPin(cluster, sinkPin, sinkBel)
+		val belPins = preferredPin(cluster, sinkPin, sinkBel, pinMapping)
 		val endSiteIndex = sinkBel.site.index
+
+
+		if (belPins != null) {
+			if (belPins.isEmpty()) {
+				println("bel pins is empty for pin $sinkPin")
+			} else if (belPins.size > 1) {
+				println("multiple bel pins for pin $sinkPin")
+				pinMapping[sinkPin] = belPins[0]
+			} else {
+				pinMapping[sinkPin] = belPins[0]
+			}
+		} else {
+			println("Pin mapping is null for pin $sinkPin")
+		}
 
 		for (belPin in (belPins ?: emptyList())) {
 			// find any direct connections to this path
@@ -932,6 +958,7 @@ class TableBasedRoutabilityChecker(
 		_netSources.checkPoint()
 		_netSinks.checkPoint()
 		pinGroupsStatuses.checkPoint()
+		pinMapping.checkPoint()
 	}
 
 	override fun rollback() {
@@ -940,6 +967,7 @@ class TableBasedRoutabilityChecker(
 		_netSources.rollBack()
 		_netSinks.rollBack()
 		pinGroupsStatuses.rollBack()
+		pinMapping.rollBack()
 	}
 
 	companion object {

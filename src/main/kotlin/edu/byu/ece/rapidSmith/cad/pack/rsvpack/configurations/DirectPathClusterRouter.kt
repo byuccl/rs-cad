@@ -33,6 +33,8 @@ private class DirectPathClusterRouter<T: PackUnit>(
 		val routeTreeMap = LinkedHashMap<CellNet, ArrayList<RouteTree>>()
 		val belPinMap = LinkedHashMap<CellNet, HashMap<CellPin, List<BelPin>>>()
 
+		val pinMapping = HashMap<CellPin, BelPin>()
+
 		for (cell in cluster.cells) {
 			val bel = cluster.getCellPlacement(cell)!!
 			val outputs = cell.pins
@@ -40,14 +42,19 @@ private class DirectPathClusterRouter<T: PackUnit>(
 				.filter { it.isConnectedToNet }
 
 			for (cellPin in outputs) {
-				val belPins = preferredPin(cluster, cellPin, bel)
+				val belPins = preferredPin(cluster, cellPin, bel, pinMapping)
 				if (belPins != null) {
+					if (belPins.size > 1)
+						println("Multiple bel pins for cell pin ${cellPin.fullName}")
 					for (bp in belPins) {
 						val net = cellPin.net
 						val rt = routeToOutput(bp) ?: return ClusterRouterResult(false)
 						belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
 						routeTreeMap.computeIfAbsent(net) { ArrayList() }.add(rt)
 					}
+					pinMapping[cellPin] = belPins[0]
+				} else {
+					println("belpins is null for cell pin ${cellPin.fullName}")
 				}
 			}
 
@@ -56,12 +63,13 @@ private class DirectPathClusterRouter<T: PackUnit>(
 				.filter { it.isConnectedToNet }
 
 			for (cellPin in inputs) {
-				val belPins = preferredPin(cluster, cellPin, bel)
+				val belPins = preferredPin(cluster, cellPin, bel, pinMapping)
 				val net = cellPin.net
 				if (belPins != null && belPins.isNotEmpty()) {
 					val rt = routeToInputs(belPins) ?: return ClusterRouterResult(false)
 					belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
 					routeTreeMap.computeIfAbsent(net) { ArrayList() }.addAll(rt)
+					pinMapping[cellPin] = belPins[0]
 				}
 			}
 		}

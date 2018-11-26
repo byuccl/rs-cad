@@ -13,6 +13,7 @@ import edu.byu.ece.rapidSmith.design.subsite.RouteTree
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.getSitePinConnection
 import java.util.*
+import kotlin.collections.LinkedHashMap
 
 class BasicPathFinderRouterFactory<in T: PackUnit>(
 	private val packUnits: PackUnitList<T>,
@@ -66,6 +67,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 		private val wireUsage = LinkedHashMap<Wire, OccupancyHistoryPair>()
 		private val routePins = LinkedHashMap<CellNet, RoutePins>()
 		private val invalidatedWires = LinkedHashSet<Wire>()
+		private val pinMapping = LinkedHashMap<CellPin, BelPin>()
 
 		fun routeCluster(cluster: Cluster<T, *>): Routability {
 			initNets(cluster)
@@ -161,6 +163,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			source.cellPin = sourcePin
 			source.belPin = belPin
 			source.wires += belPin.wire
+			pinMapping[sourcePin] = belPin
 		}
 
 		// Just create an object.  The sinks will be built when a source is added
@@ -193,7 +196,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 		private fun initInsideClusterSink(sinks: Sinks.Builder, sinkPin: CellPin) {
 			val sinkCell = sinkPin.cell
 			val sinkBel = sinkCell.locationInCluster!!
-			val belPins = preferredPin(cluster, sinkPin, sinkBel)
+			val belPins = preferredPin(cluster, sinkPin, sinkBel, pinMapping)
 
 			val pinMap = Terminal.Builder()
 			pinMap.cellPin = sinkPin
@@ -201,6 +204,13 @@ private class BasicPathFinderRouter<T: PackUnit>(
 				pinMap.belPins.addAll(bps)
 				pinMap.wires += bps.map { it.wire!! }
 				sinks.sinkPinsInCluster += pinMap
+				if (bps.isNotEmpty()) {
+					if (bps.size > 1)
+						println("Multiple pin mappings for pin $sinkPin")
+					pinMapping[sinkPin] = bps[0]
+				} else {
+					println("No pin mappings for pin $sinkPin")
+				}
 			}
 		}
 
@@ -211,8 +221,16 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			// The source cell has already been placed so we know where it is and
 			// where it enters this cluster.
 			val sinkBel = sinkPin.cell.locationInCluster!!
-			val belPins = preferredPin(cluster, sinkPin, sinkBel)
+			val belPins = preferredPin(cluster, sinkPin, sinkBel, emptyMap())
 			val endSiteIndex = sinkBel.site.index
+
+			if (belPins == null) {
+				println("belPins is null for pin $sinkPin")
+			} else if (belPins.isEmpty()) {
+				println("belPins is empty for pin $sinkPin")
+			} else if (belPins.size > 1) {
+				println("multiple belPins for pin $sinkPin")
+			}
 
 			for (belPin in (belPins ?: emptyList())) {
 				// find any direct connections to this path

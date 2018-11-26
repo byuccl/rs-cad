@@ -131,6 +131,7 @@ private class SitePackerFactory(
 	private val ramFullyPackedPackRuleFactory = RamFullyPackedPackRuleFactory(ramMaker)
 	private val ramPositionsPackRuleFactory = RamPositionsPackRuleFactory(ramMaker)
 	private val reserveFFForSourcePackRuleFactory = ReserveFFForSourcePackRuleFactory(cellLibrary)
+	private val mixingRamsAndLutsPackRuleFactory = MixingRamsAndLutsPackRuleFactory()
 	private val carryChainLookAheadRuleFactory = CarryChainLookAheadRuleFactory(
 		listOf("S[0]", "S[1]", "S[2]", "S[3]"),
 		ramMaker.leafRamCellTypes,
@@ -209,6 +210,7 @@ private class SitePackerFactory(
 		val packRules = listOf(
 			mixing5And6LutPackRuleFactory,
 			reserveFFForSourcePackRuleFactory,
+			mixingRamsAndLutsPackRuleFactory,
 			ramFullyPackedPackRuleFactory,
 			ramPositionsPackRuleFactory,
 			d6LutUsedRamPackRuleFactory,
@@ -236,7 +238,10 @@ private class SitePackerFactory(
 		packUnit: PackUnit, packUnits: PackUnitList<*>
 	): PackStrategy<SitePackUnit> {
 		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, object: PinMapper {
-			override fun invoke(cluster: Cluster<*, *>, pin: CellPin, bel: Bel): List<BelPin>? {
+			override fun invoke(
+				cluster: Cluster<*, *>, pin: CellPin, bel: Bel,
+				existing: Map<CellPin, BelPin>
+			): List<BelPin>? {
 				val mapping = pin.findPinMapping(bel)!!
 				// TODO mapping can actually have multiple pins
 				// I'm just take the first right now since the routing of the second
@@ -570,17 +575,20 @@ private val compatibleTypes = mapOf(
 )
 
 private class SlicePinMapper : PinMapper {
-	override fun invoke(cluster: Cluster<*, *>, pin: CellPin, bel: Bel): List<BelPin> {
+	override fun invoke(
+		cluster: Cluster<*, *>, pin: CellPin, bel: Bel,
+		existing: Map<CellPin, BelPin>
+	): List<BelPin> {
 		if (pin.isPseudoPin)
 			return listOf(bel.getBelPin(pin.name.substring(6)))
 
 		return when (pin.cell.libCell.name) {
-			"LUT1" -> mapLutPin(cluster, pin, bel)
-			"LUT2" -> mapLutPin(cluster, pin, bel)
-			"LUT3" -> mapLutPin(cluster, pin, bel)
-			"LUT4" -> mapLutPin(cluster, pin, bel)
-			"LUT5" -> mapLutPin(cluster, pin, bel)
-			"LUT6" -> mapLutPin(cluster, pin, bel)
+			"LUT1" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT2" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT3" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT4" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT5" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT6" -> mapLutPin(cluster, pin, bel,existing)
 			"RAMS32", "RAMS64E" -> mapRamsPin(pin, bel)
 			"CARRY4" -> mapCarryPin(pin, bel)
 			else -> {
@@ -591,8 +599,76 @@ private class SlicePinMapper : PinMapper {
 	}
 }
 
-private fun mapLutPin(cluster: Cluster<*, *>, pin: CellPin, bel: Bel): List<BelPin> {
-	return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
+private fun mapLutPin(
+	cluster: Cluster<*, *>, pin: CellPin, bel: Bel,
+	existing: Map<CellPin, BelPin>
+): List<BelPin> {
+	val site = bel.site
+	val leName = bel.name[0]
+	val lut6 = site.getBel(leName + "6LUT")
+	val lut5 = site.getBel(leName + "5LUT")
+
+	if (pin.isPseudoPin)
+		return listOf(bel.getBelPin("A6")!!)
+
+	// Need special handling if both the LUT5 and LUT6 are occupied
+	if (cluster.isBelOccupied(lut6) && cluster.isBelOccupied(lut5)) {
+		val cell = pin.cell
+		val altBel = if (bel == lut6) lut5 else lut6
+
+		// get the possible pins and their mapping to the other BELs pins
+		val possibleBelPins = pin.getPossibleBelPins(bel)
+			.associateBy { altBel.getBelPin(it.name) }
+			.filterKeys { it != null }
+			.filterValues { it != null } as MutableMap<BelPin, BelPin>
+
+		// determine what nets map to what BEL pins.  A net may map to multiple pins.
+		val nets = existing.entries
+			.filter { it.value in possibleBelPins }
+			.groupingBy { it.key.net }
+			.aggregate { k, a: MutableList<BelPin>?, e, f ->
+				val list = if (f) ArrayList() else a!!
+				list.add(possibleBelPins[e.value]!!)
+				list
+			}
+
+		// determine which bel pins are already used by other pins on the cell
+		// if a bel pin is already occupied by a pin on the cell of interest, that
+		// bel pin is disqualified, even if it share the same net
+		val usedPins = cell.inputPins
+			.filter { it.isConnectedToNet }
+			.map { existing[it] }
+			.filterNotNull()
+
+		// determine if the net already drives any pins on the bel
+		val previous = nets[pin.net]
+		if (previous != null) {
+			for (bp in previous) {
+				// search for an unused bel pin which is shared by the same net and return it
+				if (bp !in usedPins) {
+					return listOf(bp)
+				}
+			}
+		}
+
+		// no available bel pins sharing the net.  Identify a new pin mapping
+		val altUsedPins = nets.values.flatten()
+		val belPins = possibleBelPins.values
+			.filter { it !in usedPins }
+			.filter { it !in  altUsedPins}
+			.toMutableList()
+		// make sure the LUT6 is in back to avoid using the A6 pin when both 5 and 6 LUT bels are used
+		belPins.sortBy { it.name[1] }
+
+		// TODO what to do with no valid bel pins.  Right now I'm just picking the first and
+		// hoping it conflicts
+		if (belPins.isEmpty())
+			return listOf(possibleBelPins.values.first())
+
+		return listOf(belPins.get(0))
+	} else {
+		return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
+	}
 }
 
 private fun mapRamsPin(pin: CellPin, bel: Bel): List<BelPin> {
