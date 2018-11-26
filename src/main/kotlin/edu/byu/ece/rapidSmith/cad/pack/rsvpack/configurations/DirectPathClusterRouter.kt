@@ -45,8 +45,6 @@ private class DirectPathClusterRouter<T: PackUnit>(
 			for (cellPin in outputs) {
 				val belPins = preferredPin(cluster, cellPin, bel, pinMapping) ?:
 					throw CadException("Illegal pin mapping found, $cellPin")
-				if (belPins.size > 1)
-					println("Multiple bel pins for cell pin ${cellPin.fullName}")
 				for (bp in belPins) {
 					val net = cellPin.net
 					val rt = routeToOutput(bp) ?: return ClusterRouterResult(false)

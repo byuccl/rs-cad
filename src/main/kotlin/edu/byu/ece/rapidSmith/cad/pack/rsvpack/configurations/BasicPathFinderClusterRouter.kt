@@ -207,11 +207,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			pinMap.wires += belPins.map { it.wire!! }
 			sinks.sinkPinsInCluster += pinMap
 			if (belPins.isNotEmpty()) {
-				if (belPins.size > 1)
-					println("Multiple pin mappings for pin $sinkPin")
 				pinMapping[sinkPin] = belPins[0]
-			} else {
-				println("No pin mappings for pin $sinkPin")
 			}
 		}
 
@@ -225,12 +221,6 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			val belPins = preferredPin(sinkPin.cell.getCluster()!!, sinkPin, sinkBel, emptyMap()) ?:
 				throw CadException("Illegal pin mapping, $sinkPin")
 			val endSiteIndex = sinkBel.site.index
-
-			if (belPins.isEmpty()) {
-				println("belPins is empty for pin $sinkPin")
-			} else if (belPins.size > 1) {
-				println("multiple belPins for pin $sinkPin")
-			}
 
 			for (belPin in belPins) {
 				// find any direct connections to this path

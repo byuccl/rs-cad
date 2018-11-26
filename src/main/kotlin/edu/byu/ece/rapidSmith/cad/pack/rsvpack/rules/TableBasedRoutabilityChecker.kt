@@ -370,12 +370,7 @@ class TableBasedRoutabilityChecker(
 			throw CadException("Illegal pin mapping, $sinkPin")
 		val endSiteIndex = sinkBel.site.index
 
-		if (belPins.isEmpty()) {
-			println("bel pins is empty for pin $sinkPin")
-		} else if (belPins.size > 1) {
-			println("multiple bel pins for pin $sinkPin")
-			pinMapping[sinkPin] = belPins[0]
-		} else {
+		if (belPins.isNotEmpty()) {
 			pinMapping[sinkPin] = belPins[0]
 		}
 
