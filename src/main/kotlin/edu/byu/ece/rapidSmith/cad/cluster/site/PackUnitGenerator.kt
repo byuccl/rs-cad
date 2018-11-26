@@ -27,7 +27,7 @@ abstract class SitePackUnitGenerator {
 	protected abstract fun findClusterInstances(siteType: SiteType, device: Device): List<Site>
 
 	private var numBuiltTiles = 0
-	private val tileMapsMap = HashMap<SiteType, Map<Site, Map<Tile, Tile>>>()
+	private val tileMapsMap = LinkedHashMap<SiteType, Map<Site, Map<Tile, Tile>>>()
 
 	fun buildFromDevice(device: Device): PackUnitList<SitePackUnit> {
 		val templates = makePackUnits(device)
@@ -38,7 +38,7 @@ abstract class SitePackUnitGenerator {
 
 	private fun makePackUnits(device: Device): ArrayList<SitePackUnit> {
 		val packUnits = ArrayList<SitePackUnit>()
-		val instancesMap = HashMap<SiteType, List<Site>>()
+		val instancesMap = LinkedHashMap<SiteType, List<Site>>()
 
 		// for packable tile sets, find all instances of them on the device
 		println("Finding clusterChain instances")
@@ -87,11 +87,11 @@ abstract class SitePackUnitGenerator {
 		oldDevice: Device,
 		templateSites: List<Site>
 	): Pair<Device, Map<Site, Map<Tile, Tile>>> {
-		val tileMaps = HashMap<Site, Map<Tile, Tile>>()
-		val tilePointMap = HashMap<Point, Tile>()
+		val tileMaps = LinkedHashMap<Site, Map<Tile, Tile>>()
+		val tilePointMap = LinkedHashMap<Point, Tile>()
 
 		for (template in templateSites) {
-			val tileSet = HashSet<Tile>()
+			val tileSet = LinkedHashSet<Tile>()
 			tileSet.add(template.tile)
 			findSwitchMatrices(template, tileSet)
 
@@ -156,7 +156,7 @@ abstract class SitePackUnitGenerator {
 
 	private fun findSwitchMatrices(root: Site, tileSet: MutableSet<Tile>, forward: Boolean) {
 		val wireQueue: Queue<Wire> = ArrayDeque()
-		val queuedWires = HashSet<Wire>()
+		val queuedWires = LinkedHashSet<Wire>()
 		val sourcePins = if (forward) root.sourcePins else root.sinkPins
 		for (sourcePin in sourcePins) {
 			val sourceWire = sourcePin.externalWire
@@ -424,7 +424,7 @@ abstract class SitePackUnitGenerator {
 	private fun findStaticSources(
 		tileSet: Collection<Tile>, sources: Map<BelId, PinName>
 	): Set<BelPin> {
-		val sourcePins = HashSet<BelPin>()
+		val sourcePins = LinkedHashSet<BelPin>()
 		for (tile in tileSet) {
 			val sites = tile.sites ?: continue
 			for (site in sites) {

@@ -2,6 +2,7 @@ package edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations
 
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.CadException
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterResult
@@ -16,7 +17,7 @@ import kotlin.collections.HashMap
 class DirectPathClusterRouterFactory<in T: PackUnit>(
 	private val preferredPin: PinMapper
 ) : ClusterRouterFactory<T> {
-	private val routers = HashMap<T, ClusterRouter<T>>()
+	private val routers = LinkedHashMap<T, ClusterRouter<T>>()
 
 	override fun get(packUnit: T): ClusterRouter<T> {
 		return routers.computeIfAbsent(packUnit) {
@@ -30,8 +31,10 @@ private class DirectPathClusterRouter<T: PackUnit>(
 	val preferredPin: PinMapper
 ) : ClusterRouter<T> {
 	override fun route(cluster: Cluster<T, *>): ClusterRouterResult {
-		val routeTreeMap = HashMap<CellNet, ArrayList<RouteTree>>()
-		val belPinMap = HashMap<CellNet, HashMap<CellPin, List<BelPin>>>()
+		val routeTreeMap = LinkedHashMap<CellNet, ArrayList<RouteTree>>()
+		val belPinMap = LinkedHashMap<CellNet, HashMap<CellPin, List<BelPin>>>()
+
+		val pinMapping = HashMap<CellPin, BelPin>()
 
 		for (cell in cluster.cells) {
 			val bel = cluster.getCellPlacement(cell)!!
@@ -40,15 +43,15 @@ private class DirectPathClusterRouter<T: PackUnit>(
 				.filter { it.isConnectedToNet }
 
 			for (cellPin in outputs) {
-				val belPins = preferredPin(cellPin, bel)
-				if (belPins != null) {
-					for (bp in belPins) {
-						val net = cellPin.net
-						val rt = routeToOutput(bp) ?: return ClusterRouterResult(false)
-						belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
-						routeTreeMap.computeIfAbsent(net) { ArrayList() }.add(rt)
-					}
+				val belPins = preferredPin(cluster, cellPin, bel, pinMapping) ?:
+					throw CadException("Illegal pin mapping found, $cellPin")
+				for (bp in belPins) {
+					val net = cellPin.net
+					val rt = routeToOutput(bp) ?: return ClusterRouterResult(false)
+					belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
+					routeTreeMap.computeIfAbsent(net) { ArrayList() }.add(rt)
 				}
+				pinMapping[cellPin] = belPins[0]
 			}
 
 			val inputs = cell.pins
@@ -56,12 +59,14 @@ private class DirectPathClusterRouter<T: PackUnit>(
 				.filter { it.isConnectedToNet }
 
 			for (cellPin in inputs) {
-				val belPins = preferredPin(cellPin, bel)
+				val belPins = preferredPin(cluster, cellPin, bel, pinMapping) ?:
+					throw CadException("Illegal pin mapping, $cellPin")
 				val net = cellPin.net
-				if (belPins != null && belPins.isNotEmpty()) {
+				if (belPins.isNotEmpty()) {
 					val rt = routeToInputs(belPins) ?: return ClusterRouterResult(false)
 					belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
 					routeTreeMap.computeIfAbsent(net) { ArrayList() }.addAll(rt)
+					pinMapping[cellPin] = belPins[0]
 				}
 			}
 		}

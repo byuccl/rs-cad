@@ -29,7 +29,7 @@ constructor(
 	private val sourcesOfSinks: Map<BelPin, Map<BelPin, CCList>>
 	private val reserveBelCostMap = StackedHashMap<Bel, Double>()
 	private val pqStack = ArrayDeque<PriorityQueue<BelCandidate>>()
-	private val filteredNets = HashSet<CellNet>()
+	private val filteredNets = LinkedHashSet<CellNet>()
 
 	private var cluster: Cluster<*, *>? = null
 	private var pq: PriorityQueue<BelCandidate>? = null
@@ -54,7 +54,7 @@ constructor(
 			return false
 		}
 
-		design.nets.filterTo(filteredNets) { shouldFilterNet(it) }
+		design.nets.sortedBy { it.name }.filterTo(filteredNets) { shouldFilterNet(it) }
 	}
 
 	private fun CellNet.isFilteredNet(): Boolean {
@@ -322,8 +322,8 @@ private class ClusterConnections(
  *
  */
 private class ClusterConnectionsBuilder {
-	private val sourcesOfSinks: HashMap<BelPin, Map<BelPin, CCList>> = HashMap()
-	private val sinksOfSources: HashMap<BelPin, Map<BelPin, CCList>> = HashMap()
+	private val sourcesOfSinks: HashMap<BelPin, Map<BelPin, CCList>> = LinkedHashMap()
+	private val sinksOfSources: HashMap<BelPin, Map<BelPin, CCList>> = LinkedHashMap()
 
 	private fun getPackUnitCacheFile(packUnit: PackUnit): Path? {
 		val env = RSEnvironment.defaultEnv()
@@ -386,7 +386,7 @@ private class ClusterConnectionsBuilder {
 		val sourceWire = sourcePin.wire
 		val wrapper = CCTWire(sourceWire)
 
-		val processed = HashSet<Wire>()
+		val processed = LinkedHashSet<Wire>()
 		val pq = PriorityQueue<CCTWire>()
 		pq += wrapper
 

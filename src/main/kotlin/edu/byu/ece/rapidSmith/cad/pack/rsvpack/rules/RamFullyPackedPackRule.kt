@@ -28,7 +28,7 @@ class RamFullyPackedPackRuleFactory(private val ramMaker: RamMaker) : PackRuleFa
 	}
 
 	inner class Rule(cluster: Cluster<*, *>, val rams: Map<Cell, Ram>) : PackRule {
-		private val lutRamsBels = HashMap<String, ArrayList<Bel>>()
+		private val lutRamsBels = LinkedHashMap<String, ArrayList<Bel>>()
 		private var state: State
 		private val stack = ArrayDeque<State>()
 
@@ -70,7 +70,7 @@ class RamFullyPackedPackRuleFactory(private val ramMaker: RamMaker) : PackRuleFa
 			state = State()
 			state.status = PackStatus.VALID
 			state.conditionals = null
-			state.incompleteRams = HashSet(stack.peek().incompleteRams)
+			state.incompleteRams = LinkedHashSet(stack.peek().incompleteRams)
 
 			val rams = changedRamCells
 				.map { rams[it]!! } // check this null assertion
@@ -83,7 +83,7 @@ class RamFullyPackedPackRuleFactory(private val ramMaker: RamMaker) : PackRuleFa
 		private fun ensureRamsAreComplete(): StatusConditionalsPair {
 			val conditionals: HashMap<Cell, Set<Bel>>
 			if (!state.incompleteRams.isEmpty()) {
-				conditionals = HashMap()
+				conditionals = LinkedHashMap()
 				for (ram in state.incompleteRams) {
 					for (ramCell in ram.unpackedCells()) {
 						val possibleLocations = getPossibleLocations(ramCell)
@@ -98,7 +98,7 @@ class RamFullyPackedPackRuleFactory(private val ramMaker: RamMaker) : PackRuleFa
 		}
 
 		private fun getPossibleLocations(ramCell: Cell): Set<Bel> {
-			val possibles = HashSet<Bel>()
+			val possibles = LinkedHashSet<Bel>()
 			val locations = ramCell.ramPosition
 			when (ramCell.libCell.name) {
 				"RAMS32", "RAMD32" -> {
@@ -141,7 +141,7 @@ class RamFullyPackedPackRuleFactory(private val ramMaker: RamMaker) : PackRuleFa
 
 	private class State {
 		internal var status: PackStatus? = null
-		internal var incompleteRams: MutableSet<Ram> = HashSet()
+		internal var incompleteRams: MutableSet<Ram> = LinkedHashSet()
 		internal var conditionals: Map<Cell, Set<Bel>>? = null
 	}
 

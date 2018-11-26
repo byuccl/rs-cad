@@ -8,19 +8,22 @@ import edu.byu.ece.rapidSmith.design.subsite.CellLibrary
 import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.device.Site
 import java.util.HashMap
+import kotlin.streams.asSequence
 import kotlin.streams.toList
 
 class DI0LutSourcePrepackerFactory(
 	cellLibrary: CellLibrary
 ) : PrepackerFactory<PackUnit>() {
-	private var c4ToLutMap = HashMap<Cell, Cell>()
-	private var lutToC4Map = HashMap<Cell, Cell>()
+	private var c4ToLutMap = LinkedHashMap<Cell, Cell>()
+	private var lutToC4Map = LinkedHashMap<Cell, Cell>()
 	private val carry4 = cellLibrary.get("CARRY4")
 
 	override fun init(design: CellDesign) {
 		// Finds all of the LUTs driving the DI0 pin of a CARRY4 which must
 		// be packed with the CARRY4.
-		val pairs = design.leafCells.filter { it.libCell == carry4 }
+		val pairs = design.leafCells.asSequence()
+			.sortedBy { it.name }
+			.filter { it.libCell == carry4 }
 			.filter { requiresExternalCYInitPin(it) }
 			.map { it to it.getPin("DI[0]")!! }
 			.filter { it.second.isConnectedToNet }

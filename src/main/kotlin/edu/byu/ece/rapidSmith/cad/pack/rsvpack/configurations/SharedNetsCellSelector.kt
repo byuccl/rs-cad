@@ -6,6 +6,8 @@ import edu.byu.ece.rapidSmith.cad.cluster.isValid
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.CellSelector
 import edu.byu.ece.rapidSmith.design.subsite.*
 import java.util.*
+import kotlin.streams.asSequence
+import kotlin.streams.toList
 
 class SharedNetsCellSelector(
 	val searchTwoDeep: Boolean,
@@ -17,18 +19,20 @@ class SharedNetsCellSelector(
 
 	private val stateStack = ArrayDeque<State>()
 
-	private val sharedNetsMap = HashMap<Cell, Map<Cell, List<CellNet>>>()
-	private val sharedPinsMap = HashMap<Cell, Map<Cell, List<CellPin>>>()
-	private val numUsedPinsMap = HashMap<Cell, Int>()
-	private val numUniqueNetsMap = HashMap<Cell, Int>()
-	private val filteredNets = HashSet<CellNet>()
+	private val sharedNetsMap = LinkedHashMap<Cell, Map<Cell, List<CellNet>>>()
+	private val sharedPinsMap = LinkedHashMap<Cell, Map<Cell, List<CellPin>>>()
+	private val numUsedPinsMap = LinkedHashMap<Cell, Int>()
+	private val numUniqueNetsMap = LinkedHashMap<Cell, Int>()
+	private val filteredNets = LinkedHashSet<CellNet>()
 
 	override fun init(design: CellDesign) {
-		design.nets.forEach { if (shouldFilterNet(it)) filteredNets += it }
-		design.leafCells.forEach { numUsedPinsMap[it] = computeNumUsedPinsOnCell(it) }
-		design.leafCells.forEach { numUniqueNetsMap[it] = computeNumUniqueNetsOnCell(it) }
-		design.leafCells.forEach { sharedNetsMap[it] = findSharedNets(it) }
-		design.leafCells.forEach { sharedPinsMap[it] = findSharedPins(it) }
+		val leafCells = design.leafCells.asSequence().toMutableList()
+		leafCells.sortBy { it.name }
+		design.nets.sortedBy { it.name }.forEach { if (shouldFilterNet(it)) filteredNets += it }
+		leafCells.forEach { numUsedPinsMap[it] = computeNumUsedPinsOnCell(it) }
+		leafCells.forEach { numUniqueNetsMap[it] = computeNumUniqueNetsOnCell(it) }
+		leafCells.forEach { sharedNetsMap[it] = findSharedNets(it) }
+		leafCells.forEach { sharedPinsMap[it] = findSharedPins(it) }
 	}
 
 	private fun computeNumUsedPinsOnCell(cell: Cell): Int {
@@ -44,7 +48,7 @@ class SharedNetsCellSelector(
 	}
 
 	private fun computeNumUniqueNetsOnCell(cell: Cell): Int {
-		val uniqueNets = HashSet<CellNet>()
+		val uniqueNets = LinkedHashSet<CellNet>()
 		for (pin in cell.pins) {
 			if (pin.isConnectedToNet) {
 				val net = pin.net
@@ -221,7 +225,7 @@ class SharedNetsCellSelector(
 
 	private fun computeSecondaryCellGains(): MutableMap<Cell, Double> {
 		val primaryCells = getPrimaryCells()
-		val gains = HashMap<Cell, Double>()
+		val gains = LinkedHashMap<Cell, Double>()
 		for (primaryCell in primaryCells) {
 			val primaryGain = computeCellGain(primaryCell, cluster.cells)
 			val secondaryCells = getSecondaryCells(primaryCell)

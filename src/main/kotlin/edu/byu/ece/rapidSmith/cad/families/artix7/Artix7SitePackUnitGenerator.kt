@@ -45,7 +45,7 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 		PACKABLE_SITE_TYPES.add(SiteTypes.IOB33S)
 		PACKABLE_SITE_TYPES.add(SiteTypes.BUFG)
 
-		INTERFACE_TILES = HashSet()
+		INTERFACE_TILES = LinkedHashSet()
 		INTERFACE_TILES.add(TileTypes.INT_INTERFACE_L)
 		INTERFACE_TILES.add(TileTypes.INT_INTERFACE_R)
 		INTERFACE_TILES.add(TileTypes.IO_INT_INTERFACE_L)
@@ -58,14 +58,14 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 		INTERFACE_TILES.add(TileTypes.RIOI3)
 		INTERFACE_TILES.add(TileTypes.LIOI3)
 
-		SWITCH_MATRIX_TILES = HashSet()
+		SWITCH_MATRIX_TILES = LinkedHashSet()
 		SWITCH_MATRIX_TILES.add(TileTypes.INT_L)
 		SWITCH_MATRIX_TILES.add(TileTypes.INT_R)
 
 		NULL_TILE_TYPE = TileTypes.NULL
 		TIEOFF_SITE_TYPE = SiteTypes.TIEOFF
 
-		IGNORED_TILE_TYPES = HashSet()
+		IGNORED_TILE_TYPES = LinkedHashSet()
 		IGNORED_TILE_TYPES += TileTypes.BRAM_R
 		IGNORED_TILE_TYPES += TileTypes.CLBLL_R
 		IGNORED_TILE_TYPES += TileTypes.CLBLM_R

@@ -16,8 +16,8 @@ import kotlin.collections.HashSet
  *
  */
 class CarryChainValidityRuleFactory : PackRuleFactory {
-	private var mergedCells: MutableMap<Cell, MutableSet<Cell>> = HashMap()
-	private val numPackedCellsMap = HashMap<CarryChain, Int>()
+	private var mergedCells: MutableMap<Cell, MutableSet<Cell>> = LinkedHashMap()
+	private val numPackedCellsMap = LinkedHashMap<CarryChain, Int>()
 
 	private val CarryChain.isPartiallyPlaced: Boolean
 		get() = numPackedCellsMap.getOrDefault(this, 0) != 0
@@ -31,7 +31,7 @@ class CarryChainValidityRuleFactory : PackRuleFactory {
 	}
 
 	override fun init(design: CellDesign) {
-		mergedCells = HashMap()
+		mergedCells = LinkedHashMap()
 	}
 
 	override fun commitCluster(cluster: Cluster<*, *>) {
@@ -81,7 +81,7 @@ class CarryChainValidityRuleFactory : PackRuleFactory {
 				return true
 
 			val queue = ArrayDeque<CarryChainConnection>()
-			val set = HashSet<CarryChainConnection>()
+			val set = LinkedHashSet<CarryChainConnection>()
 			val cccs = getCCCs(endCell, direction)
 			set.addAll(cccs)
 			queue.addAll(cccs)
@@ -90,7 +90,7 @@ class CarryChainValidityRuleFactory : PackRuleFactory {
 				if (end.getCluster<Cluster<*, *>>() != null)
 					return false
 
-				val cccSet = HashSet(getCCCs(end, direction))
+				val cccSet = LinkedHashSet(getCCCs(end, direction))
 				cccSet.removeAll(set)
 				set.addAll(cccSet)
 				queue.addAll(cccSet)

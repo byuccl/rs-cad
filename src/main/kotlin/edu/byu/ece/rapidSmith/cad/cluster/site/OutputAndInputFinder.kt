@@ -10,7 +10,7 @@ import java.util.*
  */
 class OutputsAndInputsFinder(val SWITCH_MATRIX_TILES: Set<TileType>) {
 	val inputs: MutableMap<BelPin, List<Wire>> = HashMap()
-	val outputs: MutableSet<Wire> = HashSet()
+	val outputs: MutableSet<Wire> = LinkedHashSet()
 
 	fun traverse(template: Site, actual: Site, tileMap: Map<Tile, Tile>):
 		Pair<Map<BelPin, List<Wire>>, Set<Wire>> {
@@ -30,7 +30,7 @@ class OutputsAndInputsFinder(val SWITCH_MATRIX_TILES: Set<TileType>) {
 
 			for (actualPin in actualBel.sinks) {
 				val templatePin = templateBel.getBelPin(actualPin.name)
-				val inputsForPin = HashSet<Wire>()
+				val inputsForPin = LinkedHashSet<Wire>()
 				Traverser(tileMap, false, inputsForPin).run(templatePin)
 				inputs.put(translatePin(templatePin, tileMap), inputsForPin.toList())
 			}
@@ -45,7 +45,7 @@ class OutputsAndInputsFinder(val SWITCH_MATRIX_TILES: Set<TileType>) {
 	) {
 		fun run(sourcePin: BelPin) {
 			val sourceWire = sourcePin.wire
-			val visited = HashSet<Wire>()
+			val visited = LinkedHashSet<Wire>()
 			val q: Queue<Wire> = ArrayDeque<Wire>()
 			q += sourceWire
 

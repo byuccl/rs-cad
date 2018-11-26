@@ -20,11 +20,11 @@ fun buildDrivenByGeneralFabric(
 private fun buildDrivesGeneralFabric(
 	device: Device, switchboxTypes: Collection<TileType>, forward: Boolean
 ): Map<BelId, Set<String>> {
-	val sitePinDrivers = HashMap<SiteType, Set<String>>()
+	val sitePinDrivers = LinkedHashMap<SiteType, Set<String>>()
 	for (site in device.sites.values) {
 		buildSitePinDriversForSite(site, switchboxTypes, forward, sitePinDrivers)
 	}
-	val belPinToSitePinMap = HashMap<BelPinTemplate, List<SitePinTemplate>>()
+	val belPinToSitePinMap = LinkedHashMap<BelPinTemplate, List<SitePinTemplate>>()
 	sitePinDrivers.keys.forEach {
 		belPinToSitePinMap.putAll(buildBelPinsToSitePinsMap(it, device, forward))
 	}
@@ -55,7 +55,7 @@ fun findSitePins(
 			siteTemplate.isRoutethrough(sink, source)
 
 	val q: Queue<WireEnum> = ArrayDeque()
-	val queued = HashSet<Int>()
+	val queued = LinkedHashSet<Int>()
 
 	q += pinTemplate.wire
 	queued += pinTemplate.wire
@@ -116,7 +116,7 @@ private fun sitePinDrivesGeneralFabric(
 ): Boolean {
 	val q: Queue<Wire> = ArrayDeque()
 	q += sitePin.externalWire
-	val queued = HashSet<Wire>()
+	val queued = LinkedHashSet<Wire>()
 	queued += sitePin.externalWire
 
 	while (q.isNotEmpty()) {
