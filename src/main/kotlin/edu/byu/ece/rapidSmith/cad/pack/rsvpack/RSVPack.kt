@@ -146,21 +146,21 @@ private class _RSVPack<out T: PackUnit>(
 	}
 
 	private fun packNetlist() {
-		var remainingCells = unclusteredCells.size
+	//	var remainingCells = unclusteredCells.size
 //		println("Cells remaining to pack " + remainingCells)
 
 		// do until all cells have been packed
 		while (!unclusteredCells.isEmpty()) {
 //			if (unclusteredCells.size % 1000 > remainingCells % 1000)
 //				println("Cells remaining to pack " + unclusteredCells.size)
-			remainingCells = unclusteredCells.size
+		//	remainingCells = unclusteredCells.size
 
 			// choose a seed cell for a new cluster
 			val seedCell = seedSelector.nextSeed()
 
 			//if (seedCell.name.equals("fract_out_q_reg[3]_i_1"))
-			if (seedCell.name.equals("a0_add/u1/_inferred__0_carry"))
-				println("Problem seed")
+		//	if (seedCell.name.equals("fract_out_q_reg[3]_i_1"))
+			//	println("Problem seed")
 
 
 			var best: Cluster<T, *>? = null
