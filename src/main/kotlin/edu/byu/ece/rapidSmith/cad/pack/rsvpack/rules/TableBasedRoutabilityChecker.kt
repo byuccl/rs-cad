@@ -263,12 +263,7 @@ class TableBasedRoutabilityChecker(
 		belPins.forEach { _bel2CellPinMap[it] = sinkPin }
 		_cell2BelPinMap[sinkPin] = belPins
 
-		if (belPins.isEmpty()) {
-			println("bel pins is empty for pin $sinkPin")
-		} else if (belPins.size > 1) {
-			println("multiple bel pins for pin $sinkPin")
-			pinMapping[sinkPin] = belPins[0]
-		} else {
+		if (belPins.isNotEmpty()) {
 			pinMapping[sinkPin] = belPins[0]
 		}
 		return true
