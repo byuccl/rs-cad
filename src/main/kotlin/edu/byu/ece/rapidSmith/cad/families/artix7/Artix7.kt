@@ -241,12 +241,12 @@ private class SitePackerFactory(
 			override fun invoke(
 				cluster: Cluster<*, *>, pin: CellPin, bel: Bel,
 				existing: Map<CellPin, BelPin>
-			): List<BelPin>? {
+			): List<BelPin> {
 				val mapping = pin.findPinMapping(bel)!!
 				// TODO mapping can actually have multiple pins
 				// I'm just take the first right now since the routing of the second
 				// should be a given
-				return if (mapping.isNotEmpty()) mapping.take(1) else null
+				return if (mapping.isNotEmpty()) mapping.take(1) else emptyList()
 			}
 		})
 		val packRules = listOf<PackRuleFactory>(
@@ -578,7 +578,7 @@ private class SlicePinMapper : PinMapper {
 	override fun invoke(
 		cluster: Cluster<*, *>, pin: CellPin, bel: Bel,
 		existing: Map<CellPin, BelPin>
-	): List<BelPin> {
+	): List<BelPin>? {
 		if (pin.isPseudoPin)
 			return listOf(bel.getBelPin(pin.name.substring(6)))
 
@@ -602,17 +602,17 @@ private class SlicePinMapper : PinMapper {
 private fun mapLutPin(
 	cluster: Cluster<*, *>, pin: CellPin, bel: Bel,
 	existing: Map<CellPin, BelPin>
-): List<BelPin> {
+): List<BelPin>? {
 	val site = bel.site
 	val leName = bel.name[0]
 	val lut6 = site.getBel(leName + "6LUT")
 	val lut5 = site.getBel(leName + "5LUT")
 
-	if (pin.isPseudoPin)
-		return listOf(bel.getBelPin("A6")!!)
-
 	// Need special handling if both the LUT5 and LUT6 are occupied
 	if (cluster.isBelOccupied(lut6) && cluster.isBelOccupied(lut5)) {
+		if (pin.isPseudoPin)
+			return listOf(bel.getBelPin("A6")!!)
+
 		val cell = pin.cell
 		val altBel = if (bel == lut6) lut5 else lut6
 
@@ -660,10 +660,9 @@ private fun mapLutPin(
 		// make sure the LUT6 is in back to avoid using the A6 pin when both 5 and 6 LUT bels are used
 		belPins.sortBy { it.name[1] }
 
-		// TODO what to do with no valid bel pins.  Right now I'm just picking the first and
-		// hoping it conflicts
+		// No valid pins, return null to indicate an issue
 		if (belPins.isEmpty())
-			return listOf(possibleBelPins.values.first())
+			return null
 
 		return listOf(belPins.get(0))
 	} else {

@@ -1,6 +1,7 @@
 package edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations
 
 import edu.byu.ece.rapidSmith.cad.cluster.*
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.CadException
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterResult
@@ -197,20 +198,20 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			val sinkCell = sinkPin.cell
 			val sinkBel = sinkCell.locationInCluster!!
 			val belPins = preferredPin(cluster, sinkPin, sinkBel, pinMapping)
+			if (belPins == null)
+				throw CadException("Illegal pin mapping, $sinkPin")
 
 			val pinMap = Terminal.Builder()
 			pinMap.cellPin = sinkPin
-			belPins?.let { bps ->
-				pinMap.belPins.addAll(bps)
-				pinMap.wires += bps.map { it.wire!! }
-				sinks.sinkPinsInCluster += pinMap
-				if (bps.isNotEmpty()) {
-					if (bps.size > 1)
-						println("Multiple pin mappings for pin $sinkPin")
-					pinMapping[sinkPin] = bps[0]
-				} else {
-					println("No pin mappings for pin $sinkPin")
-				}
+			pinMap.belPins.addAll(belPins)
+			pinMap.wires += belPins.map { it.wire!! }
+			sinks.sinkPinsInCluster += pinMap
+			if (belPins.isNotEmpty()) {
+				if (belPins.size > 1)
+					println("Multiple pin mappings for pin $sinkPin")
+				pinMapping[sinkPin] = belPins[0]
+			} else {
+				println("No pin mappings for pin $sinkPin")
 			}
 		}
 
@@ -221,18 +222,17 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			// The source cell has already been placed so we know where it is and
 			// where it enters this cluster.
 			val sinkBel = sinkPin.cell.locationInCluster!!
-			val belPins = preferredPin(cluster, sinkPin, sinkBel, emptyMap())
+			val belPins = preferredPin(sinkPin.cell.getCluster()!!, sinkPin, sinkBel, emptyMap()) ?:
+				throw CadException("Illegal pin mapping, $sinkPin")
 			val endSiteIndex = sinkBel.site.index
 
-			if (belPins == null) {
-				println("belPins is null for pin $sinkPin")
-			} else if (belPins.isEmpty()) {
+			if (belPins.isEmpty()) {
 				println("belPins is empty for pin $sinkPin")
 			} else if (belPins.size > 1) {
 				println("multiple belPins for pin $sinkPin")
 			}
 
-			for (belPin in (belPins ?: emptyList())) {
+			for (belPin in belPins) {
 				// find any direct connections to this path
 				var directSink = false
 				val carrySinks = LinkedHashSet<Wire>()

@@ -1,6 +1,7 @@
 package edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules
 
 import edu.byu.ece.rapidSmith.cad.cluster.*
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.CadException
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.PinMapper
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.RoutingTable.SourcePinEntry
 import edu.byu.ece.rapidSmith.design.NetType
@@ -72,7 +73,8 @@ class TableBasedRoutabilityChecker(
 
 		// update the info for the nets with the new source and sink objects
 		// added to the cluster in this change
-		updateChangedNets(changed)
+		if (!updateChangedNets(changed))
+			return RoutabilityResult(Routability.INFEASIBLE, null)
 
 		// identify the pin groups that have changed
 		val changedGroups = getChangedPinGroups(changed)
@@ -217,23 +219,26 @@ class TableBasedRoutabilityChecker(
 	 * Move all of the pins affected by this change from unused to being within
 	 * the cluster
 	 */
-	private fun updateChangedNets(changed: Collection<Cell>) {
+	private fun updateChangedNets(changed: Collection<Cell>): Boolean {
 		for (cell in changed) {
 			for (pin in cell.pins) {
 				if (pin.isConnectedToNet) {
 					if (pin.isInpin) {
-						updateSinkPin(pin)
+						if (!updateSinkPin(pin))
+							return false
 					}
 					if (pin.isOutpin) {
-						updateSourcePin(pin)
+						if (!updateSourcePin(pin))
+							return false
 					}
 				}
 			}
 		}
+		return true
 	}
 
 	/** Relocates [sinkPin] from outside the cluster to inside the cluster. */
-	private fun updateSinkPin(sinkPin: CellPin) {
+	private fun updateSinkPin(sinkPin: CellPin): Boolean {
 		val net = sinkPin.net
 
 		// get the Sinks object.  create a new copy if the object is from an
@@ -252,23 +257,21 @@ class TableBasedRoutabilityChecker(
 		// update info on the sinkpin
 		val sinkCell = sinkPin.cell
 		val sinkBel = sinkCell.locationInCluster!!
-		val belPins = preferredPin(cluster, sinkPin, sinkBel, pinMapping)
-		if (belPins != null) {
-			sinks.sinkPinsInCluster += sinkPin
-			belPins.forEach { _bel2CellPinMap[it] = sinkPin }
-			_cell2BelPinMap[sinkPin] = belPins
+		val belPins = preferredPin(cluster, sinkPin, sinkBel, pinMapping) ?:
+			return false
+		sinks.sinkPinsInCluster += sinkPin
+		belPins.forEach { _bel2CellPinMap[it] = sinkPin }
+		_cell2BelPinMap[sinkPin] = belPins
 
-			if (belPins.isEmpty()) {
-				println("bel pins is empty for pin $sinkPin")
-			} else if (belPins.size > 1) {
-				println("multiple bel pins for pin $sinkPin")
-				pinMapping[sinkPin] = belPins[0]
-			} else {
-				pinMapping[sinkPin] = belPins[0]
-			}
+		if (belPins.isEmpty()) {
+			println("bel pins is empty for pin $sinkPin")
+		} else if (belPins.size > 1) {
+			println("multiple bel pins for pin $sinkPin")
+			pinMapping[sinkPin] = belPins[0]
 		} else {
-			println("Pin mapping is null for pin $sinkPin")
+			pinMapping[sinkPin] = belPins[0]
 		}
+		return true
 	}
 
 	private fun CellPin.getPossibleSinks(): List<BelPinTemplate> {
@@ -283,7 +286,7 @@ class TableBasedRoutabilityChecker(
 	 * all information about the sinks of the pin, if not already computed, is
 	 * computed.
 	 */
-	private fun updateSourcePin(sourcePin: CellPin) {
+	private fun updateSourcePin(sourcePin: CellPin): Boolean {
 		val net = sourcePin.net
 		assert(!net.isStaticNet)
 
@@ -321,6 +324,7 @@ class TableBasedRoutabilityChecker(
 				initOutsideClusterSinks(sinks, sinkPin, sinkCell)
 			}
 		}
+		return true
 	}
 
 	/**
@@ -362,24 +366,20 @@ class TableBasedRoutabilityChecker(
 		// The source cell has already been placed so we know where it is and
 		// where it enters this cluster.
 		val sinkBel = sinkCell.locationInCluster!!
-		val belPins = preferredPin(cluster, sinkPin, sinkBel, pinMapping)
+		val belPins = preferredPin(sinkCell.getCluster()!!, sinkPin, sinkBel, emptyMap()) ?:
+			throw CadException("Illegal pin mapping, $sinkPin")
 		val endSiteIndex = sinkBel.site.index
 
-
-		if (belPins != null) {
-			if (belPins.isEmpty()) {
-				println("bel pins is empty for pin $sinkPin")
-			} else if (belPins.size > 1) {
-				println("multiple bel pins for pin $sinkPin")
-				pinMapping[sinkPin] = belPins[0]
-			} else {
-				pinMapping[sinkPin] = belPins[0]
-			}
+		if (belPins.isEmpty()) {
+			println("bel pins is empty for pin $sinkPin")
+		} else if (belPins.size > 1) {
+			println("multiple bel pins for pin $sinkPin")
+			pinMapping[sinkPin] = belPins[0]
 		} else {
-			println("Pin mapping is null for pin $sinkPin")
+			pinMapping[sinkPin] = belPins[0]
 		}
 
-		for (belPin in (belPins ?: emptyList())) {
+		for (belPin in belPins) {
 			// find any direct connections to this path
 			var directSink = false
 			val carrySinks = LinkedHashSet<Wire>()

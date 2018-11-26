@@ -2,6 +2,7 @@ package edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations
 
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.CadException
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterResult
@@ -42,20 +43,17 @@ private class DirectPathClusterRouter<T: PackUnit>(
 				.filter { it.isConnectedToNet }
 
 			for (cellPin in outputs) {
-				val belPins = preferredPin(cluster, cellPin, bel, pinMapping)
-				if (belPins != null) {
-					if (belPins.size > 1)
-						println("Multiple bel pins for cell pin ${cellPin.fullName}")
-					for (bp in belPins) {
-						val net = cellPin.net
-						val rt = routeToOutput(bp) ?: return ClusterRouterResult(false)
-						belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
-						routeTreeMap.computeIfAbsent(net) { ArrayList() }.add(rt)
-					}
-					pinMapping[cellPin] = belPins[0]
-				} else {
-					println("belpins is null for cell pin ${cellPin.fullName}")
+				val belPins = preferredPin(cluster, cellPin, bel, pinMapping) ?:
+					throw CadException("Illegal pin mapping found, $cellPin")
+				if (belPins.size > 1)
+					println("Multiple bel pins for cell pin ${cellPin.fullName}")
+				for (bp in belPins) {
+					val net = cellPin.net
+					val rt = routeToOutput(bp) ?: return ClusterRouterResult(false)
+					belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
+					routeTreeMap.computeIfAbsent(net) { ArrayList() }.add(rt)
 				}
+				pinMapping[cellPin] = belPins[0]
 			}
 
 			val inputs = cell.pins
@@ -63,9 +61,10 @@ private class DirectPathClusterRouter<T: PackUnit>(
 				.filter { it.isConnectedToNet }
 
 			for (cellPin in inputs) {
-				val belPins = preferredPin(cluster, cellPin, bel, pinMapping)
+				val belPins = preferredPin(cluster, cellPin, bel, pinMapping) ?:
+					throw CadException("Illegal pin mapping, $cellPin")
 				val net = cellPin.net
-				if (belPins != null && belPins.isNotEmpty()) {
+				if (belPins.isNotEmpty()) {
 					val rt = routeToInputs(belPins) ?: return ClusterRouterResult(false)
 					belPinMap.computeIfAbsent(net) { HashMap() }.put(cellPin, belPins)
 					routeTreeMap.computeIfAbsent(net) { ArrayList() }.addAll(rt)
