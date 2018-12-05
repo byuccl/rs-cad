@@ -79,7 +79,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 						SiteGroupPlacementRegion(locs)
 					}
 				}
-				else -> error("unsupported group type")
+  				else -> error("unsupported group type: ${type.siteType}")
 			}
 		} else {
 			singleClusterCache.computeIfAbsent(group.type) { type ->
