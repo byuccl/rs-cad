@@ -122,7 +122,8 @@ private class _RSVPack<out T: PackUnit>(
 			remainingCells = unclusteredCells.size
 
 			// choose a seed cell for a new cluster
-			val seedCell = seedSelector.nextSeed()
+			//val seedCell = seedSelector.nextSeed()
+			val seedCell = design.getCell("reg_InPort_WrBack_InPort_Mult1_shift4_0_to_InPort_WrBack_InPort_Add3_add_1_q_reg[5]_i_1")
 
 			var best: Cluster<T, *>? = null
 			for (type in clusterFactory.supportedPackUnits) {
