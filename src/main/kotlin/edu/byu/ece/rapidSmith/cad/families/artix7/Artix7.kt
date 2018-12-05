@@ -52,6 +52,7 @@ class SiteCadFlow {
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
 		val packTime = System.currentTimeMillis()
+		println("Done packing...")
 		val placer = getGroupSAPlacer()
 		placer.place(design, clusters)
 		val placeTime = System.currentTimeMillis()
@@ -77,6 +78,7 @@ class SiteCadFlow {
 		@JvmStatic
 		fun main(args: Array<String>) {
 			val rscp = VivadoInterface.loadRSCP(args[0])
+			println("Loaded design: ${args[0]}")
 			val design = rscp.design
 			val device = rscp.device
 			val flow = SiteCadFlow()
@@ -319,7 +321,7 @@ private class SitePackerFactory(
 							val cyinit = cell.getPin("CYINIT")!!
 							if (cyinit.isConnectedToNet && !cyinit.net.isStaticNet) {
 								val di0 = cell.getPin("DI[0]")
-								ensurePrecedingLut(design, di0)
+								ensurePrecedingLutA(design, di0, cell.getPin("S[0]"))
 							}
 						}
 					}
@@ -328,6 +330,54 @@ private class SitePackerFactory(
 							val pin = cell.getPin("I$i")
 							ensurePrecedingLut(design, pin)
 						}
+					}
+				}
+			}
+		}
+
+
+		/**
+		 * Insert pass-through for the specfied pin
+		 */
+		private fun insertRoutethrough(design: CellDesign, pin: CellPin) {
+			val net = pin.net
+			val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
+			val netName = design.getUniqueNetName("${net.name}-${pin.name}-pass")
+			val newCell = Cell(cellName, cellLibrary["LUT1"])
+			newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
+			design.addCell(newCell)
+			net.disconnectFromPin(pin)
+			net.connectToPin(newCell.getPin("I0"))
+
+			val newNet = CellNet(netName, NetType.WIRE)
+			design.addNet(newNet)
+			newNet.connectToPin(pin)
+			newNet.connectToPin(newCell.getPin("O"))
+		}
+
+		/**
+		 * Handle ALUT case since it involves AX pin as well.
+		 * Assumption: this is only called when the CYINIT pin is using the AX pin.
+		 * So, if the A6LUT is occupied by a LUT6, pass-throughs are needed for it and the A5LUT (if will contain LUT)
+		 */
+		private fun ensurePrecedingLutA(design: CellDesign, di0Pin: CellPin, s0Pin: CellPin) {
+			if (s0Pin.isConnectedToNet) {
+				var net = s0Pin.net
+				if (!net.isStaticNet) {
+					val sourcePin = net.sourcePin!!
+					if (sourcePin.cell.libCell == cellLibrary["LUT6"]) {
+						println("NOTE: inserting A6LUT LUT6 passthrough on cell ${di0Pin.cell}")
+						// Insert pass-through on A6LUT
+						insertRoutethrough(design, s0Pin)
+						// Insert pass-through on A5LUT if not static source
+						if (!di0Pin.net.isStaticNet) {
+							println("NOTE: inserting A6LUT LUT5 passthrough on cell ${di0Pin.cell}")
+							insertRoutethrough(design, di0Pin)
+						}
+					} else {
+						// A6LUT does not contain LUt6 cell, A5LUT can contain a LUT* cell
+						// if driven by LUT, else insert pass-through
+						ensurePrecedingLut(design, di0Pin)
 					}
 				}
 			}
@@ -343,22 +393,12 @@ private class SitePackerFactory(
 				if (!net.isStaticNet) {
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
-						val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
-						val netName = design.getUniqueNetName("${net.name}-${pin.name}-pass")
-						val newCell = Cell(cellName, cellLibrary["LUT1"])
-						newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
-						design.addCell(newCell)
-						net.disconnectFromPin(pin)
-						net.connectToPin(newCell.getPin("I0"))
-
-						val newNet = CellNet(netName, NetType.WIRE)
-						design.addNet(newNet)
-						newNet.connectToPin(pin)
-						newNet.connectToPin(newCell.getPin("O"))
+						insertRoutethrough(design, pin)
 					}
 				}
 			}
 		}
+
 
 		override fun finish(
 			design: List<Cluster<SitePackUnit, *>>
