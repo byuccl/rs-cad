@@ -310,8 +310,8 @@ private class SitePackerFactory(
 
 			val cells = ArrayList(design.leafCells.toList())
 			cells.sortBy { it.name }
-			//for (cell in cells) {
-			val cell = design.getCell("reg_InPort_WrBack_InPort_Mult1_shift4_0_to_InPort_WrBack_InPort_Add3_add_1_q_reg[5]_i_1")
+			for (cell in cells) {
+			//val cell = design.getCell("reg_InPort_WrBack_InPort_Mult1_shift4_0_to_InPort_WrBack_InPort_Add3_add_1_q_reg[5]_i_1")
 				when (cell.libCell) {
 					carry4 -> {
 						for (i in 0..3) {
@@ -333,7 +333,7 @@ private class SitePackerFactory(
 						}
 					}
 				}
-			//}
+			}
 		}
 
 
@@ -354,6 +354,7 @@ private class SitePackerFactory(
 			design.addNet(newNet)
 			newNet.connectToPin(pin)
 			newNet.connectToPin(newCell.getPin("O"))
+			println("NOTE: insertingRoutethrough on cell ${pin.cell.name}, pin ${pin.name}")
 		}
 
 		/**
