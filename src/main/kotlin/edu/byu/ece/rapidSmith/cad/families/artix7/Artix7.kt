@@ -29,6 +29,7 @@ import java.io.IOException
 import java.lang.IllegalArgumentException
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.io.Serializable
 import java.util.*
 import kotlin.streams.toList
 
@@ -49,33 +50,13 @@ class SiteCadFlow {
 	var packerLoadTime: Long? = null
 		private set
 
-	fun readSerializedClusters(clusterPath: Path): List<Cluster<SitePackUnit, SiteClusterSite>> {
-		try {
-			return getCompactReader(clusterPath).readObject() as List<Cluster<SitePackUnit, SiteClusterSite>>
-
-		} catch (e: IOException) {
-			e.printStackTrace()
-		}
-		return emptyList()
-	}
-
-	fun serializeClusters(design: CellDesign, device: Device, output: Path) {
-		val startTime = System.currentTimeMillis()
-		val packer = getSitePacker(device)
-		val packerLoadTime = System.currentTimeMillis()
-		@Suppress("UNCHECKED_CAST")
-		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
-		val packTime = System.currentTimeMillis()
-		this.packerLoadTime = packerLoadTime - startTime
-		this.packTime = packTime - startTime
-		println(design)
-
-		// Save clusters to a file
-		println("Serializing clusters")
+	fun serializePackedDesign(packedDesign: PackedDesign, output: Path) {
+		// Save packed design to a file
+		println("Serializing packed design")
 		var hos: Hessian2Output? = null
 		try {
 			hos = FileTools.getCompactWriter(output)
-			hos!!.writeObject(clusters)
+			hos!!.writeObject(packedDesign)
 		} catch (e: IOException) {
 			System.err.println("Error writing to file")
 			e.printStackTrace()
@@ -88,7 +69,7 @@ class SiteCadFlow {
 				}
 			}
 		}
-		println("Clusters saved to " + output.toAbsolutePath())
+		println("Packed design saved to " + output.toAbsolutePath())
 	}
 
 	fun run(design: CellDesign, device: Device) {
@@ -122,38 +103,35 @@ class SiteCadFlow {
 	companion object {
 		@JvmStatic
 		fun main(args: Array<String>) {
-			val rscp = VivadoInterface.loadRSCP(args[0])
-			val rscpFile = Paths.get(args[0]).toFile()
-
-			val flow = SiteCadFlow()
-
 			if (args.size >= 2 && args[1] == "pack") {
+				val rscp = VivadoInterface.loadRSCP(args[0])
+				val rscpFile = Paths.get(args[0]).toFile()
+				val flow = SiteCadFlow()
 				val design = rscp.design
 				val device = rscp.device
 				flow.prepDesign(design, device)
-				flow.serializeClusters(design, device, rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.pak"))
+				val packer = getSitePacker(device)
+				@Suppress("UNCHECKED_CAST")
+				val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
+				val packedDesign = PackedDesign(device, design, rscp.libCells, clusters)
+				flow.serializePackedDesign(packedDesign, rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.pak"))
 			}
-			else if (args.size >= 3 && args[1] == "place") {
-				val clusters = flow.readSerializedClusters(Paths.get(args[2]))
-				// This is a hackish way to get the design.
-				if (clusters.isNotEmpty()) {
-					if (clusters[0].cells.iterator().hasNext()) {
-						val design = clusters[0].cells.iterator().next().design
-
-						val startTime = System.currentTimeMillis()
-						val placer = getGroupSAPlacer()
-						placer.place(design, clusters)
-						val placeTime = System.currentTimeMillis()
-						flow.placeTime = placeTime - startTime
-						println(design)
-
-						val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
-						println("writing to $tcp")
-						VivadoInterface.writeTCP(tcp.toString(), design, design.device, rscp.libCells)
-					}
-				}
+			else if (args.size >= 2 && args[1] == "place") {
+				val packedDesign = getCompactReader(Paths.get(args[0])).readObject() as PackedDesign
+				val packedDesignFile = Paths.get(args[0]).toFile()
+				val design = packedDesign.design
+				val device = packedDesign.device
+				val clusters = packedDesign.clusters
+				val placer = getGroupSAPlacer()
+				placer.place(design, clusters)
+				val tcp = packedDesignFile.absoluteFile.parentFile.toPath().resolve("${packedDesignFile.nameWithoutExtension}.tcp")
+				println("writing to $tcp")
+				VivadoInterface.writeTCP(tcp.toString(), design, device, packedDesign.libCells)
 			}
 			else {
+				val rscp = VivadoInterface.loadRSCP(args[0])
+				val rscpFile = Paths.get(args[0]).toFile()
+				val flow = SiteCadFlow()
 				val design = rscp.design
 				val device = rscp.device
 				flow.prepDesign(design, device)
@@ -189,6 +167,13 @@ fun getGroupSAPlacer(): SimulatedAnnealingPlacer<SiteClusterSite> {
 		DefaultCoolingScheduleFactory(EffortLevel.HIGH_H)
 	)
 }
+
+class PackedDesign(
+		val device: Device,
+		val design: CellDesign,
+		val libCells: CellLibrary,
+		val clusters: List<Cluster<SitePackUnit, SiteClusterSite>>
+): Serializable
 
 private class SitePackerFactory(
 	val device: Device,
