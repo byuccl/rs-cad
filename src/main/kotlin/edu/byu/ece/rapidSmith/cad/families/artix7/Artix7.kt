@@ -1,5 +1,6 @@
 package edu.byu.ece.rapidSmith.cad.families.artix7
 
+import com.caucho.hessian.io.Hessian2Output
 import edu.byu.ece.rapidSmith.RSEnvironment
 import edu.byu.ece.rapidSmith.cad.cluster.*
 import edu.byu.ece.rapidSmith.cad.cluster.site.*
@@ -22,6 +23,9 @@ import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.device.families.Artix7
 import edu.byu.ece.rapidSmith.device.families.Artix7.SiteTypes.*
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
+import edu.byu.ece.rapidSmith.util.FileTools
+import edu.byu.ece.rapidSmith.util.FileTools.getCompactReader
+import java.io.IOException
 import java.lang.IllegalArgumentException
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -44,6 +48,48 @@ class SiteCadFlow {
 
 	var packerLoadTime: Long? = null
 		private set
+
+	fun readSerializedClusters(clusterPath: Path): List<Cluster<SitePackUnit, SiteClusterSite>> {
+		try {
+			return getCompactReader(clusterPath).readObject() as List<Cluster<SitePackUnit, SiteClusterSite>>
+
+		} catch (e: IOException) {
+			e.printStackTrace()
+		}
+		return emptyList()
+	}
+
+	fun serializeClusters(design: CellDesign, device: Device, output: Path) {
+		val startTime = System.currentTimeMillis()
+		val packer = getSitePacker(device)
+		val packerLoadTime = System.currentTimeMillis()
+		@Suppress("UNCHECKED_CAST")
+		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
+		val packTime = System.currentTimeMillis()
+		this.packerLoadTime = packerLoadTime - startTime
+		this.packTime = packTime - startTime
+		println(design)
+
+		// Save clusters to a file
+		println("Serializing clusters")
+		var hos: Hessian2Output? = null
+		try {
+			hos = FileTools.getCompactWriter(output)
+			hos!!.writeObject(clusters)
+		} catch (e: IOException) {
+			System.err.println("Error writing to file")
+			e.printStackTrace()
+		} finally {
+			if (hos != null) {
+				try {
+					hos.close()
+				} catch (e: IOException) {
+					e.printStackTrace()
+				}
+			}
+		}
+		println("Clusters saved to " + output.toAbsolutePath())
+	}
 
 	fun run(design: CellDesign, device: Device) {
 		val startTime = System.currentTimeMillis()
@@ -77,15 +123,45 @@ class SiteCadFlow {
 		@JvmStatic
 		fun main(args: Array<String>) {
 			val rscp = VivadoInterface.loadRSCP(args[0])
-			val design = rscp.design
-			val device = rscp.device
-			val flow = SiteCadFlow()
-			flow.prepDesign(design, device)
-			flow.run(design, device)
 			val rscpFile = Paths.get(args[0]).toFile()
-			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
-			println("writing to $tcp")
-			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells)
+
+			val flow = SiteCadFlow()
+
+			if (args.size >= 2 && args[1] == "pack") {
+				val design = rscp.design
+				val device = rscp.device
+				flow.prepDesign(design, device)
+				flow.serializeClusters(design, device, rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.pak"))
+			}
+			else if (args.size >= 3 && args[1] == "place") {
+				val clusters = flow.readSerializedClusters(Paths.get(args[2]))
+				// This is a hackish way to get the design.
+				if (clusters.isNotEmpty()) {
+					if (clusters[0].cells.iterator().hasNext()) {
+						val design = clusters[0].cells.iterator().next().design
+
+						val startTime = System.currentTimeMillis()
+						val placer = getGroupSAPlacer()
+						placer.place(design, clusters)
+						val placeTime = System.currentTimeMillis()
+						flow.placeTime = placeTime - startTime
+						println(design)
+
+						val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
+						println("writing to $tcp")
+						VivadoInterface.writeTCP(tcp.toString(), design, design.device, rscp.libCells)
+					}
+				}
+			}
+			else {
+				val design = rscp.design
+				val device = rscp.device
+				flow.prepDesign(design, device)
+				flow.run(design, device)
+				val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
+				println("writing to $tcp")
+				VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells)
+			}
 		}
 	}
 }

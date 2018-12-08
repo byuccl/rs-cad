@@ -4,6 +4,7 @@ import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import edu.byu.ece.rapidSmith.design.subsite.PropertyType
 import edu.byu.ece.rapidSmith.device.Bel
+import java.io.Serializable
 import java.util.*
 
 /**
@@ -12,7 +13,7 @@ import java.util.*
 
 private val PACKING_PROPERTY = PropertyType.registerType("PACKING")
 
-internal class PackingInfo {
+internal class PackingInfo: Serializable {
 	var isValid: Boolean = true
 	var cluster: Cluster<*, *>? = null
 	var locInCluster: Bel? = null
