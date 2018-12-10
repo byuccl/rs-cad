@@ -442,30 +442,36 @@ private class SitePackerFactory(
 		/**
 		 * Handle ALUT case since it involves AX pin as well.
 		 * Assumption: this is only called when the CYINIT pin is using the AX pin.
-		 * So, if the A6LUT is occupied by a LUT6, pass-throughs are needed for it and the A5LUT (if will contain LUT)
+		 * Cases LUT6 + null, LUT5 + null, null + LUT6, null + LUT5, tot > 5
 		 */
 		private fun ensurePrecedingLutA(design: CellDesign, di0Pin: CellPin, s0Pin: CellPin) {
-			if (s0Pin.isConnectedToNet) {
-				var net = s0Pin.net
-				if (!net.isStaticNet) {
-					val sourcePin = net.sourcePin!!
-					if (sourcePin.cell.libCell == cellLibrary["LUT6"]) {
-						println("NOTE: inserting A6LUT LUT6 passthrough on cell ${di0Pin.cell}")
-						// Insert pass-through on A6LUT
-						insertRoutethrough(design, s0Pin)
-						// Insert pass-through on A5LUT if not static source
-						if (!di0Pin.net.isStaticNet) {
-							println("NOTE: inserting A6LUT LUT5 passthrough on cell ${di0Pin.cell}")
-							insertRoutethrough(design, di0Pin)
-						}
-					} else {
-						// A6LUT does not contain LUt6 cell, A5LUT can contain a LUT* cell
-						// if driven by LUT, else insert pass-through
-						ensurePrecedingLut(design, di0Pin)
-					}
-				}
+			if (di0Pin.net == null)
+				return
+			ensurePrecedingLut(design, di0Pin)
+
+			if (s0Pin.net == null)
+				return
+
+			if (pinCount(di0Pin, s0Pin)) {
+				println("NOTE: inserting ALUT passthrough for S[0] and DI[0] on cell ${di0Pin.cell}")
+				insertRoutethrough(design, s0Pin)
+				insertRoutethrough(design, di0Pin)
 			}
 		}
+
+		private fun pinCount(a: CellPin, b: CellPin): Boolean {
+			var names = ArrayList<String>();
+			for (cp in a.getNet().getSourcePin().getCell().getInputPins())
+				if (!names.contains(cp.getNet().getName()))
+					names.add(cp.getNet().getName());
+
+			for (cp in b.getNet().getSourcePin().getCell().getInputPins())
+				if (!names.contains(cp.getNet().getName()))
+					names.add(cp.getNet().getName());
+
+			return (names.size > 5);
+		}
+
 
 		/**
 		 * Checks if the pin is driven by a LUT.  If not, inserts a pass-through LUT
