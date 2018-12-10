@@ -80,7 +80,6 @@ class SiteCadFlow {
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
 		val packTime = System.currentTimeMillis()
-		println("Done packing...")
 		val placer = getGroupSAPlacer()
 		placer.place(design, clusters)
 		val placeTime = System.currentTimeMillis()
@@ -88,6 +87,7 @@ class SiteCadFlow {
 		this.packTime = packTime - startTime
 		this.placeTime = placeTime - packTime
 		println(design)
+
 	}
 
 	fun prepDesign(design: CellDesign, device: Device) {
@@ -105,9 +105,10 @@ class SiteCadFlow {
 	companion object {
 		@JvmStatic
 		fun main(args: Array<String>) {
+			pgmTime = System.currentTimeMillis()
 			if (args.size >= 2 && args[1] == "pack") {
 				val rscp = VivadoInterface.loadRSCP(args[0])
-				println("Loaded design: ${args[0]}")
+				println("Loaded design: ${args[0]}, " + elapsedTime())
 				val rscpFile = Paths.get(args[0]).toFile()
 				val flow = SiteCadFlow()
 				val design = rscp.design
@@ -115,37 +116,46 @@ class SiteCadFlow {
 				flow.prepDesign(design, device)
 				val packer = getSitePacker(device)
 				@Suppress("UNCHECKED_CAST")
-				println("Running design")
+				println("Running design, " + elapsedTime())
 				val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
 				val packedDesign = PackedDesign(device, design, rscp.libCells, clusters)
 				flow.serializePackedDesign(packedDesign, rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.pak"))
+				println("Done, " + elapsedTime())
 			}
 			else if (args.size >= 2 && args[1] == "place") {
+				println("Loading packed design ${args[0]}...")
 				val packedDesign = getCompactReader(Paths.get(args[0])).readObject() as PackedDesign
 				val packedDesignFile = Paths.get(args[0]).toFile()
+				println("Loaded packed design ${args[0]}..., " + elapsedTime())
 				val design = packedDesign.design
 				val device = packedDesign.device
 				val clusters = packedDesign.clusters
+				println("Starting placer..., " + elapsedTime())
 				val placer = getGroupSAPlacer()
 				placer.place(design, clusters)
 				val tcp = packedDesignFile.absoluteFile.parentFile.toPath().resolve("${packedDesignFile.nameWithoutExtension}.tcp")
-				println("writing to $tcp")
+				println("writing to $tcp, " + elapsedTime())
 				VivadoInterface.writeTCP(tcp.toString(), design, device, packedDesign.libCells)
 			}
 			else {
 				val rscp = VivadoInterface.loadRSCP(args[0])
-				println("Loaded design: ${args[0]}")
+				println("Loaded design: ${args[0]}, " + elapsedTime())
 				val rscpFile = Paths.get(args[0]).toFile()
 				val flow = SiteCadFlow()
 				val design = rscp.design
 				val device = rscp.device
 				flow.prepDesign(design, device)
-				println("Running design")
+				println("Running design, " + elapsedTime())
 				flow.run(design, device)
 				val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
-				println("writing to $tcp")
+				println("writing to $tcp, " + elapsedTime())
 				VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells)
 			}
+		}
+		var pgmTime: Long = 0
+		fun elapsedTime(): String {
+			val tim = (System.currentTimeMillis()-pgmTime)/1000
+			return("elapsed time = $tim seconds")
 		}
 	}
 }
