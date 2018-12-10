@@ -26,6 +26,7 @@ import java.lang.IllegalArgumentException
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
+import kotlin.collections.HashSet
 import kotlin.streams.toList
 
 private val family = Artix7.FAMILY_TYPE
@@ -340,7 +341,7 @@ private class SitePackerFactory(
         }
 
         /**
-         * See if this pin drives a flip flop's or latch's D input.  If so, return true, else false.
+         * Return true if this pin drives a flip flop's or latch's D input.
          */
         private fun doesNotDriveFF(pin: CellPin): Boolean {
             val n = pin.net
@@ -350,44 +351,6 @@ private class SitePackerFactory(
                     return false
             return true
         }
-
-		/**
-		 * BEL routethroughs cause issues with the routing feasibility checker.  This
-		 * identifies portions of the design that rely on the routethroughs and adds a
-		 * LUT in place of the routethrough allowing the packer to ignore LUT
-		 * routethroughs in the circuit.
-		 */
-		private fun insertLutRoutethroughs(design: CellDesign) {
-			val carry4 = cellLibrary["CARRY4"]
-			val muxf7 = cellLibrary["MUXF7"]
-
-			val cells = ArrayList(design.leafCells.toList())
-			cells.sortBy { it.name }
-			for (cell in cells) {
-			//val cell = design.getCell("reg_InPort_WrBack_InPort_Mult1_shift4_0_to_InPort_WrBack_InPort_Add3_add_1_q_reg[5]_i_1")
-				when (cell.libCell) {
-					carry4 -> {
-						for (i in 0..3) {
-							val pin = cell.getPin("S[$i]")
-							ensurePrecedingLut(design, pin)
-						}
-						let {
-							val cyinit = cell.getPin("CYINIT")!!
-							if (cyinit.isConnectedToNet && !cyinit.net.isStaticNet) {
-								val di0 = cell.getPin("DI[0]")
-								ensurePrecedingLutA(design, di0, cell.getPin("S[0]"))
-							}
-						}
-					}
-					muxf7 -> {
-						for (i in 0..1) {
-							val pin = cell.getPin("I$i")
-							ensurePrecedingLut(design, pin)
-						}
-					}
-				}
-			}
-		}
 
 
 		/**
@@ -419,6 +382,43 @@ private class SitePackerFactory(
             //println("NOTE: insertingFFRoutethrough on cell ${pin.cell.name}, pin ${pin.name}")
 		}
 
+		/**
+		 * BEL routethroughs cause issues with the routing feasibility checker.  This
+		 * identifies portions of the design that rely on the routethroughs and adds a
+		 * LUT in place of the routethrough allowing the packer to ignore LUT
+		 * routethroughs in the circuit.
+		 */
+		private fun insertLutRoutethroughs(design: CellDesign) {
+			val carry4 = cellLibrary["CARRY4"]
+			val muxf7 = cellLibrary["MUXF7"]
+
+			val cells = ArrayList(design.leafCells.toList())
+			cells.sortBy { it.name }
+			for (cell in cells) {
+				when (cell.libCell) {
+					carry4 -> {
+						for (i in 0..3) {
+							val pin = cell.getPin("S[$i]")
+							ensurePrecedingLut(design, pin)
+						}
+						let {
+							val cyinit = cell.getPin("CYINIT")!!
+							if (cyinit.isConnectedToNet && !cyinit.net.isStaticNet) {
+								ensurePrecedingLutA(design, cell.getPin("DI[0]"),
+										cell.getPin("S[0]"))
+							}
+						}
+					}
+					muxf7 -> {
+						for (i in 0..1) {
+							val pin = cell.getPin("I$i")
+							ensurePrecedingLut(design, pin)
+						}
+					}
+				}
+			}
+		}
+
         /*
          * Insert LUT pass-through for the specified pin
          */
@@ -440,7 +440,7 @@ private class SitePackerFactory(
 		}
 
 		/**
-		 * Handle ALUT case since it involves AX pin as well.
+		 * Handle ALUT route-through case since it involves AX pin as well.
 		 * Assumption: this is only called when the CYINIT pin is using the AX pin.
 		 * Cases LUT6 + null, LUT5 + null, null + LUT6, null + LUT5, tot > 5
 		 */
@@ -452,24 +452,32 @@ private class SitePackerFactory(
 			if (s0Pin.net == null)
 				return
 
-			if (pinCount(di0Pin, s0Pin)) {
-				println("NOTE: inserting ALUT passthrough for S[0] and DI[0] on cell ${di0Pin.cell}")
-				insertRoutethrough(design, s0Pin)
-				insertRoutethrough(design, di0Pin)
+			val dCell = di0Pin.net.sourcePin.cell
+			val sCell = s0Pin.net.sourcePin.cell
+			if (pinCount(dCell, sCell)) {
+				// Don't insert duplicates
+				if (dCell != cellLibrary["LUT1"]) {
+					println("NOTE: inserting ALUT passthrough for DI[0] on cell ${di0Pin.cell}")
+					insertRoutethrough(design, di0Pin)
+				}
+				if (sCell != cellLibrary["LUT1"]) {
+					println("NOTE: inserting ALUT passthrough for S[0] on cell ${di0Pin.cell}")
+					insertRoutethrough(design, s0Pin)
+				}
 			}
 		}
 
-		private fun pinCount(a: CellPin, b: CellPin): Boolean {
-			var names = ArrayList<String>();
-			for (cp in a.getNet().getSourcePin().getCell().getInputPins())
-				if (!names.contains(cp.getNet().getName()))
-					names.add(cp.getNet().getName());
+		/*
+		 * Count number of unique nets feeding the two LUT's
+		 */
+		private fun pinCount(a: Cell, b: Cell): Boolean {
+			var nets = HashSet<CellNet>()
+			for (cp in a.inputPins)
+				nets.add(cp.net);
+			for (cp in b.inputPins)
+				nets.add(cp.net);
 
-			for (cp in b.getNet().getSourcePin().getCell().getInputPins())
-				if (!names.contains(cp.getNet().getName()))
-					names.add(cp.getNet().getName());
-
-			return (names.size > 5);
+			return (nets.size > 5);
 		}
 
 
@@ -488,7 +496,6 @@ private class SitePackerFactory(
 				}
 			}
 		}
-
 
 		override fun finish(
 			design: List<Cluster<SitePackUnit, *>>
