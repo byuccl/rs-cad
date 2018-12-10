@@ -1,5 +1,6 @@
 package edu.byu.ece.rapidSmith.cad.families.artix7
 
+import com.caucho.hessian.io.Hessian2Output
 import edu.byu.ece.rapidSmith.RSEnvironment
 import edu.byu.ece.rapidSmith.cad.cluster.*
 import edu.byu.ece.rapidSmith.cad.cluster.site.*
@@ -22,9 +23,13 @@ import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.device.families.Artix7
 import edu.byu.ece.rapidSmith.device.families.Artix7.SiteTypes.*
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
+import edu.byu.ece.rapidSmith.util.FileTools
+import edu.byu.ece.rapidSmith.util.FileTools.getCompactReader
+import java.io.IOException
 import java.lang.IllegalArgumentException
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.io.Serializable
 import java.util.*
 import kotlin.streams.toList
 
@@ -44,6 +49,28 @@ class SiteCadFlow {
 
 	var packerLoadTime: Long? = null
 		private set
+
+	fun serializePackedDesign(packedDesign: PackedDesign, output: Path) {
+		// Save packed design to a file
+		println("Serializing packed design")
+		var hos: Hessian2Output? = null
+		try {
+			hos = FileTools.getCompactWriter(output)
+			hos!!.writeObject(packedDesign)
+		} catch (e: IOException) {
+			System.err.println("Error writing to file")
+			e.printStackTrace()
+		} finally {
+			if (hos != null) {
+				try {
+					hos.close()
+				} catch (e: IOException) {
+					e.printStackTrace()
+				}
+			}
+		}
+		println("Packed design saved to " + output.toAbsolutePath())
+	}
 
 	fun run(design: CellDesign, device: Device) {
 		val startTime = System.currentTimeMillis()
@@ -76,16 +103,43 @@ class SiteCadFlow {
 	companion object {
 		@JvmStatic
 		fun main(args: Array<String>) {
-			val rscp = VivadoInterface.loadRSCP(args[0])
-			val design = rscp.design
-			val device = rscp.device
-			val flow = SiteCadFlow()
-			flow.prepDesign(design, device)
-			flow.run(design, device)
-			val rscpFile = Paths.get(args[0]).toFile()
-			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
-			println("writing to $tcp")
-			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells)
+			if (args.size >= 2 && args[1] == "pack") {
+				val rscp = VivadoInterface.loadRSCP(args[0])
+				val rscpFile = Paths.get(args[0]).toFile()
+				val flow = SiteCadFlow()
+				val design = rscp.design
+				val device = rscp.device
+				flow.prepDesign(design, device)
+				val packer = getSitePacker(device)
+				@Suppress("UNCHECKED_CAST")
+				val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
+				val packedDesign = PackedDesign(device, design, rscp.libCells, clusters)
+				flow.serializePackedDesign(packedDesign, rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.pak"))
+			}
+			else if (args.size >= 2 && args[1] == "place") {
+				val packedDesign = getCompactReader(Paths.get(args[0])).readObject() as PackedDesign
+				val packedDesignFile = Paths.get(args[0]).toFile()
+				val design = packedDesign.design
+				val device = packedDesign.device
+				val clusters = packedDesign.clusters
+				val placer = getGroupSAPlacer()
+				placer.place(design, clusters)
+				val tcp = packedDesignFile.absoluteFile.parentFile.toPath().resolve("${packedDesignFile.nameWithoutExtension}.tcp")
+				println("writing to $tcp")
+				VivadoInterface.writeTCP(tcp.toString(), design, device, packedDesign.libCells)
+			}
+			else {
+				val rscp = VivadoInterface.loadRSCP(args[0])
+				val rscpFile = Paths.get(args[0]).toFile()
+				val flow = SiteCadFlow()
+				val design = rscp.design
+				val device = rscp.device
+				flow.prepDesign(design, device)
+				flow.run(design, device)
+				val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
+				println("writing to $tcp")
+				VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells)
+			}
 		}
 	}
 }
@@ -113,6 +167,13 @@ fun getGroupSAPlacer(): SimulatedAnnealingPlacer<SiteClusterSite> {
 		DefaultCoolingScheduleFactory(EffortLevel.HIGH_H)
 	)
 }
+
+class PackedDesign(
+		val device: Device,
+		val design: CellDesign,
+		val libCells: CellLibrary,
+		val clusters: List<Cluster<SitePackUnit, SiteClusterSite>>
+): Serializable
 
 private class SitePackerFactory(
 	val device: Device,

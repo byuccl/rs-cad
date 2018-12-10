@@ -12,7 +12,9 @@ import java.nio.file.Path
  * Class representing a pack unit.
  */
 abstract class PackUnit(
+	@Transient
 	open val type: PackUnitType,
+	@Transient
 	open val template: PackUnitTemplate
 ) {
 	abstract val version: Version

@@ -13,6 +13,7 @@ import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import edu.byu.ece.rapidSmith.design.subsite.RouteTree
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.getSitePinConnection
+import java.io.Serializable
 import java.util.*
 import kotlin.collections.LinkedHashMap
 
@@ -636,7 +637,7 @@ private class StatusNetsPair(
 	var contentionNets: MutableList<CellNet> = ArrayList()
 )
 
-private class RouteTreeWithCost(wire: Wire) : RouteTree(wire), Comparable<RouteTreeWithCost> {
+private class RouteTreeWithCost(wire: Wire) : RouteTree(wire), Comparable<RouteTreeWithCost>, Serializable {
 	var cost = 0
 
 	override fun newInstance(wire: Wire): RouteTree = RouteTreeWithCost(wire)

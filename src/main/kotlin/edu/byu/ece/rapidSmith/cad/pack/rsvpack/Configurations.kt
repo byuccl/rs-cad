@@ -6,6 +6,7 @@ import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.Bel
+import java.io.Serializable
 
 
 /**
@@ -25,7 +26,7 @@ import edu.byu.ece.rapidSmith.device.Bel
  * 11: cleanupCluster
  * 12: goto 1
  */
-interface BelSelector<in T: PackUnit> {
+interface BelSelector<in T: PackUnit>: Serializable {
 	fun init(design: CellDesign)
 
 	// Called when a cluster is created to allow the cluster.  The cluster should be empty.
