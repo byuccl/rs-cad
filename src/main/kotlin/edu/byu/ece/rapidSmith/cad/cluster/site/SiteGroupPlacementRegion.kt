@@ -28,6 +28,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 	private val sliceLGroupsCache = LinkedHashMap<Int, SiteGroupPlacementRegion>()
 	private val sliceMGroupsCache = LinkedHashMap<Int, SiteGroupPlacementRegion>()
 	private val dsp48GroupsCache = LinkedHashMap<Int, SiteGroupPlacementRegion>()
+	private val ramb36GroupsCache = LinkedHashMap<Int, SiteGroupPlacementRegion>()
 	private var ioGroupsCache: SiteGroupPlacementRegion? = null
 
 	override fun make(
@@ -74,6 +75,18 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 						val locs = device.grid.sites
 							.filter { it.isCompatibleWith(type) }
 							.mapNotNull { getDspChain(device.grid as SiteClusterGrid,
+								it, group.size) }
+							.toList()
+						SiteGroupPlacementRegion(locs)
+					}
+				}
+				Artix7.SiteTypes.RAMB36E1 -> {
+					ramb36GroupsCache.computeIfAbsent(group.size) { _ ->
+						val sites = device.grid.sites.toList()
+						val filtered = device.grid.sites.filter { it.isCompatibleWith(type) }.toList()
+						val locs = device.grid.sites
+							.filter { it.isCompatibleWith(type) }
+							.mapNotNull { getRamBChain(device.grid as SiteClusterGrid,
 								it, group.size) }
 							.toList()
 						SiteGroupPlacementRegion(locs)
@@ -180,6 +193,42 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 				}
 
 				if (distance < 2) {
+					val sinks = wire.wireConnections.map { it.sinkWire }
+					for (sink in sinks) {
+						stack.push(WireDistancePair(sink, distance + 1))
+					}
+				}
+			}
+			return null
+		}
+
+		return sites
+	}
+
+	private fun getRamBChain(
+		grid: SiteClusterGrid,
+		anchor: SiteClusterSite, length: Int
+	): List<SiteClusterSite>? {
+		val sites = ArrayList<SiteClusterSite>()
+		sites += anchor
+
+		var site = anchor.site
+		outer@for (i in 1 until length) {
+			val source = site.getPin("CASCADEOUTA").externalWire
+			val stack = ArrayDeque<WireDistancePair>()
+			stack.push(WireDistancePair(source, 1))
+			while (stack.isNotEmpty()) {
+				val (wire, distance) = stack.pop()
+				val pin = wire.connectedPin
+				if (pin != null && pin.site.isCompatibleWith(Artix7.SiteTypes.RAMB36E1)) {
+					sites += grid.getClusterSite(pin.site)
+					site = pin.site
+					continue@outer
+				}
+
+				// BEN: not completely sure of derivaton of the magic number in the next line.
+				// For DSP's it is 2, for SLICE's it is 8.  Has to be >= 3 to work for BRAMs.
+				if (distance < 3) {
 					val sinks = wire.wireConnections.map { it.sinkWire }
 					for (sink in sinks) {
 						stack.push(WireDistancePair(sink, distance + 1))
