@@ -202,6 +202,7 @@ private class SitePackerFactory(
 	private val di0LutSourcePrepacker = DI0LutSourcePrepackerFactory(cellLibrary)
 	private val lutFFPairPrepacker = Artix7LutFFPrepackerFactory(cellLibrary)
 	private val lutramsPrepacker = LutramPrepackerFactory(ramMaker)
+	private val srlChainsPrepacker = SRLChainsPrepackerFactory(cellLibrary)
 
 	private val mixing5And6LutPackRuleFactory = Mixing5And6LutsRuleFactory()
 	private val d6LutUsedRamPackRuleFactory = D6LutUsedRamPackRuleFactory(ramMaker)
@@ -276,7 +277,7 @@ private class SitePackerFactory(
 			lutFFPairPrepacker,
 			di0LutSourcePrepacker,
 			lutramsPrepacker,
-			SRLChainsPrepackerFactory(),
+			srlChainsPrepacker,
 			ForcedRoutingPrepackerFactory(packUnit,
 				packUnits.pinsDrivingGeneralFabric,
 				packUnits.pinsDrivenByGeneralFabric, Artix7.SWITCHBOX_TILES)
