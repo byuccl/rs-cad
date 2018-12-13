@@ -139,51 +139,38 @@ private class SRLChainsPrepacker(val mc31Sinks: Map<Cell, Cell>,
 
 		val changedSRLs = changedCells.map { it.key }.filter { it.libCell in srlCells }.toList()
 
-		// See if all are mapped now
-		val unPlacedChains = ArrayList<ArrayList<Cell>>()
+		// Have some to place?
+		var status = PrepackStatus.UNCHANGED
 		changedSRLs.forEach { cell ->
-			var numPlaced = 0
+			val bel = changedCells.get(cell)!!
+			if (srlInWrongPlace(cell, bel))
+				return PrepackStatus.INFEASIBLE
+
+			// Go identify the other SRL's in the chain and where they should go and try to place them
 			val chain = srlToChainMap.get(cell)!!
-			for (c in chain)
-				if (cluster.getCellPlacement(c) != null)
-					numPlaced++
-			if (numPlaced != chain.size)   // Already placed this chain of SRL's
-				unPlacedChains.add(chain)
-		}
-
-		// If all placed, good to go
-		if (unPlacedChains.size == 0)
-			return PrepackStatus.UNCHANGED
-
-		// Have some to place
-		changedSRLs.forEach { cell ->
-			if (unPlacedChains.contains(srlToChainMap.get(cell))) {
-				val bel = changedCells.get(cell)!!
-				if (srlInWrongPlace(cell, bel))
-					return PrepackStatus.INFEASIBLE
-
-				// Go identify the other SRL's in the chain and where they should go and try to place them
-				// Assumption is that once this done this chain will not get called again
-				val chain = srlToChainMap.get(cell)!!
-				val indx = chain.indexOf(cell)
-				val lutLoc = cluster.getCellPlacement(cell)!!.name[0]
-				for (i in 0..chain.lastIndex) {
-					val c = chain.get(i)
-					if (c == cell)
-						continue
+			val indx = chain.indexOf(cell)
+			val lutLoc = cluster.getCellPlacement(cell)!!.name[0]
+			for (i in 0..chain.lastIndex) {
+				val c = chain.get(i)
+				if (c == cell)
+					continue
+				if (cluster.getCellPlacement(c) == null) {
 					val newlutloc = lutLoc + i - indx
 					val sinkBel = bel.site.getBel("${newlutloc}6LUT")
 					assert(sinkBel != null)
 					val addStatus = addCellToCluster(cluster, c, sinkBel)
 					if (addStatus == PackStatus.VALID) {
 						changedCells[c] = sinkBel
-						print("SRL placement: $c $sinkBel")
-					} else if (addStatus == PackStatus.INFEASIBLE)
+						println("SRL placement: $c $sinkBel")
+						status = PrepackStatus.CHANGED
+					} else if (addStatus == PackStatus.INFEASIBLE) {
+						print("Infeasible: $cell $lutLoc $c $newlutloc")
 						return PrepackStatus.INFEASIBLE
+					}
 				}
 			}
 		}
-		return PrepackStatus.CHANGED
+		return status
 	}
 
 	private fun srlInWrongPlace(cell: Cell, bel: Bel) : Boolean {
@@ -199,26 +186,6 @@ private class SRLChainsPrepacker(val mc31Sinks: Map<Cell, Cell>,
 		return false
 	}
 }
-
-/*
-chainPos     lutPos   OK?
-Len = 4
-0  0  o
-0  1  x
-1  0  x
-1  1  o
-1  2  x
-
-Len = 3
-0  0  o
-0  1  o
-0  2  x
-1  0  x
-1  1  o
-1  2  o
-1  3  x
- */
-
 
 private fun Cell.usesPin(name: String): Boolean {
 	val pin = getPin(name)
