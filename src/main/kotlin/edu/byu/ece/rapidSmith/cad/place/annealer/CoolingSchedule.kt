@@ -168,6 +168,11 @@ class DefaultCoolingSchedule<S: ClusterSite>(
 		val fractionOfMovesAccepted = numTempMovesAccepted.toDouble() / numTempMoves.toDouble()
 		temperature = findNewTemperature(fractionOfMovesAccepted, temperature)
 
+		if (fractionOfMovesAccepted < 0.15) {
+			keepGoing = false
+			print("keepGoing = false")
+		}
+
 		val diffPercent = String.format("%3.3f", tempDiffCost / currentCost * 100)
 		println("\tNew cost=$currentCost delta cost: $tempDiffCost ($diffPercent%)")
 		rangeLimit = findNewRangeLimit(fractionOfMovesAccepted, rangeLimit, MAX_RANGE_LIMIT)
@@ -181,6 +186,7 @@ class DefaultCoolingSchedule<S: ClusterSite>(
 			stepsPerTemp = (Math.pow(design!!.groups.size.toDouble(), 1.33) * qualityMultiplier).toInt()
 		}
 		oldCost = currentCost
+
 	}
 }
 
