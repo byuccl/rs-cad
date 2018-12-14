@@ -668,7 +668,7 @@ private fun releaseDIWires(
 		val site = sinkBel.site
 		if (sourcePin != null) {
 			if (sinkBel.name.matches(LUT_NAME_PATTERN) && sinkBelPin.name == "DI1") {
-				if (sourcePin.name == "MC31") {
+				if (sourcePin.name == "Q31") {
 					when (sinkBel.name) {
 						"A6LUT", "A5LUT" -> toInvalidate.remove(
 							site.getWire("intrasite:SLICEM/ADI1MUX.BMC31"))

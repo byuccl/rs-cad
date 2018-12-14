@@ -156,7 +156,8 @@ private class SRLChainsPrepacker(val mc31Sinks: Map<Cell, Cell>,
 					continue
 				if (cluster.getCellPlacement(c) == null) {
 					val newlutloc = lutLoc + i - indx
-					val sinkBel = bel.site.getBel("${newlutloc}6LUT")
+					val newLutName = if (c.libCell.name=="SRLC32E") "${newlutloc}6LUT" else "${newlutloc}5LUT"
+					val sinkBel = bel.site.getBel("$newLutName")
 					assert(sinkBel != null)
 					val addStatus = addCellToCluster(cluster, c, sinkBel)
 					if (addStatus == PackStatus.VALID) {
