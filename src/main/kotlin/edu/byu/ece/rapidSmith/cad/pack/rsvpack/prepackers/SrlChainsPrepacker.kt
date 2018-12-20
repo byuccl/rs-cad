@@ -42,14 +42,6 @@ class SRLChainsPrepackerFactory(
 					} while (true)
 				}
 
-		println("Chains:")
-		srlChains.forEach{
-			println(" ${srlChains.indexOf(it)} $it")
-		}
-		println()
-		println("Mappings:")
-		srlToChainMap.forEach{ println("${it.key} --> ${srlChains.indexOf(it.value)} ") }
-
 		// Now cut them into groups of 4
 		srlChains.filter { it.size > 4 }.forEach {
 			while (it.size > 4) {
@@ -66,16 +58,6 @@ class SRLChainsPrepackerFactory(
 
 		// Reverse order so first element in SRL chain is at end of list
 		srlChains.forEach{ it.reverse() }
-
-		println()
-		println("Chains:")
-		srlChains.forEach{
-			println(" ${srlChains.indexOf(it)} $it")
-		}
-		println()
-		println("Mappings:")
-		srlToChainMap.forEach{ println("${it.key} --> ${srlChains.indexOf(it.value)} ") }
-
 	}
 
 	private fun areMoreSRLsInChain(cell: Cell): Cell? {
