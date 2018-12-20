@@ -722,11 +722,9 @@ class TableBasedRoutabilityChecker(
 				status = Routability.VALID
 			else if (source.vcc) {  // This is a bit hackish, but the CASCADEIN on the BRAMs seems to drive VCC
 				status = Routability.VALID
-				println("NOTE: using VCC CASCASDEIN hack")
 			}
 			else if (source.gnd) {  // This is a bit hackish - don't understand why we need them?
 				status = Routability.VALID
-				println("NOTE: using GND CASCASDEIN hack")
 			}
 		} else {
 			error("No source specified")
