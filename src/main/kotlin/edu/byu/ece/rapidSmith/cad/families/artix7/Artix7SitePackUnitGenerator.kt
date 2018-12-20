@@ -89,6 +89,7 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 		VCC_SOURCES = HashMap()
 		VCC_SOURCES[BelId(SiteTypes.SLICEL, "CEUSEDVCC")] = "1"
 		VCC_SOURCES[BelId(SiteTypes.SLICEL, "CYINITVCC")] = "1"
+/*
 		VCC_SOURCES[BelId(SiteTypes.SLICEL, "A6LUT")] = "O6"
 		VCC_SOURCES[BelId(SiteTypes.SLICEL, "B6LUT")] = "O6"
 		VCC_SOURCES[BelId(SiteTypes.SLICEL, "C6LUT")] = "O6"
@@ -97,8 +98,10 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 		VCC_SOURCES[BelId(SiteTypes.SLICEL, "B5LUT")] = "O5"
 		VCC_SOURCES[BelId(SiteTypes.SLICEL, "C5LUT")] = "O5"
 		VCC_SOURCES[BelId(SiteTypes.SLICEL, "D5LUT")] = "O5"
+*/
 		VCC_SOURCES[BelId(SiteTypes.SLICEM, "CEUSEDVCC")] = "1"
 		VCC_SOURCES[BelId(SiteTypes.SLICEM, "CYINITVCC")] = "1"
+/*
 		VCC_SOURCES[BelId(SiteTypes.SLICEM, "A6LUT")] = "O6"
 		VCC_SOURCES[BelId(SiteTypes.SLICEM, "B6LUT")] = "O6"
 		VCC_SOURCES[BelId(SiteTypes.SLICEM, "C6LUT")] = "O6"
@@ -107,10 +110,11 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 		VCC_SOURCES[BelId(SiteTypes.SLICEM, "B5LUT")] = "O5"
 		VCC_SOURCES[BelId(SiteTypes.SLICEM, "C5LUT")] = "O5"
 		VCC_SOURCES[BelId(SiteTypes.SLICEM, "D5LUT")] = "O5"
-
+*/
 		GND_SOURCES = HashMap()
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "CYINITGND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "SRUSEDGND")] = "0"
+/*
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "A6LUT")] = "O6"
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "B6LUT")] = "O6"
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "C6LUT")] = "O6"
@@ -119,8 +123,10 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "B5LUT")] = "O5"
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "C5LUT")] = "O5"
 		GND_SOURCES[BelId(SiteTypes.SLICEL, "D5LUT")] = "O5"
+*/
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "CYINITGND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "SRUSEDGND")] = "0"
+/*
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "A6LUT")] = "O6"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "B6LUT")] = "O6"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "C6LUT")] = "O6"
@@ -129,6 +135,7 @@ class Artix7SitePackUnitGenerator : SitePackUnitGenerator() {
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "B5LUT")] = "O5"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "C5LUT")] = "O5"
 		GND_SOURCES[BelId(SiteTypes.SLICEM, "D5LUT")] = "O5"
+*/
 		GND_SOURCES[BelId(SiteTypes.IOB33S, "IBUFDISABLE_GND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.IOB33S, "INTERMDISABLE_GND")] = "0"
 		GND_SOURCES[BelId(SiteTypes.IOB33M, "IBUFDISABLE_GND")] = "0"
