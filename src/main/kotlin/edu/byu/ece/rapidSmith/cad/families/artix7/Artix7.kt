@@ -22,6 +22,7 @@ import edu.byu.ece.rapidSmith.design.subsite.*
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.device.families.Artix7
 import edu.byu.ece.rapidSmith.device.families.Artix7.SiteTypes.*
+import edu.byu.ece.rapidSmith.examples.DesignAnalyzer.prettyPrintCell
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
 import edu.byu.ece.rapidSmith.util.FileTools
 import edu.byu.ece.rapidSmith.util.FileTools.getCompactReader
@@ -531,11 +532,11 @@ private class SitePackerFactory(
 			if (pinCount(dCell, sCell)) {
 				// Don't insert duplicates
 				if (dCell != cellLibrary["LUT1"]) {
-					println("NOTE: inserting ALUT passthrough for DI[0] on cell ${di0Pin.cell}")
+					//println("NOTE: inserting ALUT passthrough for DI[0] on cell ${di0Pin.cell}")
 					insertRoutethrough(design, di0Pin)
 				}
 				if (sCell != cellLibrary["LUT1"]) {
-					println("NOTE: inserting ALUT passthrough for S[0] on cell ${di0Pin.cell}")
+					//println("NOTE: inserting ALUT passthrough for S[0] on cell ${di0Pin.cell}")
 					insertRoutethrough(design, s0Pin)
 				}
 			}
@@ -562,24 +563,175 @@ private class SitePackerFactory(
 		private fun ensurePrecedingLut(design: CellDesign, pin: CellPin) {
 			if (pin.isConnectedToNet) {
 				val net = pin.net
-				if (!net.isStaticNet) {
+//				if (!net.isStaticNet) {
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
 						insertRoutethrough(design, pin)
 					}
-				}
+//				}
 			}
 		}
 
 		override fun finish(
 			design: List<Cluster<SitePackUnit, *>>
 		) {
+
 			for (cluster in design) {
-//				upgradeRAM32s(cluster)  Many of these can be upgraded to ram64s
+				upgradeRAM32s(cluster)  //TODO: do we need to upgrade other memory cells?
 				addPseudoPins(cluster)
 				cluster.constructNets()
 				finalRoute(routerFactory, cluster)
 			}
+		}
+
+		/*
+		 * Vivado seems to enforce some rules for stand-alone LUT32X1S LUTRAM's (go figure):
+		 * 1. D6 must be occupied (enforced elsewhere)
+		 * 2. If D5 is occupied, then no 6LUT can be occupied unless the corresponding 5LUT is occupied
+		 * The solution here is to simply upgrade stand-alone 6LUTs when the 5LUT is not also occupied,
+		 * without regard to whether D5 is occupied.
+		 */
+
+		fun upgradeRAM32s(cluster: Cluster<SitePackUnit, *>) {
+			// Make sure we have the RAM64XS1 macro fileloaded
+
+			val cells = cluster.cells.toTypedArray()   // Needed to avoid concurrent modification error
+			for (child in cells) {
+				val parent = child.getParent()?: continue
+				if (child.type!= "RAMS32" || parent.type != "RAM32X1S") continue
+				val belname = cluster.getCellPlacement(child)!!.name
+				if(belname[1] == '6') {
+					val bel = child.locationInCluster!!
+					val site = bel.site
+					val leName = bel.name[0]
+					val lut5 = site.getBel(leName + "5LUT")
+					val cellAtLut5 = cluster.getCellAtBel(lut5)
+					if (cellAtLut5 == null) {
+						//val newparent = augmentRAM32s(cluster, child, parent)
+						augmentRAM32s(cluster, child)
+					}
+				}
+			}
+		}
+
+		fun augmentRAM32s(cluster: Cluster<SitePackUnit, *>, child: Cell) {
+			println("NOTE: Augmenting RAMS32  ${cluster} $child")
+			val design = child.design!!
+
+            // Create new child and add to design
+			val cellName = design.getUniqueCellName("${child.name}-augmented")
+			val newCell = Cell(cellName, cellLibrary["RAMS32"])
+			design.addCell(newCell)
+
+			// Now, connect nets to new child.
+			for (cp in child.pins) {
+				if (cp.name == "O")continue
+				val net = cp.net?: continue
+				net.connectToPin(newCell.getPin(cp.name))
+			}
+
+			// Finally, update cluster
+			// First, remove the old and add the new
+			val bel = cluster.getCellPlacement(child)!!
+			val site = bel.site
+			val leName = bel.name[0]
+			val lut5 = site.getBel(leName + "5LUT")
+			cluster.addCell(lut5, newCell)
+
+			// Now, have to update info related to new cell so it knows
+			// which cluster it is in and where in that cluster it is placed
+			newCell.initPackingInfo()
+			newCell.setCluster(cluster)
+			//newChild.isValid = false
+			newCell.locationInCluster = cluster.getCellPlacement(newCell)
+
+			prettyPrintCell(newCell, true)
+		}
+
+		fun replaceRAM32s(cluster: Cluster<SitePackUnit, *>, child: Cell, parent: Cell): Cell {
+			println("NOTE: Replacing RAMS32  ${cluster} $child ${parent}")
+			val design = child.design!!
+
+			// Record nets for all pins and disconnect the nets
+			val pinNets = HashMap<CellNet, String>()
+			for (cp in parent.pins) {
+				if (cp.net != null) {
+					pinNets[cp.net] = cp.name
+					cp.net.disconnectFromPin(cp)
+				}
+			}
+
+            // Create new child and add to design
+			val cellName = design.getUniqueCellName("${parent.name}-upgraded")
+			val newParent = Cell(cellName, cellLibrary["RAM64X1S"])
+			design.addCell(newParent)
+
+			// Get handle to internal child of RAM64X1S child
+			val newChild = newParent.internalCells.first()
+
+			// Transfer properties from RAM32 to RAM64
+			println("  Before:")
+			for (prop in parent.properties)
+				println("    $prop")
+			println("   ----")
+			for (prop in child.properties)
+				println("    $prop")
+			println()
+
+			// Move properties over.  As can be seen from printing above,
+			// INIT property is attached to both parent and child, others only to child.
+			// So, mimic that
+			for (prop in child.properties) {
+				if (prop.key == "INIT") {
+					val init = prop.value
+					val initval = init.toString().drop(4)
+					val newinit ="64'h" + initval + initval
+					newParent.properties.update(prop.key, PropertyType.EDIF, newinit)
+					newChild.properties.update(prop.key, PropertyType.EDIF, newinit)
+				}
+				else if (prop.key != "PACKING_INFO")
+					newChild.properties.update(prop.key, PropertyType.EDIF, prop.value)
+				else {
+					// Not transferring over PACKING_INFO property
+				}
+			}
+
+			// Remove macro child from design
+			design.removeCell(parent)
+
+			// Now, connect nets to new child.
+			for (net in pinNets.keys) {
+				val pinName = pinNets[net]!!
+				val newPin = newParent.getPin(pinName)?: throw RuntimeException("replaceRAM32s - cannot find pin name $pinName")
+				net.connectToPin(newPin)
+			}
+
+			// Connect up MSB addr pin to VCC
+			val vcc = design.vccNet
+			vcc.connectToPin(newParent.getPin("A5"))
+
+			// Finally, update cluster
+			// First, remove the old and add the new
+			val bel = cluster.getCellPlacement(child)!!
+			cluster.removeCell(child)
+			cluster.addCell(bel, newChild)
+
+			// Now, have to update info related to new cell so it knows
+			// which cluster it is in and where in that cluster it is placed
+			newChild.initPackingInfo()
+			newChild.setCluster(cluster)
+			//newChild.isValid = false
+			newChild.locationInCluster = cluster.getCellPlacement(newChild)
+
+			println("  After:")
+			for (prop in newParent.properties)
+				println("    $prop")
+			println("    ====")
+			for (prop in newChild.properties)
+				println("    $prop")
+			println()
+
+			return newParent
 		}
 	}
 }
