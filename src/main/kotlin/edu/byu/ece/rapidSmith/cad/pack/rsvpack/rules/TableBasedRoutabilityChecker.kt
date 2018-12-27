@@ -1,6 +1,7 @@
 package edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules
 
 import edu.byu.ece.rapidSmith.cad.cluster.*
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.CadException
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.PinMapper
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.RoutingTable.SourcePinEntry
 import edu.byu.ece.rapidSmith.design.NetType
@@ -51,6 +52,7 @@ class TableBasedRoutabilityChecker(
 
 	// The current statuses of each pin group.
 	private val pinGroupsStatuses: StackedHashMap<PinGroup, PinGroupStatus> = StackedHashMap()
+	private val pinMapping: StackedHashMap<CellPin, BelPin> = StackedHashMap()
 
 	// Convenience method for determining if pins drive/are driven by general fabric
 	private val BelPin.drivesGeneralFabric: Boolean
@@ -71,7 +73,8 @@ class TableBasedRoutabilityChecker(
 
 		// update the info for the nets with the new source and sink objects
 		// added to the cluster in this change
-		updateChangedNets(changed)
+		if (!updateChangedNets(changed))
+			return RoutabilityResult(Routability.INFEASIBLE, null)
 
 		// identify the pin groups that have changed
 		val changedGroups = getChangedPinGroups(changed)
@@ -211,7 +214,7 @@ class TableBasedRoutabilityChecker(
 	 * could potentially be placed on.  This value is lazily computed and then cached.
 	 */
 	private fun CellPin.getPossibleBelPinsUnplaced(): List<BelPinTemplate> {
-		return possiblePins.computeIfAbsent(libraryPin) {
+		return possiblePins.computeIfAbsent(libraryPin) { _ ->
 			val compatibleBels = this.cell.libCell.possibleAnchors
 			packUnits.flatMap { it.template.bels }
 				.filter { it.id in compatibleBels }
@@ -230,24 +233,27 @@ class TableBasedRoutabilityChecker(
 	 * Move all of the pins affected by this change from unused to being within
 	 * the cluster. update the net info with any pins that now exist in the cluster
 	 */
-	private fun updateChangedNets(changed: Collection<Cell>) {
+	private fun updateChangedNets(changed: Collection<Cell>): Boolean {
 		for (cell in changed) {
 			for (pin in cell.pins) {
 				if (pin.isConnectedToNet) {
 
 					if (pin.isInpin) {
-						updateSinkPin(pin)
+						if (!updateSinkPin(pin))
+							return false
 					}
 					if (pin.isOutpin) {
-						updateSourcePin(pin)
+						if (!updateSourcePin(pin))
+							return false
 					}
 				}
 			}
 		}
+		return true
 	}
 
 	/** Relocates [sinkPin] from outside the cluster to inside the cluster. */
-	private fun updateSinkPin(sinkPin: CellPin) {
+	private fun updateSinkPin(sinkPin: CellPin): Boolean {
 		val net = sinkPin.net
 
 		// get the Sinks object.  create a new copy if the object is from an
@@ -266,12 +272,16 @@ class TableBasedRoutabilityChecker(
 		// update info on the sinkpin
 		val sinkCell = sinkPin.cell
 		val sinkBel = sinkCell.locationInCluster!!
-		val belPins = preferredPin(sinkPin, sinkBel)
-		if (belPins != null) {
-			sinks.sinkPinsInCluster += sinkPin
-			belPins.forEach { _bel2CellPinMap[it] = sinkPin }
-			_cell2BelPinMap[sinkPin] = belPins
+		val belPins = preferredPin(cluster, sinkPin, sinkBel, pinMapping) ?:
+			return false
+		sinks.sinkPinsInCluster += sinkPin
+		belPins.forEach { _bel2CellPinMap[it] = sinkPin }
+		_cell2BelPinMap[sinkPin] = belPins
+
+		if (belPins.isNotEmpty()) {
+			pinMapping[sinkPin] = belPins[0]
 		}
+		return true
 	}
 
 	private fun CellPin.getPossibleSinks(): List<BelPinTemplate> {
@@ -286,7 +296,7 @@ class TableBasedRoutabilityChecker(
 	 * all information about the sinks of the pin, if not already computed, is
 	 * computed.
 	 */
-	private fun updateSourcePin(sourcePin: CellPin) {
+	private fun updateSourcePin(sourcePin: CellPin): Boolean {
 		val net = sourcePin.net
 		assert(!net.isStaticNet)
 
@@ -333,6 +343,7 @@ class TableBasedRoutabilityChecker(
 				initOutsideClusterSinks(sinks, sinkPin, sinkCell)
 			}
 		}
+		return true
 	}
 
 	/**
@@ -345,7 +356,7 @@ class TableBasedRoutabilityChecker(
 
 		// identify any direct sinks paths
 		var directSink = false
-		val carryExits = HashSet<Wire>()
+		val carryExits = LinkedHashSet<Wire>()
 		for (dc in template.directSinksOfCluster) {
 			if (dc.endPin in possibleSinks) {
 				carryExits += dc.clusterExit
@@ -374,13 +385,18 @@ class TableBasedRoutabilityChecker(
 		// The source cell has already been placed so we know where it is and
 		// where it enters this cluster.
 		val sinkBel = sinkCell.locationInCluster!!
-		val belPins = preferredPin(sinkPin, sinkBel)
+		val belPins = preferredPin(sinkCell.getCluster()!!, sinkPin, sinkBel, emptyMap()) ?:
+			throw CadException("Illegal pin mapping, $sinkPin")
 		val endSiteIndex = sinkBel.site.index
 
-		for (belPin in (belPins ?: emptyList())) {
+		if (belPins.isNotEmpty()) {
+			pinMapping[sinkPin] = belPins[0]
+		}
+
+		for (belPin in belPins) {
 			// find any direct connections to this path
 			var directSink = false
-			val carrySinks = HashSet<Wire>()
+			val carrySinks = LinkedHashSet<Wire>()
 			for (dc in template.directSinksOfCluster) {
 				if (endSiteIndex == dc.endSiteIndex && dc.endPin == belPin.template) {
 					carrySinks.add(dc.clusterExit)
@@ -395,20 +411,18 @@ class TableBasedRoutabilityChecker(
 			} else if (drivenGenerally) {
 				sinks.mustLeave = true
 			} else {
-				sinks.requiredCarryChains.put(sinkPin, carrySinks)
+				sinks.requiredCarryChains[sinkPin] = carrySinks
 			}
 		}
 	}
 
 	private fun getChangedPinGroups(changed: Collection<Cell>): Set<PinGroup> {
-		val changedGroups = HashSet<PinGroup>()
+		val changedGroups = LinkedHashSet<PinGroup>()
 		for (cell in changed) {
 			val pins = cell.pins
 			for (pin in pins) {
 				if (pin.isConnectedToNet) {
-					val belPins = cell2BelPinMap[pin]
-					if (belPins != null)
-						belPins.mapTo(changedGroups) { pinGroups[it]!! }
+					cell2BelPinMap[pin]?.mapTo(changedGroups) { pinGroups[it]!! }
 				} else if (isLUTOpin(pin)) {
 					// special code indicating that changing one output LUT may affect
 					// the validity of the other output on the LUT
@@ -573,6 +587,10 @@ class TableBasedRoutabilityChecker(
 				val sourceCell = cellPin.net.sourcePin.cell
 				val condMap = mapOf(sourceCell to setOf(result.conditionalSource!!))
 				mergeConditionalsInRow(rowStatus, condMap)
+
+				// exit early if the sink cannot be routed to
+				if (rowStatus.feasibility == Routability.INFEASIBLE)
+					return
 			}
 
 			if (rowStatus.feasibility != Routability.INFEASIBLE) {
@@ -644,7 +662,7 @@ class TableBasedRoutabilityChecker(
 				if (prevBels.isEmpty())
 					rowStatus.feasibility = Routability.INFEASIBLE
 			} else {
-				rowStatus.conditionals[cell] = HashSet(bels)
+				rowStatus.conditionals[cell] = LinkedHashSet(bels)
 			}
 		}
 	}
@@ -813,7 +831,7 @@ class TableBasedRoutabilityChecker(
 
 		// stores the unplaced pins that must be packed into the cluster to be
 		// routable
-		val conditionals = HashSet<CellPin>()
+		val conditionals = LinkedHashSet<CellPin>()
 
 		if (sinks.mustLeave) {
 			/*
@@ -892,7 +910,7 @@ class TableBasedRoutabilityChecker(
 		if (entry.drivenSinks.size < conditionals.size)
 			return Pair(Routability.INFEASIBLE, null)
 
-		val conditionalSinks = HashMap<Cell, List<Bel>>()
+		val conditionalSinks = LinkedHashMap<Cell, List<Bel>>()
 		val connectedSinks = entry.drivenSinks
 		for (sinkPin in conditionals) {
 			val conditionalBels = getConditionalSinks(connectedSinks, sinkPin)
@@ -907,8 +925,8 @@ class TableBasedRoutabilityChecker(
 	private fun getConditionalSinks(
 		connectedSinks: List<BelPin>, sinkPin: CellPin
 	): List<Bel> {
-		val anchors = HashSet(sinkPin.cell.possibleLocations)
-		val conditionals = HashSet<Bel>()
+		val anchors = LinkedHashSet(sinkPin.cell.possibleLocations)
+		val conditionals = LinkedHashSet<Bel>()
 		for (belPin in connectedSinks) {
 			val bel = belPin.bel
 			if (isPossibleConditionalPinMapping(sinkPin, belPin, anchors))
@@ -930,7 +948,7 @@ class TableBasedRoutabilityChecker(
 	 * Joins the conditionals from each of the pin groups
 	 */
 	private fun joinGroupConditionals(): Map<Cell, Set<Bel>> {
-		val conditionals = HashMap<Cell, HashSet<Bel>>()
+		val conditionals = LinkedHashMap<Cell, HashSet<Bel>>()
 		for (pgStatus in pinGroupsStatuses.values) {
 			if (pgStatus.feasibility == Routability.VALID)
 				continue
@@ -950,7 +968,7 @@ class TableBasedRoutabilityChecker(
 	 * row conditionals.
 	 */
 	private fun buildGroupConditionals(pgStatus: PinGroupStatus) {
-		val conditionals = HashMap<Cell, HashSet<Bel>>()
+		val conditionals = LinkedHashMap<Cell, HashSet<Bel>>()
 		for (rowStatus in pgStatus.rowStatuses!!) {
 			if (rowStatus.feasibility === Routability.INFEASIBLE)
 				continue
@@ -975,6 +993,7 @@ class TableBasedRoutabilityChecker(
 		_netSources.checkPoint()
 		_netSinks.checkPoint()
 		pinGroupsStatuses.checkPoint()
+		pinMapping.checkPoint()
 	}
 
 	override fun rollback() {
@@ -983,16 +1002,17 @@ class TableBasedRoutabilityChecker(
 		_netSources.rollBack()
 		_netSinks.rollBack()
 		pinGroupsStatuses.rollBack()
+		pinMapping.rollBack()
 	}
 
 	companion object {
-		private val possiblePins = HashMap<LibraryPin, List<BelPinTemplate>>()
+		private val possiblePins = LinkedHashMap<LibraryPin, List<BelPinTemplate>>()
 	}
 }
 
 private class RowStatus(var feasibility: Routability = Routability.VALID) {
-	val conditionals: MutableMap<Cell, MutableSet<Bel>> = HashMap()
-	val claimedSources: MutableMap<Any, CellNet> = HashMap()
+	val conditionals: MutableMap<Cell, MutableSet<Bel>> = LinkedHashMap()
+	val claimedSources: MutableMap<Any, CellNet> = LinkedHashMap()
 }
 
 private data class PinGroupStatus(
@@ -1085,19 +1105,19 @@ private abstract class Sinks {
 		constructor(): super() {
 			mustLeave = false
 			sinkPinsInCluster = ArrayList()
-			conditionalMustLeaves = HashSet()
-			conditionals = HashSet()
-			requiredCarryChains = HashMap()
-			optionalCarryChains = HashMap()
+			conditionalMustLeaves = LinkedHashSet()
+			conditionals = LinkedHashSet()
+			requiredCarryChains = LinkedHashMap()
+			optionalCarryChains = LinkedHashMap()
 		}
 
 		constructor(other: Sinks): super() {
 			sinkPinsInCluster = ArrayList(other.sinkPinsInCluster)
 			mustLeave = other.mustLeave
-			conditionals = HashSet(other.conditionals)
-			conditionalMustLeaves = HashSet(other.conditionalMustLeaves)
-			requiredCarryChains = HashMap(other.requiredCarryChains)
-			optionalCarryChains = HashMap(other.optionalCarryChains)
+			conditionals = LinkedHashSet(other.conditionals)
+			conditionalMustLeaves = LinkedHashSet(other.conditionalMustLeaves)
+			requiredCarryChains = LinkedHashMap(other.requiredCarryChains)
+			optionalCarryChains = LinkedHashMap(other.optionalCarryChains)
 		}
 	}
 }

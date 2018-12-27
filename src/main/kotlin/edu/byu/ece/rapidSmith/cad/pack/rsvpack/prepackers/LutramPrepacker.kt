@@ -21,7 +21,7 @@ class LutramPrepackerFactory(private val ramMaker: RamMaker)
 	: PrepackerFactory<PackUnit>() {
 
 	private var rams: Map<Cell, Ram>? = null
-	private var heads = HashMap<Ram, Cell>()
+	private var heads = LinkedHashMap<Ram, Cell>()
 
 	override fun init(design: CellDesign) {
 		val rams = ramMaker.make(design)

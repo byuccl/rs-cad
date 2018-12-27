@@ -8,6 +8,7 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.PinMapper
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.*
 import edu.byu.ece.rapidSmith.cad.place.annealer.DefaultCoolingScheduleFactory
 import edu.byu.ece.rapidSmith.cad.place.annealer.EffortLevel
@@ -22,12 +23,9 @@ import edu.byu.ece.rapidSmith.device.families.Artix7
 import edu.byu.ece.rapidSmith.device.families.Artix7.SiteTypes.*
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
 import java.lang.IllegalArgumentException
-import edu.byu.ece.rapidSmith.util.Time
-import edu.byu.ece.rapidSmith.util.getWireConnections
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
-import kotlin.collections.HashMap
 import kotlin.streams.toList
 
 private val family = Artix7.FAMILY_TYPE
@@ -96,7 +94,6 @@ fun getSitePacker(
         device: Device,
         cellLibraryPath: Path = partsFolder.resolve("cellLibrary.xml"),
         belCostsPath: Path = partsFolder.resolve("belCosts.xml"),
-		// 		//packUnitsPath: Path = partsFolder.resolve(device.partName + "_packunits_site.rpu")
         packUnitsPath: Path = partsFolder.resolve("packunits-site.rpu")
 ): RSVPack<SitePackUnit> {
 	val packUnits = loadPackUnits<SitePackUnit>(packUnitsPath)
@@ -134,6 +131,7 @@ private class SitePackerFactory(
 	private val ramFullyPackedPackRuleFactory = RamFullyPackedPackRuleFactory(ramMaker)
 	private val ramPositionsPackRuleFactory = RamPositionsPackRuleFactory(ramMaker)
 	private val reserveFFForSourcePackRuleFactory = ReserveFFForSourcePackRuleFactory(cellLibrary)
+	private val mixingRamsAndLutsPackRuleFactory = MixingRamsAndLutsPackRuleFactory()
 	private val carryChainLookAheadRuleFactory = CarryChainLookAheadRuleFactory(
 		listOf("S[0]", "S[1]", "S[2]", "S[3]"),
 		ramMaker.leafRamCellTypes,
@@ -181,7 +179,7 @@ private class SitePackerFactory(
 				packUnits.pinsDrivenByGeneralFabric, Artix7.SWITCHBOX_TILES)
 		)
 
-		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, ::slicePinMapper)
+		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, SlicePinMapper())
 		val packRules = listOf(
 			mixing5And6LutPackRuleFactory,
 			reserveFFForSourcePackRuleFactory,
@@ -207,11 +205,12 @@ private class SitePackerFactory(
 				packUnits.pinsDrivenByGeneralFabric, Artix7.SWITCHBOX_TILES)
 		)
 
-		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, ::slicePinMapper)
+		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, SlicePinMapper())
 
 		val packRules = listOf(
 			mixing5And6LutPackRuleFactory,
 			reserveFFForSourcePackRuleFactory,
+			mixingRamsAndLutsPackRuleFactory,
 			ramFullyPackedPackRuleFactory,
 			ramPositionsPackRuleFactory,
 			d6LutUsedRamPackRuleFactory,
@@ -238,13 +237,18 @@ private class SitePackerFactory(
 	private fun makeSingleBelStrategy(
 		packUnit: PackUnit, packUnits: PackUnitList<*>
 	): PackStrategy<SitePackUnit> {
-		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit) { p, b ->
-			val mapping = p.findPinMapping(b)!!
-			// TODO mapping can actually have multiple pins
-			// I'm just take the first right now since the routing of the second
-			// should be a given
-			if (mapping.isNotEmpty()) mapping.take(1) else null
-		}
+		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, object: PinMapper {
+			override fun invoke(
+				cluster: Cluster<*, *>, pin: CellPin, bel: Bel,
+				existing: Map<CellPin, BelPin>
+			): List<BelPin> {
+				val mapping = pin.findPinMapping(bel)!!
+				// TODO mapping can actually have multiple pins
+				// I'm just take the first right now since the routing of the second
+				// should be a given
+				return if (mapping.isNotEmpty()) mapping.take(1) else emptyList()
+			}
+		})
 		val packRules = listOf<PackRuleFactory>(
 			RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
 		)
@@ -273,9 +277,9 @@ private class SitePackerFactory(
 
 		val routerFactory = object : ClusterRouterFactory<SitePackUnit> {
 			val pfRouter = BasicPathFinderRouterFactory(
-				packUnits, ::slicePinMapper, ::wireInvalidator, 8)
-			val directRouter = DirectPathClusterRouterFactory<SitePackUnit>(::slicePinMapper)
-			val routers = HashMap<PackUnit, ClusterRouter<SitePackUnit>>()
+				packUnits, SlicePinMapper(), ::wireInvalidator, 8)
+			val directRouter = DirectPathClusterRouterFactory<SitePackUnit>(SlicePinMapper())
+			val routers = LinkedHashMap<PackUnit, ClusterRouter<SitePackUnit>>()
 
 			override fun get(packUnit: SitePackUnit): ClusterRouter<SitePackUnit> {
 				return routers.computeIfAbsent(packUnit) {
@@ -302,8 +306,8 @@ private class SitePackerFactory(
 			val carry4 = cellLibrary["CARRY4"]
 			val muxf7 = cellLibrary["MUXF7"]
 
-			//val cells = ArrayList(design.leafCells.toList())
-			val cells = ArrayList(design.inContextLeafCells.toList())
+			val cells = ArrayList(design.leafCells.toList())
+			cells.sortBy { it.name }
 			for (cell in cells) {
 				when (cell.libCell) {
 					carry4 -> {
@@ -395,7 +399,8 @@ fun addFracLutPseudoPins(cluster: Cluster<*, *>) {
                         assert (reverseConns.size == 1)
                         val sitePinWire = reverseConns.iterator().next().sinkWire
                         val rt = RouteTreeWithCost(sitePinWire)
-                        rt.connect<RouteTreeWithCost>(sitePinWire.getWireConnections(true).iterator().next())
+                        //rt.connect<RouteTreeWithCost>(sitePinWire.getWireConnections(true).iterator().next())
+                        rt.connect<RouteTreeWithCost>(sitePinWire.wireConnections.iterator().next())
 
                         if (cluster.routeTreeMap[vcc] == null) {
                             val list = ArrayList<RouteTree>()
@@ -479,7 +484,7 @@ private fun wireInvalidator(
 		if (site.type != Artix7.SiteTypes.SLICEM)
 			return emptySet()
 
-		val wiresToInvalidate = HashSet<Wire>()
+		val wiresToInvalidate = LinkedHashSet<Wire>()
 		wiresToInvalidate.add(site.getWire("intrasite:SLICEM/CDI1MUX.DI"))
 		wiresToInvalidate.add(site.getWire("intrasite:SLICEM/BDI1MUX.DI"))
 		wiresToInvalidate.add(site.getWire("intrasite:SLICEM/ADI1MUX.BDI1"))
@@ -622,30 +627,100 @@ private val compatibleTypes = mapOf(
 	IOB33 to listOf(IOB33M, IOB33S)
 )
 
-private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
-	if (pin.isPseudoPin)
-		return listOf(bel.getBelPin(pin.name.substring(6)))
+private class SlicePinMapper : PinMapper {
+	override fun invoke(
+		cluster: Cluster<*, *>, pin: CellPin, bel: Bel,
+		existing: Map<CellPin, BelPin>
+	): List<BelPin>? {
+		if (pin.isPseudoPin)
+			return listOf(bel.getBelPin(pin.name.substring(6)))
 
-	return when (pin.cell.libCell.name) {
-		"LUT1" -> mapLutPin(pin, bel)
-		"LUT2" -> mapLutPin(pin, bel)
-		"LUT3" -> mapLutPin(pin, bel)
-		"LUT4" -> mapLutPin(pin, bel)
-		"LUT5" -> mapLutPin(pin, bel)
-		"LUT6" -> mapLutPin(pin, bel)
-		"RAMS32", "RAMS64E" -> mapRamsPin(pin, bel)
-		"CARRY4" -> mapCarryPin(pin, bel)
-		else -> {
-			val possibleBelPins = pin.findPinMapping(bel)!!
-			possibleBelPins
+		return when (pin.cell.libCell.name) {
+			"LUT1" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT2" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT3" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT4" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT5" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT6" -> mapLutPin(cluster, pin, bel,existing)
+			"RAMS32", "RAMS64E" -> mapRamsPin(pin, bel)
+			"CARRY4" -> mapCarryPin(pin, bel)
+			else -> {
+				val possibleBelPins = pin.findPinMapping(bel)!!
+				possibleBelPins
+			}
 		}
 	}
 }
 
-private fun mapLutPin(pin: CellPin, bel: Bel): List<BelPin> {
+private fun mapLutPin(
+	cluster: Cluster<*, *>, pin: CellPin, bel: Bel,
+	existing: Map<CellPin, BelPin>
+): List<BelPin>? {
+	val site = bel.site
+	val leName = bel.name[0]
+	val lut6 = site.getBel(leName + "6LUT")
+	val lut5 = site.getBel(leName + "5LUT")
 
-// LUT cell input pins are named I0, I1, ..., I4, I5.
-	return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
+	// Need special handling if both the LUT5 and LUT6 are occupied
+	if (cluster.isBelOccupied(lut6) && cluster.isBelOccupied(lut5)) {
+		if (pin.isPseudoPin)
+			return listOf(bel.getBelPin("A6")!!)
+
+		val cell = pin.cell
+		val altBel = if (bel == lut6) lut5 else lut6
+
+		// get the possible pins and their mapping to the other BELs pins
+		val possibleBelPins = pin.getPossibleBelPins(bel)
+			.associateBy { altBel.getBelPin(it.name) }
+			.filterKeys { it != null }
+			.filterValues { it != null } as MutableMap<BelPin, BelPin>
+
+		// determine what nets map to what BEL pins.  A net may map to multiple pins.
+		val nets = existing.entries
+			.filter { it.value in possibleBelPins }
+			.groupingBy { it.key.net }
+			.aggregate { k, a: MutableList<BelPin>?, e, f ->
+				val list = if (f) ArrayList() else a!!
+				list.add(possibleBelPins[e.value]!!)
+				list
+			}
+
+		// determine which bel pins are already used by other pins on the cell
+		// if a bel pin is already occupied by a pin on the cell of interest, that
+		// bel pin is disqualified, even if it share the same net
+		val usedPins = cell.inputPins
+			.filter { it.isConnectedToNet }
+			.map { existing[it] }
+			.filterNotNull()
+
+		// determine if the net already drives any pins on the bel
+		val previous = nets[pin.net]
+		if (previous != null) {
+			for (bp in previous) {
+				// search for an unused bel pin which is shared by the same net and return it
+				if (bp !in usedPins) {
+					return listOf(bp)
+				}
+			}
+		}
+
+		// no available bel pins sharing the net.  Identify a new pin mapping
+		val altUsedPins = nets.values.flatten()
+		val belPins = possibleBelPins.values
+			.filter { it !in usedPins }
+			.filter { it !in  altUsedPins}
+			.toMutableList()
+		// make sure the LUT6 is in back to avoid using the A6 pin when both 5 and 6 LUT bels are used
+		belPins.sortBy { it.name[1] }
+
+		// No valid pins, return null to indicate an issue
+		if (belPins.isEmpty())
+			return null
+
+		return listOf(belPins.get(0))
+	} else {
+		return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
+	}
 }
 
 private fun mapRamsPin(pin: CellPin, bel: Bel): List<BelPin> {

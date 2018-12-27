@@ -8,14 +8,16 @@ import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.Bel
 import java.util.*
+import kotlin.streams.asSequence
 
 // make sure SRL chains are grouped together.
 
 class SRLChainsPrepackerFactory : PrepackerFactory<PackUnit>() {
-	private val mc31Sinks = HashMap<Cell, Cell>()
+	private val mc31Sinks = LinkedHashMap<Cell, Cell>()
 
 	override fun init(design: CellDesign) {
-		val q31SourceCells = design.inContextLeafCells
+		val q31SourceCells = design.inContextLeafCells.asSequence()
+			.sortedBy { it.name }
 			.filter { it.usesPin("Q31") || it.usesPin("Q15") }
 
 		q31SourceCells.forEach { source ->

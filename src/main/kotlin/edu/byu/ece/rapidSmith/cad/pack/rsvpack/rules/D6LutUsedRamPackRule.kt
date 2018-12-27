@@ -66,7 +66,7 @@ class D6LutUsedRamPackRuleFactory(
 			state = State()
 			state.status = PackStatus.VALID
 			state.conditionals = null
-			state.usedDLuts = HashMap(stack.peek().usedDLuts)
+			state.usedDLuts = LinkedHashMap(stack.peek().usedDLuts)
 
 			for (cell in changedRamCells) {
 				val bel = cell.locationInCluster!!
@@ -94,7 +94,7 @@ class D6LutUsedRamPackRuleFactory(
 			if (connectedRamCells.isEmpty())
 				return StatusConditionalsPair(PackStatus.INFEASIBLE, null)
 
-			val conditionals = HashMap<Cell, Set<Bel>>()
+			val conditionals = LinkedHashMap<Cell, Set<Bel>>()
 			connectedRamCells.forEach { c -> conditionals.put(c, unusedDLuts) }
 			return StatusConditionalsPair(PackStatus.CONDITIONAL, conditionals)
 		}
@@ -110,7 +110,7 @@ class D6LutUsedRamPackRuleFactory(
 					.toSet()
 			}
 
-		private val filteredNets = HashMap<CellNet, Boolean>()
+		private val filteredNets = LinkedHashMap<CellNet, Boolean>()
 		private fun isFilteredNet(net: CellNet): Boolean {
 			return filteredNets.computeIfAbsent(net) {
 				net.isClkNet || net.isStaticNet ||
@@ -138,7 +138,7 @@ class D6LutUsedRamPackRuleFactory(
 
 	private class State {
 		internal var status: PackStatus? = null
-		internal var usedDLuts: MutableMap<SiteLutNumberPair, Boolean> = HashMap()
+		internal var usedDLuts: MutableMap<SiteLutNumberPair, Boolean> = LinkedHashMap()
 		internal var conditionals: Map<Cell, Set<Bel>>? = null
 	}
 

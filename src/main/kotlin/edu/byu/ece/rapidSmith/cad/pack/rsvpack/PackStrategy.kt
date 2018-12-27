@@ -277,8 +277,7 @@ class MultiBelPackStrategy<in T: PackUnit>(
 			}
 
 			state.status = status
-			state.nextConditionals = HashMap()
-
+			state.nextConditionals = LinkedHashMap()
 			validateRules(state)
 
 			if (state.status == PackStatus.INFEASIBLE) {
@@ -344,7 +343,7 @@ class MultiBelPackStrategy<in T: PackUnit>(
 		val stack: Deque<State> = ArrayDeque()
 		var status = PackStatus.INFEASIBLE
 		var cell: Cell? = null
-		var packedCells = HashMap<Cell, Bel>()
+		var packedCells = LinkedHashMap<Cell, Bel>()
 		var invalidatedCells = ArrayList<Cell>()
 		var prevConditionals: HashMap<Cell, HashSet<Bel>>? = null
 		var nextConditionals: HashMap<Cell, HashSet<Bel>>? = null
@@ -354,7 +353,7 @@ class MultiBelPackStrategy<in T: PackUnit>(
 			stack.push(State(this))
 			status = PackStatus.INFEASIBLE
 			cell = null
-			packedCells = HashMap()
+			packedCells = LinkedHashMap()
 			invalidatedCells = ArrayList()
 			prevConditionals = nextConditionals
 			nextConditionals = null

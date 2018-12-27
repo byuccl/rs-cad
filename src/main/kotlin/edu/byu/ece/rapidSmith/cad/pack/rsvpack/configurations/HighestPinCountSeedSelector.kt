@@ -6,9 +6,9 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.SeedSelector
 import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
-import edu.byu.ece.rapidSmith.design.subsite.ImplementationMode
 import java.util.*
 import java.util.stream.Stream
+import kotlin.streams.asSequence
 
 /**
  *
@@ -17,21 +17,21 @@ class HighestPinCountSeedSelector : SeedSelector<PackUnit> {
 	/* different lists for clustering */
 	private var maxCellInputs: Int = 0
 	private var unclusteredCellsMap: HashMap<Int, ArrayList<Cell>>? = null
-	private val carryChains = HashSet<Cell>()
+	private val carryChains = LinkedHashSet<Cell>()
 
 	override fun init(packUnits: Collection<PackUnit>, design: CellDesign) {
-		unclusteredCellsMap = HashMap()
+		unclusteredCellsMap = LinkedHashMap()
 
 		// Add all the cells to the appropriate location
 		maxCellInputs = 0
 
-		val cells: Stream<Cell>
-		//if (design.implementationMode.equals(ImplementationMode.RECONFIG_MODULE))
-		//	cells = design.leafCells
-		//else
-		cells = design.inContextLeafCells
+        val cells: Stream<Cell>
+        //if (design.implementationMode.equals(ImplementationMode.RECONFIG_MODULE))
+        //	cells = design.leafCells
+        //else
+        cells = design.inContextLeafCells
 
-		for (cell in cells) {
+		for (cell in design.cells.asSequence().sortedBy { it.name }) {
 			val numInputPins = getNumExternalPinsOfCell(cell)
 			unclusteredCellsMap!!.computeIfAbsent(numInputPins) { ArrayList() }.add(cell)
 			if (numInputPins > maxCellInputs)
@@ -82,6 +82,7 @@ class HighestPinCountSeedSelector : SeedSelector<PackUnit> {
 		for (externalInputs in maxCellInputs downTo 0) {
 			val possibleSeeds = unclusteredCellsMap!![externalInputs] ?: continue
 			val cell = possibleSeeds[0]
+
 			assert(cell.isValid)
 			return cell
 		}

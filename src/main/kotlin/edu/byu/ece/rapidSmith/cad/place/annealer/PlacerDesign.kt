@@ -119,8 +119,8 @@ class PlacerDesign<S : ClusterSite>(
 private fun <S: ClusterSite> identifyPlaceableClusters(
 	clusters: List<Cluster<*, S>>
 ): Pair<HashSet<Cluster<*, S>>, HashSet<Cluster<*, S>>> {
-	val clustersThatCannotBePlaced = HashSet<Cluster<*, S>>()
-	val clustersToPlace = HashSet<Cluster<*, S>>()
+	val clustersThatCannotBePlaced = LinkedHashSet<Cluster<*, S>>()
+	val clustersToPlace = LinkedHashSet<Cluster<*, S>>()
 
 	for (i in clusters) {
 		if (i.isPlaceable) {
@@ -141,8 +141,8 @@ private fun <S: ClusterSite> createPlacementGroups(
 	clusters: List<Cluster<*, S>>,
 	clustersNotToPlace: Set<Cluster<*, S>>
 ): Array<PlacementGroup<S>> {
-	val clusterGroupMap = HashMap<Cluster<*, S>, PlacementGroup<S>>()
-	val remainingClusters = HashSet(clusters)
+	val clusterGroupMap = LinkedHashMap<Cluster<*, S>, PlacementGroup<S>>()
+	val remainingClusters = LinkedHashSet(clusters)
 	remainingClusters -= clustersNotToPlace
 
 	// Step 1: Go through the remaining clusters and see if they match any of the known

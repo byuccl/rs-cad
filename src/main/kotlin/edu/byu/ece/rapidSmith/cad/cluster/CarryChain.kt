@@ -14,7 +14,7 @@ import java.util.*
  *  chain is.
  */
 class CarryChain private constructor(): Serializable {
-	private val cells = HashSet<Cell>()
+	private val cells = LinkedHashSet<Cell>()
 
 	private fun addCell(cell: Cell) {
 		cells.add(cell)
@@ -88,7 +88,7 @@ class CarryChainConnection(val clusterPin: CellPin, endPin: CellPin): Serializab
  *
  */
 class ClusterChain<C: Cluster<*, *>>(cluster: C): Serializable {
-	private val _clusters = HashMap<C, Offset>()
+	private val _clusters = LinkedHashMap<C, Offset>()
 
 	init {
 		_clusters[cluster] = Offset(0, 0)
@@ -119,7 +119,7 @@ class ClusterChain<C: Cluster<*, *>>(cluster: C): Serializable {
  */
 class CarryChainFinder {
 	fun findCarryChains(packUnits: Collection<PackUnit>, design: CellDesign) {
-		for (net in design.nets) {
+        for (net in design.nets.sortedBy { it.name }) {
 			if (net.isSourced && !net.sourcePin.isPartitionPin) {
 				val sourcePin = net.sourcePin
 				val dcs = getDirectSinks(packUnits, sourcePin)
@@ -144,8 +144,7 @@ class CarryChainFinder {
 		packUnits: Collection<PackUnit>, sourcePin: CellPin
 	): List<DirectConnection> {
 		val cell = sourcePin.cell
-		val possibleBels = HashSet(cell.possibleLocations)
-
+		val possibleBels = LinkedHashSet(cell.possibleLocations)
 		return packUnits.flatMap { packUnit ->
 			val template = packUnit.template
 			template.directSinksOfCluster.map { dc ->

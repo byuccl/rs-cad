@@ -8,6 +8,7 @@ import edu.byu.ece.rapidSmith.design.subsite.CellLibrary
 import edu.byu.ece.rapidSmith.design.subsite.LibraryCell
 import edu.byu.ece.rapidSmith.device.Bel
 import java.util.HashMap
+import kotlin.streams.asSequence
 import kotlin.streams.toList
 
 
@@ -16,7 +17,7 @@ import kotlin.streams.toList
 class Artix7LutFFPrepackerFactory(
 	cellLibrary: CellLibrary
 ) : PrepackerFactory<PackUnit>() {
-	private var pairedCells = HashMap<Cell, Cell>()
+	private var pairedCells = LinkedHashMap<Cell, Cell>()
 
 	private val ffLibCells: Map<LibraryCell, String>
 	private val lutLibCells: Map<LibraryCell, String>
@@ -24,7 +25,7 @@ class Artix7LutFFPrepackerFactory(
 	private val lutramLibCells: Map<LibraryCell, String>
 
 	init {
-		ffLibCells = HashMap()
+		ffLibCells = LinkedHashMap()
 		ffLibCells[cellLibrary["AND2B1L"]] = "DI"
 		ffLibCells[cellLibrary["FDCE"]] = "D"
 		ffLibCells[cellLibrary["FDPE"]] = "D"
@@ -34,7 +35,7 @@ class Artix7LutFFPrepackerFactory(
 		ffLibCells[cellLibrary["LDPE"]] = "D"
 		ffLibCells[cellLibrary["OR2L"]] = "DI"
 
-		lutLibCells = HashMap()
+		lutLibCells = LinkedHashMap()
 		lutLibCells[cellLibrary["LUT1"]] = "O"
 		lutLibCells[cellLibrary["LUT2"]] = "O"
 		lutLibCells[cellLibrary["LUT3"]] = "O"
@@ -42,11 +43,11 @@ class Artix7LutFFPrepackerFactory(
 		lutLibCells[cellLibrary["LUT5"]] = "O"
 		lutLibCells[cellLibrary["LUT6"]] = "O"
 
-		f78LibCells = HashMap()
+		f78LibCells = LinkedHashMap()
 		f78LibCells[cellLibrary.get("MUXF8")] = "O"
 		f78LibCells[cellLibrary.get("MUXF7")] = "O"
 
-		lutramLibCells = HashMap()
+		lutramLibCells = LinkedHashMap()
 		lutramLibCells[cellLibrary["RAMD64E"]] = "O"
 
 		// Right now, don't worry about SRLs because Yosys won't make them.
@@ -63,7 +64,9 @@ class Artix7LutFFPrepackerFactory(
 	}
 
 	override fun init(design: CellDesign) {
-		val pairs = design.inContextLeafCells.filter { it.libCell in ffLibCells }
+		val pairs = design.inContextLeafCells.asSequence()
+			.sortedBy { it.name }
+			.filter { it.libCell in ffLibCells }
 			.map { it to getFFSource((it)) }
 			.filter { it.second != null }
 			.map { it.first to it.second!!}
@@ -110,7 +113,7 @@ class Artix7LutFFPrepackerFactory(
 			val pairedCells = checkNotNull(pairedCells) { "init not called" }
 			val status = PrepackStatus.UNCHANGED
 
-			val copy = HashMap(changedCells)
+			val copy = LinkedHashMap(changedCells)
 			for ((changedCell, bel) in copy) {
 				val pairedCell = pairedCells[changedCell]
 				if (pairedCell != null) {

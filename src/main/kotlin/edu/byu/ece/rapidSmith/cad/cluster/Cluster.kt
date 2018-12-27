@@ -21,9 +21,9 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	// Field getters and setters
 	var cost: Double = 0.toDouble()
 	private var _chain: ClusterChain<*>? = null
-	private var placementMap = HashMap<Bel, Cell>()
-	private var cellLocationMap = HashMap<Cell, Bel>()
-	private var pinMap = HashMap<CellPin, List<BelPin>>()
+	private var placementMap = LinkedHashMap<Bel, Cell>()
+	private var cellLocationMap = LinkedHashMap<Cell, Bel>()
+	private var pinMap = LinkedHashMap<CellPin, List<BelPin>>()
 	private var internalNets: MutableMap<CellNet, ArrayList<RouteTree>>? = null
 	private var externalNets: MutableMap<CellNet, ArrayList<RouteTree>>? = null
 
@@ -37,8 +37,8 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		require(cell !in this)
 		require(!placementMap.containsKey(bel))
 
-		placementMap.put(bel, cell)
-		cellLocationMap.put(cell, bel)
+		placementMap[bel] = cell
+		cellLocationMap[cell] = bel
 
 		return cell
 	}
@@ -105,8 +105,8 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	 * routing of this cluster.
 	 */
 	fun constructNets() {
-		internalNets = HashMap()
-		externalNets = HashMap()
+		internalNets = LinkedHashMap()
+		externalNets = LinkedHashMap()
 
 		val nets = cells
 			.flatMap { it.pins }
@@ -171,14 +171,14 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 			var routeTrees: MutableList<RouteTree>? = intNets[net]
 			if (routeTrees == null) {
 				routeTrees = ArrayList()
-				intNets.put(net, routeTrees)
+				intNets[net] = routeTrees
 			}
 			routeTrees.add(routeTree)
 		} else if (net in extNets) {
 			var routeTrees: MutableList<RouteTree>? = extNets[net]
 			if (routeTrees == null) {
 				routeTrees = ArrayList()
-				extNets.put(net, routeTrees)
+				extNets[net] = routeTrees
 			}
 			routeTrees.add(routeTree)
 		} else {
@@ -238,7 +238,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	 * Called by finalRoute.
 	 */
 	fun setPinMapping(cellPin: CellPin, belPin: List<BelPin>) {
-		pinMap.put(cellPin, belPin)
+		pinMap[cellPin] = belPin
 	}
 
 	/**
@@ -314,21 +314,21 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	 * new anchor BEL.
 	 */
 	fun relocate(newAnchor: Bel) {
-		val relocatedBelMap = HashMap<Bel, Cell>()
+		val relocatedBelMap = LinkedHashMap<Bel, Cell>()
 		for (e in placementMap.entries)
 			relocateBel(newAnchor, relocatedBelMap, e)
 		placementMap = relocatedBelMap
 
-		cellLocationMap = HashMap()
+		cellLocationMap = LinkedHashMap()
 		placementMap.entries.associateTo(cellLocationMap) { (k, v) -> v to k }
 
-		val relocatePinMap = HashMap<CellPin, List<BelPin>>()
+		val relocatePinMap = LinkedHashMap<CellPin, List<BelPin>>()
 		pinMap.entries.associateTo(relocatePinMap) { (k, v) ->
 			k to v.map { relocatePin(it, newAnchor) }
 		}
 		pinMap = relocatePinMap
 
-		val relocateTreeMap = HashMap<CellNet, List<RouteTree>>()
+		val relocateTreeMap = LinkedHashMap<CellNet, List<RouteTree>>()
 		routeTreeMap.entries.associateTo(relocateTreeMap) { (k, v) ->
 			k to v.map { relocateRouteTree(it, newAnchor) }
 		}
@@ -342,7 +342,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		val cell = e.value
 		val relocatedBel = getRelocatedBel(e.key, newAnchor)
 		relocatedBel.site.type = relocatedBel.id.siteType
-		relocatedMap.put(relocatedBel, cell)
+		relocatedMap[relocatedBel] = cell
 	}
 
 	private fun relocatePin(belPin: BelPin, newAnchor: Bel): BelPin {
@@ -350,19 +350,19 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	}
 
 	private fun relocateRouteTree(template: RouteTree, newAnchor: Bel): RouteTree {
-		val map = HashMap<RouteTree, RouteTree>()
+		val map = LinkedHashMap<RouteTree, RouteTree>()
 
 		for (rt in template) {
 			if (rt.getParent<RouteTree>() == null) {
 				val newWire = getRelocatedWire(rt.wire, newAnchor)
-				map.put(rt, RouteTree(newWire))
+				map[rt] = RouteTree(newWire)
 			} else {
 				check(rt.wire !is TileWire)
 
 				val sourceTree = map[rt.getParent()]!!
 				val newConn = getRelocatedConnection(
 					sourceTree.wire, rt.connection, newAnchor)
-				map.put(rt, sourceTree.connect<RouteTree>(newConn))
+				map[rt] = sourceTree.connect<RouteTree>(newConn)
 			}
 		}
 

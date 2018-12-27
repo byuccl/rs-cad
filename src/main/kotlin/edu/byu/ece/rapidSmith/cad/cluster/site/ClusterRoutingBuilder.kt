@@ -12,12 +12,12 @@ import java.util.*
 class ClusterRoutingBuilder(val SWITCH_MATRIX_TILES: Set<TileType>) {
 	var forward: Map<Tile, WireHashMap>? = null
 	var reverse: Map<Tile, WireHashMap>? = null
-	val usedWires = HashSet<Int>()
+	val usedWires = LinkedHashSet<Int>()
 
-	private val wireConnectionsMap = HashMap<Wire, HashSet<WireConnection>>()
-	private val revWireConnectionsMap = HashMap<Wire, HashSet<WireConnection>>()
-	private val outputs = HashSet<Wire>() // to the general routing
-	private val inputs = HashSet<Wire>()  // from the general routing
+	private val wireConnectionsMap = LinkedHashMap<Wire, HashSet<WireConnection>>()
+	private val revWireConnectionsMap = LinkedHashMap<Wire, HashSet<WireConnection>>()
+	private val outputs = LinkedHashSet<Wire>() // to the general routing
+	private val inputs = LinkedHashSet<Wire>()  // from the general routing
 
 	/**
 	 * Discover all useful routing starting from the given instance.
@@ -87,7 +87,7 @@ class ClusterRoutingBuilder(val SWITCH_MATRIX_TILES: Set<TileType>) {
 		conns: Map<Wire, Set<WireConnection>>,
 		revs: Map<Wire, Set<WireConnection>>
 	): Map<Tile, WireHashMap> {
-		val aggregate = HashMap<Wire, HashSet<WireConnection>>()
+		val aggregate = LinkedHashMap<Wire, HashSet<WireConnection>>()
 		conns.forEach { w, c -> aggregate.computeIfAbsent(w) { HashSet() }.addAll(c) }
 		revs.forEach { w, s ->
 			s.forEach { c ->
@@ -97,7 +97,7 @@ class ClusterRoutingBuilder(val SWITCH_MATRIX_TILES: Set<TileType>) {
 			}
 		}
 
-		val whm = HashMap<Tile, WireHashMap>()
+		val whm = LinkedHashMap<Tile, WireHashMap>()
 
 		for ((sourceWire, set) in aggregate) {
 			val c = arrayOfNulls<WireConnection>(set.size)
@@ -119,14 +119,14 @@ class ClusterRoutingBuilder(val SWITCH_MATRIX_TILES: Set<TileType>) {
 		private val tileMap: Map<Tile, Tile>
 	) {
 		val usedConnections = ArrayList<Connection>()
-		val exitWires = HashSet<Wire>()
+		val exitWires = LinkedHashSet<Wire>()
 		private val stack = ArrayDeque<RouteTree>()
 		// null -> not visited, false -> not marked as used, true -> marked as used
-		private val visitedWires = HashMap<Wire, Boolean>()
+		private val visitedWires = LinkedHashMap<Wire, Boolean>()
 
 		// TODO move the goesThroughSwitchBox info into the route tree
 		// TODO mark route trees as used or unused
-		private val goesThroughSwitchBox = HashSet<RouteTree>()
+		private val goesThroughSwitchBox = LinkedHashSet<RouteTree>()
 
 		fun run(sourcePin: SitePin) {
 			val sourceWire = sourcePin.externalWire

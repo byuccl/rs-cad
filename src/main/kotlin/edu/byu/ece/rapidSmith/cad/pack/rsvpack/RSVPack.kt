@@ -28,7 +28,6 @@ class RSVPack<out T: PackUnit>(
 ) : Packer<T> {
 	override fun pack(design: CellDesign): List<Cluster<T, *>> {
 		// creates a new packer instance and packs the design.
-//		println("Create a new packer instance")
 		val packer = _RSVPack(clusterFactory, clusterCostCalculator,
 			seedSelector, packStrategies, utils, design)
 		@Suppress("UNCHECKED_CAST")
@@ -73,12 +72,10 @@ private class _RSVPack<out T: PackUnit>(
 	private val design: CellDesign
 ) {
 	private val clusters = ArrayList<Cluster<T, ClusterSite>>()
-
-	private val unclusteredCells = HashSet<Cell>(
+	private val unclusteredCells = LinkedHashSet<Cell>(
 		(design.inContextLeafCells.count() * 1.5).toInt())
 
 	fun pack(): List<Cluster<T, *>> {
-//		println("Initialize the packer")
 		init()
 		packNetlist()
 		cleanupClusters(clusters)
@@ -96,13 +93,8 @@ private class _RSVPack<out T: PackUnit>(
 
 		// Set the unclustered cells to all non-port cells in the design
 		// We don't want to pack port cells if doing partial reconfig - they are outside the reconfig. partition!
-
-		//if (design.implementationMode.equals(ImplementationMode.RECONFIG_MODULE))
-		//	unclusteredCells += design.leafCells.filter{t -> !t.isPort}.toList()
-		//else
-		//	unclusteredCells += design.leafCells.toList()
-		unclusteredCells += design.inContextLeafCells.toList()
-		// remove the shared global gnd and vcc cells
+		unclusteredCells += design.leafCells.toList().sortedBy { it.name }
+		// remove the shared gnd and vcc cells
 		unclusteredCells -= design.vccNet.sourcePin.cell
 		unclusteredCells -= design.gndNet.sourcePin.cell
 
@@ -146,22 +138,17 @@ private class _RSVPack<out T: PackUnit>(
 	}
 
 	private fun packNetlist() {
-	//	var remainingCells = unclusteredCells.size
-//		println("Cells remaining to pack " + remainingCells)
+		var remainingCells = unclusteredCells.size
+		println("Cells remaining to pack " + remainingCells)
 
 		// do until all cells have been packed
 		while (!unclusteredCells.isEmpty()) {
-//			if (unclusteredCells.size % 1000 > remainingCells % 1000)
-//				println("Cells remaining to pack " + unclusteredCells.size)
-		//	remainingCells = unclusteredCells.size
+			if (unclusteredCells.size % 1000 > remainingCells % 1000)
+				println("Cells remaining to pack " + unclusteredCells.size)
+			remainingCells = unclusteredCells.size
 
 			// choose a seed cell for a new cluster
 			val seedCell = seedSelector.nextSeed()
-
-			//if (seedCell.name.equals("fract_out_q_reg[3]_i_1"))
-		//	if (seedCell.name.equals("fract_out_q_reg[3]_i_1"))
-			//	println("Problem seed")
-
 
 			var best: Cluster<T, *>? = null
 			for (type in clusterFactory.supportedPackUnits) {

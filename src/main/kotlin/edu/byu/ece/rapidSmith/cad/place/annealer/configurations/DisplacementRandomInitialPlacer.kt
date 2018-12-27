@@ -54,7 +54,7 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 		// Place a maximum to help terminate either unplaceable or
 		// near-unplaceable designs
 		val maxIterations = unplacedGroupQueue.size * 1000
-		val groupReplacementCountMap = HashMap<PlacementGroup<S>, Int>()
+		val groupReplacementCountMap = LinkedHashMap<PlacementGroup<S>, Int>()
 		do {
 			placeNextGroup(unplacedGroupQueue, groupReplacementCountMap, state, siteCost)
 
@@ -182,11 +182,11 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 		val moveList = ArrayList<MoveComponent<S>>()
 		moveList += initial
 
-		val toDisplace = HashSet<PlacementGroup<S>>()
+		val toDisplace = LinkedHashSet<PlacementGroup<S>>()
 		// add moves for displacement
 		if (displacementRequired) {
 			val targetSites = s.getSitesForGroup(initial.group, initial.newAnchor!!)!!
-			val movedGroups = HashSet<PlacementGroup<S>>()
+			val movedGroups = LinkedHashSet<PlacementGroup<S>>()
 			for (targetSite in targetSites) {
 				// Check for an overlapping group at this site
 				val displacedGroup = s.getGroupAt(targetSite)
@@ -238,7 +238,7 @@ private class PlacementGroupPlacementComparator<S : ClusterSite>(
 ) : Comparator<PlacementGroup<S>> {
 	private val groupProbabilities: Map<PlacementGroup<S>, Double>
 	init {
-		groupProbabilities = HashMap(2 * s.placedGroups.size)
+		groupProbabilities = LinkedHashMap(2 * s.placedGroups.size)
 		for (g in s.placedGroups) {
 			val grid = s.getPlacementRegionForGroup(g)
 			val possibleAnchorSites = grid.validSites

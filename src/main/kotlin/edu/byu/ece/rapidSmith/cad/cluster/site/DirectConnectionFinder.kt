@@ -19,11 +19,11 @@ internal class DirectConnectionFinder(
 	private val sources: MutableList<DirectConnection> = ArrayList()
 	private val sinks: MutableList<DirectConnection> = ArrayList()
 
-	private var siteIndexes = HashMap<Site, EndSiteIndex>()
-	private var newSites = HashMap<Int, SitePinPair>()
+	private var siteIndexes = LinkedHashMap<Site, EndSiteIndex>()
+	private var newSites = LinkedHashMap<Int, SitePinPair>()
 	// Map of BelPins to their EndSiteIndices.  This is stored as
 	// siteIndex/PinName pairs to account for multiple templates
-	private val belPinMap = HashMap<Int, HashMap<String, EndSiteIndex>>()
+	private val belPinMap = LinkedHashMap<Int, HashMap<String, EndSiteIndex>>()
 	private var nextUnusedIndex: Int = 0
 
 	init {
@@ -72,7 +72,7 @@ internal class DirectConnectionFinder(
 		val forward: Boolean
 	) {
 		private val q: Queue<ExitWireWrapper> = ArrayDeque()
-		private val visited = HashSet<Wire>()
+		private val visited = LinkedHashSet<Wire>()
 
 		fun run(sourcePin: BelPin) {
 			val untranslatedSourcePin = sourcePin
@@ -164,7 +164,7 @@ internal class DirectConnectionFinder(
 		private val translatedSourcePin: BelPin
 	) {
 		private val q: Queue<ExitWireWrapper> = ArrayDeque()
-		private val visited = HashSet<Wire>()
+		private val visited = LinkedHashSet<Wire>()
 
 		fun traverse(source: ExitWireWrapper) {
 			q += source

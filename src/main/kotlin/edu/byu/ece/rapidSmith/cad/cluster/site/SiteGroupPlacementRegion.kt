@@ -24,9 +24,10 @@ import kotlin.math.*
  *
  */
 class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterSite>() {
-	private val singleClusterCache = HashMap<PackUnit, SiteGroupPlacementRegion>()
-	private val sliceLGroupsCache = HashMap<Int, SiteGroupPlacementRegion>()
-	private val sliceMGroupsCache = HashMap<Int, SiteGroupPlacementRegion>()
+	private val singleClusterCache = LinkedHashMap<PackUnit, SiteGroupPlacementRegion>()
+	private val sliceLGroupsCache = LinkedHashMap<Int, SiteGroupPlacementRegion>()
+	private val sliceMGroupsCache = LinkedHashMap<Int, SiteGroupPlacementRegion>()
+	private val dsp48GroupsCache = LinkedHashMap<Int, SiteGroupPlacementRegion>()
 	private var ioGroupsCache: SiteGroupPlacementRegion? = null
 
 	override fun make(
@@ -64,6 +65,16 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 							.filter { it.isCompatibleWith(type) }
 							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
 								Artix7.SiteTypes.SLICEM, it, group.size) }
+							.toList()
+						SiteGroupPlacementRegion(locs)
+					}
+				}
+				Artix7.SiteTypes.DSP48E1 -> {
+					dsp48GroupsCache.computeIfAbsent(group.size) { _ ->
+						val locs = device.grid.sites
+							.filter { it.isCompatibleWith(type) }
+							.mapNotNull { getDspChain(device.grid as SiteClusterGrid,
+								it, group.size) }
 							.toList()
 						SiteGroupPlacementRegion(locs)
 					}
@@ -136,6 +147,40 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 				if (distance < 8) {
 					val sinks = wire.wireConnections.map { it.sinkWire }
 						.filter { it.tile.type !in Artix7.SWITCHBOX_TILES }
+					for (sink in sinks) {
+						stack.push(WireDistancePair(sink, distance + 1))
+					}
+				}
+			}
+			return null
+		}
+
+		return sites
+	}
+
+	private fun getDspChain(
+		grid: SiteClusterGrid,
+		anchor: SiteClusterSite, length: Int
+	): List<SiteClusterSite>? {
+		val sites = ArrayList<SiteClusterSite>()
+		sites += anchor
+
+		var site = anchor.site
+		outer@for (i in 1 until length) {
+			val source = site.getPin("PCOUT0").externalWire
+			val stack = ArrayDeque<WireDistancePair>()
+			stack.push(WireDistancePair(source, 1))
+			while (stack.isNotEmpty()) {
+				val (wire, distance) = stack.pop()
+				val pin = wire.connectedPin
+				if (pin != null && pin.site.isCompatibleWith(Artix7.SiteTypes.DSP48E1)) {
+					sites += grid.getClusterSite(pin.site)
+					site = pin.site
+					continue@outer
+				}
+
+				if (distance < 2) {
+					val sinks = wire.wireConnections.map { it.sinkWire }
 					for (sink in sinks) {
 						stack.push(WireDistancePair(sink, distance + 1))
 					}

@@ -37,6 +37,7 @@ class RamMaker(cellLibrary: CellLibrary) {
 
 	fun make(design: CellDesign): Map<Cell, Ram> {
 		return design.inContextLeafCells.asSequence()
+			.sortedBy { it.name }
 			.filter { it.libCell in leafRamCellTypes } // look at just RAM cells
 			.map { it to it.parent } // RAM cell to parent cell
 			.filter { it.second != null } // Not all RAM cells are part of a larger RAM
