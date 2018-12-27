@@ -10,6 +10,7 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.configurations.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.prepackers.*
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouter
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterFactory
+import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.PinMapper
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.*
 import edu.byu.ece.rapidSmith.cad.place.annealer.*
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.BondedIOBPlacerRule
@@ -138,6 +139,7 @@ private class ZynqSitePackerFactory(
 	private val ramFullyPackedPackRuleFactory = RamFullyPackedPackRuleFactory(ramMaker)
 	private val ramPositionsPackRuleFactory = RamPositionsPackRuleFactory(ramMaker)
 	private val reserveFFForSourcePackRuleFactory = ReserveFFForSourcePackRuleFactory(cellLibrary)
+	private val mixingRamsAndLutsPackRuleFactory = MixingRamsAndLutsPackRuleFactory()
 	private val carryChainLookAheadRuleFactory = CarryChainLookAheadRuleFactory(
 			listOf("S[0]", "S[1]", "S[2]", "S[3]"),
 			ramMaker.leafRamCellTypes,
@@ -184,7 +186,7 @@ private class ZynqSitePackerFactory(
 						packUnit, packUnits.pinsDrivingGeneralFabric,
 						packUnits.pinsDrivenByGeneralFabric, Zynq.SWITCHBOX_TILES)
 		)
-		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, ::slicePinMapper)
+		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, SlicePinMapper())
 		val packRules = listOf(
 				mixing5And6LutPackRuleFactory,
 				reserveFFForSourcePackRuleFactory,
@@ -210,11 +212,12 @@ private class ZynqSitePackerFactory(
 						packUnits.pinsDrivenByGeneralFabric, Zynq.SWITCHBOX_TILES)
 		)
 
-		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, ::slicePinMapper)
+		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, SlicePinMapper())
 
 		val packRules = listOf(
 			mixing5And6LutPackRuleFactory,
 			reserveFFForSourcePackRuleFactory,
+			mixingRamsAndLutsPackRuleFactory,
 			ramFullyPackedPackRuleFactory,
 			ramPositionsPackRuleFactory,
 			d6LutUsedRamPackRuleFactory,
@@ -241,13 +244,18 @@ private class ZynqSitePackerFactory(
 	private fun makeSingleBelStrategy(
 		packUnit: PackUnit, packUnits: PackUnitList<*>
 	): PackStrategy<SitePackUnit> {
-		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit) { p, b ->
-			val mapping = p.findPinMapping(b)!!
-			// TODO mapping can actually have multiple pins
-			// I'm just take the first right now since the routing of the second
-			// should be a given
-			if (mapping.isNotEmpty()) mapping.take(1) else null
-		}
+		val tbrc = TableBasedRoutabilityCheckerFactory(packUnit, object: PinMapper {
+			override fun invoke(
+					cluster: Cluster<*, *>, pin: CellPin, bel: Bel,
+					existing: Map<CellPin, BelPin>
+			): List<BelPin> {
+				val mapping = pin.findPinMapping(bel)!!
+				// TODO mapping can actually have multiple pins
+				// I'm just take the first right now since the routing of the second
+				// should be a given
+				return if (mapping.isNotEmpty()) mapping.take(1) else emptyList()
+			}
+		})
 		val packRules = listOf<PackRuleFactory>(
 			RoutabilityCheckerPackRuleFactory(tbrc, packUnits)
 		)
@@ -275,11 +283,20 @@ private class ZynqSitePackerFactory(
 			//	cellLibrary["SRLC32E"]
 		)
 
+		val ffCells = setOf(
+				cellLibrary["FDCE"],
+				cellLibrary["FDRE"],
+				cellLibrary["FDSE"],
+				cellLibrary["FDPE"],
+				cellLibrary["LDCE"],
+				cellLibrary["LDPE"]
+		)
+
 		val routerFactory = object : ClusterRouterFactory<SitePackUnit> {
 			val pfRouter = BasicPathFinderRouterFactory(
-				packUnits, ::slicePinMapper, ::wireInvalidator, 8)
-			val directRouter = DirectPathClusterRouterFactory<SitePackUnit>(::slicePinMapper)
-			val routers = HashMap<PackUnit, ClusterRouter<SitePackUnit>>()
+					packUnits, SlicePinMapper(), ::wireInvalidator, 8)
+			val directRouter = DirectPathClusterRouterFactory<SitePackUnit>(SlicePinMapper())
+			val routers = LinkedHashMap<PackUnit, ClusterRouter<SitePackUnit>>()
 
 			override fun get(packUnit: SitePackUnit): ClusterRouter<SitePackUnit> {
 				return routers.computeIfAbsent(packUnit) {
@@ -294,6 +311,79 @@ private class ZynqSitePackerFactory(
 
 		override fun prepareDesign(design: CellDesign) {
 			insertLutRoutethroughs(design)
+			insertFFRoutethroughs(design)
+		}
+
+		/**
+		 * This identifies cases where both the CO[k] and O[k] pins on a CARRY4
+		 * drive non-FF input signals.  This results in contention for the *OUTMUX
+		 * to get both out of the slice.  In this case, a "permanent latch" is put
+		 * on the O[k] pin's output signal so the CO[k] pin can use the *OUTMUX.
+		 */
+		private fun insertFFRoutethroughs(design: CellDesign) {
+			val carry4 = cellLibrary["CARRY4"]
+
+			val cells = ArrayList(design.leafCells.toList())
+			cells.sortBy { it.name }
+			for (cell in cells) {
+				//val cell = design.getCell("reg_InPort_WrBack_InPort_Mult1_shift4_0_to_InPort_WrBack_InPort_Add3_add_1_q_reg[5]_i_1")
+				when (cell.libCell) {
+					carry4 -> {
+						for (i in 0..3) {
+							val copin = cell.getPin("CO[$i]")
+							val opin = cell.getPin("O[$i]")
+							if (copin.net == null || opin.net == null)
+								continue
+							if (doesNotDriveFF(copin) && doesNotDriveFF(opin)) {
+								insertFFRoutethrough(design, opin)
+							}
+						}
+					}
+				}
+			}
+
+		}
+
+		/**
+		 * Return true if this pin drives a flip flop's or latch's D input.
+		 */
+		private fun doesNotDriveFF(pin: CellPin): Boolean {
+			val n = pin.net
+			assert(n != null)
+			for (sp in n.sinkPins)
+				if (sp.cell.libCell in ffCells && sp.name.equals("D"))
+					return false
+			return true
+		}
+
+
+		/**
+		 * Insert FF pass-through for the specified pin
+		 */
+		private fun insertFFRoutethrough(design: CellDesign, pin: CellPin) {
+			val net = pin.net
+			val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
+			val netName = design.getUniqueNetName("${net.name}-${pin.name}-pass")
+			val newCell = Cell(cellName, cellLibrary["LDCE"])
+			design.addCell(newCell)
+			val newNet = CellNet(netName, NetType.WIRE)
+			design.addNet(newNet)
+
+			net.disconnectFromPin(pin)
+			net.connectToPin(newCell.getPin("Q"))
+
+			newNet.connectToPin(pin)
+			newNet.connectToPin(newCell.getPin("D"))
+
+			val vccNet = design.getNet("RapidSmithGlobalVCCNet")
+			val gndNet = design.getNet("RapidSmithGlobalGNDNet")
+			assert(vccNet != null)
+			assert(gndNet != null)
+			vccNet.connectToPin(newCell.getPin("G"))
+			vccNet.connectToPin(newCell.getPin("GE"))
+			gndNet.connectToPin(newCell.getPin("CLR"))
+
+			//println("NOTE: insertingFFRoutethrough on cell ${pin.cell.name}, pin ${pin.name}")
 		}
 
 		/**
@@ -308,6 +398,7 @@ private class ZynqSitePackerFactory(
 
 			//val cells = ArrayList(design.leafCells.toList())
 			val cells = ArrayList(design.inContextLeafCells.toList())
+			cells.sortBy { it.name }
 			for (cell in cells) {
 				when (cell.libCell) {
 					carry4 -> {
@@ -319,7 +410,7 @@ private class ZynqSitePackerFactory(
 							val cyinit = cell.getPin("CYINIT")!!
 							if (cyinit.isConnectedToNet && !cyinit.net.isStaticNet) {
 								val di0 = cell.getPin("DI[0]")
-								ensurePrecedingLut(design, di0)
+								ensurePrecedingLutA(design, cell.getPin("DI[0]"), cell.getPin("S[0]"))
 							}
 						}
 					}
@@ -333,6 +424,70 @@ private class ZynqSitePackerFactory(
 			}
 		}
 
+		/*
+ * Insert LUT pass-through for the specified pin
+ */
+		private fun insertRoutethrough(design: CellDesign, pin: CellPin) {
+			val net = pin.net
+			val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
+			val netName = design.getUniqueNetName("${net.name}-${pin.name}-pass")
+			val newCell = Cell(cellName, cellLibrary["LUT1"])
+			newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
+			design.addCell(newCell)
+			net.disconnectFromPin(pin)
+			net.connectToPin(newCell.getPin("I0"))
+
+			val newNet = CellNet(netName, NetType.WIRE)
+			design.addNet(newNet)
+			newNet.connectToPin(pin)
+			newNet.connectToPin(newCell.getPin("O"))
+			//println("NOTE: insertingRoutethrough on cell ${pin.cell.name}, pin ${pin.name}")
+		}
+
+		/**
+		 * Handle ALUT route-through case since it involves AX pin as well.
+		 * Assumption: this is only called when the CYINIT pin is using the AX pin.
+		 * Cases LUT6 + null, LUT5 + null, null + LUT6, null + LUT5, tot > 5
+		 */
+		private fun ensurePrecedingLutA(design: CellDesign, di0Pin: CellPin, s0Pin: CellPin) {
+			if (di0Pin.net == null)
+				return
+			ensurePrecedingLut(design, di0Pin)
+
+			if (s0Pin.net == null)
+				return
+
+			val dCell = di0Pin.net.sourcePin.cell
+			val sCell = s0Pin.net.sourcePin.cell
+			if (pinCount(dCell, sCell)) {
+				// Don't insert duplicates
+				if (dCell != cellLibrary["LUT1"]) {
+					println("NOTE: inserting ALUT passthrough for DI[0] on cell ${di0Pin.cell}")
+					insertRoutethrough(design, di0Pin)
+				}
+				if (sCell != cellLibrary["LUT1"]) {
+					println("NOTE: inserting ALUT passthrough for S[0] on cell ${di0Pin.cell}")
+					insertRoutethrough(design, s0Pin)
+				}
+			}
+		}
+
+		/*
+		 * Count number of unique nets feeding the two LUT's
+		 */
+		private fun pinCount(a: Cell, b: Cell): Boolean {
+			var nets = HashSet<CellNet>()
+			for (cp in a.inputPins)
+				nets.add(cp.net);
+			for (cp in b.inputPins)
+				nets.add(cp.net);
+
+			return (nets.size > 5);
+		}
+
+
+
+
 		/**
 		 * Checks if the pin is driven by a LUT.  If not, inserts a pass-through LUT
 		 * before the pin.
@@ -343,18 +498,7 @@ private class ZynqSitePackerFactory(
 				if (!net.isStaticNet) {
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
-						val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
-						val netName = design.getUniqueNetName("${net.name}-${pin.name}-pass")
-						val newCell = Cell(cellName, cellLibrary["LUT1"])
-						newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
-						design.addCell(newCell)
-						net.disconnectFromPin(pin)
-						net.connectToPin(newCell.getPin("I0"))
-
-						val newNet = CellNet(netName, NetType.WIRE)
-						design.addNet(newNet)
-						newNet.connectToPin(pin)
-						newNet.connectToPin(newCell.getPin("O"))
+						insertRoutethrough(design, pin)
 					}
 				}
 			}
@@ -479,7 +623,7 @@ private fun wireInvalidator(
 		if (site.type != Zynq.SiteTypes.SLICEM)
 			return emptySet()
 
-		val wiresToInvalidate = HashSet<Wire>()
+		val wiresToInvalidate = LinkedHashSet<Wire>()
 		wiresToInvalidate.add(site.getWire("intrasite:SLICEM/CDI1MUX.DI"))
 		wiresToInvalidate.add(site.getWire("intrasite:SLICEM/BDI1MUX.DI"))
 		wiresToInvalidate.add(site.getWire("intrasite:SLICEM/ADI1MUX.BDI1"))
@@ -626,31 +770,100 @@ private val compatibleTypes = mapOf(
 	IOB33 to listOf(IOB33M, IOB33S)
 )
 
-private fun slicePinMapper(pin: CellPin, bel: Bel): List<BelPin> {
-	if (pin.isPseudoPin)
-		return listOf(bel.getBelPin(pin.name.substring(6)))
+private class SlicePinMapper : PinMapper {
+	override fun invoke(
+			cluster: Cluster<*, *>, pin: CellPin, bel: Bel,
+			existing: Map<CellPin, BelPin>
+	): List<BelPin>? {
+		if (pin.isPseudoPin)
+			return listOf(bel.getBelPin(pin.name.substring(6)))
 
-	return when (pin.cell.libCell.name) {
-		"LUT1" -> mapLutPin(pin, bel)
-		"LUT2" -> mapLutPin(pin, bel)
-		"LUT3" -> mapLutPin(pin, bel)
-		"LUT4" -> mapLutPin(pin, bel)
-		"LUT5" -> mapLutPin(pin, bel)
-		"LUT6" -> mapLutPin(pin, bel)
-		"RAMS32", "RAMS64E" -> mapRamsPin(pin, bel)
-		"CARRY4" -> mapCarryPin(pin, bel)
-		else -> {
-			val possibleBelPins = pin.findPinMapping(bel)!!
-			possibleBelPins
+		return when (pin.cell.libCell.name) {
+			"LUT1" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT2" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT3" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT4" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT5" -> mapLutPin(cluster, pin, bel,existing)
+			"LUT6" -> mapLutPin(cluster, pin, bel,existing)
+			"RAMS32", "RAMS64E" -> mapRamsPin(pin, bel)
+			"CARRY4" -> mapCarryPin(pin, bel)
+			else -> {
+				val possibleBelPins = pin.findPinMapping(bel)!!
+				possibleBelPins
+			}
 		}
 	}
 }
 
-private fun mapLutPin(pin: CellPin, bel: Bel): List<BelPin> {
-	//if (bel.belPins.count().toInt() == 6) // if a LUT 5 BEL
-//		return listOf(bel.getBelPin("A${pin.name.last() - '0' + 2}")!!)
-// LUT cell input pins are named I0, I1, ..., I4, I5.
-	return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
+private fun mapLutPin(
+		cluster: Cluster<*, *>, pin: CellPin, bel: Bel,
+		existing: Map<CellPin, BelPin>
+): List<BelPin>? {
+	val site = bel.site
+	val leName = bel.name[0]
+	val lut6 = site.getBel(leName + "6LUT")
+	val lut5 = site.getBel(leName + "5LUT")
+
+	// Need special handling if both the LUT5 and LUT6 are occupied
+	if (cluster.isBelOccupied(lut6) && cluster.isBelOccupied(lut5)) {
+		if (pin.isPseudoPin)
+			return listOf(bel.getBelPin("A6")!!)
+
+		val cell = pin.cell
+		val altBel = if (bel == lut6) lut5 else lut6
+
+		// get the possible pins and their mapping to the other BELs pins
+		val possibleBelPins = pin.getPossibleBelPins(bel)
+				.associateBy { altBel.getBelPin(it.name) }
+				.filterKeys { it != null }
+				.filterValues { it != null } as MutableMap<BelPin, BelPin>
+
+		// determine what nets map to what BEL pins.  A net may map to multiple pins.
+		val nets = existing.entries
+				.filter { it.value in possibleBelPins }
+				.groupingBy { it.key.net }
+				.aggregate { k, a: MutableList<BelPin>?, e, f ->
+					val list = if (f) ArrayList() else a!!
+					list.add(possibleBelPins[e.value]!!)
+					list
+				}
+
+		// determine which bel pins are already used by other pins on the cell
+		// if a bel pin is already occupied by a pin on the cell of interest, that
+		// bel pin is disqualified, even if it share the same net
+		val usedPins = cell.inputPins
+				.filter { it.isConnectedToNet }
+				.map { existing[it] }
+				.filterNotNull()
+
+		// determine if the net already drives any pins on the bel
+		val previous = nets[pin.net]
+		if (previous != null) {
+			for (bp in previous) {
+				// search for an unused bel pin which is shared by the same net and return it
+				if (bp !in usedPins) {
+					return listOf(bp)
+				}
+			}
+		}
+
+		// no available bel pins sharing the net.  Identify a new pin mapping
+		val altUsedPins = nets.values.flatten()
+		val belPins = possibleBelPins.values
+				.filter { it !in usedPins }
+				.filter { it !in  altUsedPins}
+				.toMutableList()
+		// make sure the LUT6 is in back to avoid using the A6 pin when both 5 and 6 LUT bels are used
+		belPins.sortBy { it.name[1] }
+
+		// No valid pins, return null to indicate an issue
+		if (belPins.isEmpty())
+			return null
+
+		return listOf(belPins.get(0))
+	} else {
+		return listOf(bel.getBelPin("A${pin.name.last() - '0' + 1}")!!)
+	}
 }
 
 private fun mapRamsPin(pin: CellPin, bel: Bel): List<BelPin> {

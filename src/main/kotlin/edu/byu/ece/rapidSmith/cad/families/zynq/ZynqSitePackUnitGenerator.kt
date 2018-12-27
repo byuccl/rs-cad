@@ -19,11 +19,11 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 	override val PACKABLE_SITE_TYPES: List<SiteType>
 	override val NULL_TILE_TYPE: TileType
 	override val TIEOFF_SITE_TYPE: SiteType
-	override val SWITCH_MATRIX_TILES: Set<TileType>
-	override val INTERFACE_TILES: Set<TileType>
+	override val SWITCH_MATRIX_TILES: LinkedHashSet<TileType>
+	override val INTERFACE_TILES: LinkedHashSet<TileType>
 	override val VCC_SOURCES: Map<BelId, PinName>
 	override val GND_SOURCES: Map<BelId, PinName>
-	private val IGNORED_TILE_TYPES: Set<TileType>
+	private val IGNORED_TILE_TYPES: LinkedHashSet<TileType>
 	private val INSTANCE_NAMES: Map<SiteType, List<String>>
 
 	init {
@@ -42,8 +42,8 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
         addPackableSiteType(SiteTypes.IOB33S)
         addPackableSiteType(SiteTypes.BUFG)
 
-		INTERFACE_TILES = HashSet()
-        IGNORED_TILE_TYPES = HashSet()
+		INTERFACE_TILES = LinkedHashSet()
+        IGNORED_TILE_TYPES = LinkedHashSet()
 
         addPackableTileType(INTERFACE_TILES, TileTypes.INT_INTERFACE_L)
         addPackableTileType(INTERFACE_TILES, TileTypes.INT_INTERFACE_R)
@@ -54,7 +54,7 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
         addPackableTileType(INTERFACE_TILES, TileTypes.RIOI3)
         addPackableTileType(INTERFACE_TILES, TileTypes.LIOI3)
 
-		SWITCH_MATRIX_TILES = HashSet()
+		SWITCH_MATRIX_TILES = LinkedHashSet()
         addPackableTileType(SWITCH_MATRIX_TILES, TileTypes.INT_L)
         addPackableTileType(SWITCH_MATRIX_TILES, TileTypes.INT_R)
 

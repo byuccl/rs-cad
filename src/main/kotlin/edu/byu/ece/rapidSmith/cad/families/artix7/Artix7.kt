@@ -392,7 +392,7 @@ private class SitePackerFactory(
 			val carry4 = cellLibrary["CARRY4"]
 			val muxf7 = cellLibrary["MUXF7"]
 
-			val cells = ArrayList(design.leafCells.toList())
+			val cells = ArrayList(design.inContextLeafCells.toList())
 			cells.sortBy { it.name }
 			for (cell in cells) {
 				when (cell.libCell) {
