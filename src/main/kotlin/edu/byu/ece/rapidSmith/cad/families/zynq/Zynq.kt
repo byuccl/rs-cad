@@ -83,7 +83,7 @@ class ZynqSiteCadFlow {
 	companion object {
 		@JvmStatic
 		fun main(args: Array<String>) {
-			val rscp = VivadoInterface.loadRSCP(args[0], true, EdifType.YOSYS)
+			val rscp = VivadoInterface.loadRSCP(args[0], true, EdifType.VIVADO)
 			val design = rscp.design
 			val device = rscp.device
 			val flow = ZynqSiteCadFlow()
@@ -409,7 +409,6 @@ private class ZynqSitePackerFactory(
 						let {
 							val cyinit = cell.getPin("CYINIT")!!
 							if (cyinit.isConnectedToNet && !cyinit.net.isStaticNet) {
-								val di0 = cell.getPin("DI[0]")
 								ensurePrecedingLutA(design, cell.getPin("DI[0]"), cell.getPin("S[0]"))
 							}
 						}
@@ -476,21 +475,18 @@ private class ZynqSitePackerFactory(
 		 * Count number of unique nets feeding the two LUT's
 		 */
 		private fun pinCount(a: Cell, b: Cell): Boolean {
-			var nets = HashSet<CellNet>()
+			val nets = HashSet<CellNet>()
 			for (cp in a.inputPins)
-				nets.add(cp.net);
+				nets.add(cp.net)
 			for (cp in b.inputPins)
-				nets.add(cp.net);
-
-			return (nets.size > 5);
+				nets.add(cp.net)
+			return (nets.size > 5)
 		}
 
 
-
-
 		/**
-		 * Checks if the pin is driven by a LUT.  If not, inserts a pass-through LUT
-		 * before the pin.
+		 * Inserts LUT routethroughs before pins that are not driven by LUTs and before pins that
+		 * are driven by a LUT that drives multiple pins.
 		 */
 		private fun ensurePrecedingLut(design: CellDesign, pin: CellPin) {
 			if (pin.isConnectedToNet) {
@@ -498,6 +494,9 @@ private class ZynqSitePackerFactory(
 				if (!net.isStaticNet) {
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
+						insertRoutethrough(design, pin)
+					}
+					else if (net.sinkPins.count() > 1) {
 						insertRoutethrough(design, pin)
 					}
 				}
