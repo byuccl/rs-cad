@@ -113,7 +113,7 @@ private class _RSVPack<out T: PackUnit>(
 
 	private fun packNetlist() {
 		var remainingCells = unclusteredCells.size
-		println("Cells remaining to pack " + remainingCells)
+		println("Cells remaining to pack $remainingCells")
 
 		// do until all cells have been packed
 		while (!unclusteredCells.isEmpty()) {
