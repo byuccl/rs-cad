@@ -113,7 +113,7 @@ private class _RSVPack<out T: PackUnit>(
 
 	private fun packNetlist() {
 		var remainingCells = unclusteredCells.size
-		println("Cells remaining to pack " + remainingCells)
+		println("Cells remaining to pack $remainingCells")
 
 		// do until all cells have been packed
 		while (!unclusteredCells.isEmpty()) {
@@ -146,8 +146,16 @@ private class _RSVPack<out T: PackUnit>(
 			}
 
 			// if best was never set, all possible types failed
-			if (best == null)
-				throw CadException("No valid pack unit for clusterChain " + seedCell.name)
+			if (best == null) {
+				val c = seedCell
+				var s = "Cannot pack cell: ${c} of type: ${c.type}\n"
+				for (cp in c.inputPins) {
+					val n = cp.net
+					s += "Input pin: ${cp.name.split("/").last()} is driven by net: $n \n"
+					s += "  which is cell: ${cp.net?.sourcePin?.cell?.name ?: "no cell"} --> ${cp.net?.sourcePin?.name ?: "no pin"} pin \n"
+				}
+				throw CadException("No valid pack unit for clusterChain " + seedCell.name + "\n" + s)
+			}
 
 			// save the best cluster
 			commitCluster(best)

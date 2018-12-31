@@ -26,6 +26,7 @@ import java.lang.IllegalArgumentException
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
+import kotlin.collections.HashSet
 import kotlin.streams.toList
 
 private val family = Artix7.FAMILY_TYPE
@@ -52,6 +53,7 @@ class SiteCadFlow {
 		@Suppress("UNCHECKED_CAST")
 		val clusters = packer.pack(design) as List<Cluster<SitePackUnit, SiteClusterSite>>
 		val packTime = System.currentTimeMillis()
+		println("Done packing...")
 		val placer = getGroupSAPlacer()
 		placer.place(design, clusters)
 		val placeTime = System.currentTimeMillis()
@@ -77,10 +79,12 @@ class SiteCadFlow {
 		@JvmStatic
 		fun main(args: Array<String>) {
 			val rscp = VivadoInterface.loadRSCP(args[0])
+			println("Loaded design: ${args[0]}")
 			val design = rscp.design
 			val device = rscp.device
 			val flow = SiteCadFlow()
 			flow.prepDesign(design, device)
+            println("Running design")
 			flow.run(design, device)
 			val rscpFile = Paths.get(args[0]).toFile()
 			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
@@ -274,6 +278,14 @@ private class SitePackerFactory(
 			cellLibrary["SRLC16E"],
 			cellLibrary["SRLC32E"]
 		)
+		val ffCells = setOf(
+			cellLibrary["FDCE"],
+			cellLibrary["FDRE"],
+			cellLibrary["FDSE"],
+			cellLibrary["FDPE"],
+			cellLibrary["LDCE"],
+			cellLibrary["LDPE"]
+		)
 
 		val routerFactory = object : ClusterRouterFactory<SitePackUnit> {
 			val pfRouter = BasicPathFinderRouterFactory(
@@ -294,6 +306,77 @@ private class SitePackerFactory(
 
 		override fun prepareDesign(design: CellDesign) {
 			insertLutRoutethroughs(design)
+			insertFFRoutethroughs(design)
+            println("Done preparing")
+		}
+
+        /**
+         * This identifies cases where both the CO[k] and O[k] pins on a CARRY4
+         * drive non-FF input signals.  This results in contention for the *OUTMUX
+         * to get both out of the slice.  In this case, a "permanent latch" is put
+         * on the O[k] pin's output signal so the CO[k] pin can use the *OUTMUX.
+         */
+        private fun insertFFRoutethroughs(design: CellDesign) {
+			val carry4 = cellLibrary["CARRY4"]
+
+			val cells = ArrayList(design.leafCells.toList())
+			cells.sortBy { it.name }
+			for (cell in cells) {
+				when (cell.libCell) {
+					carry4 -> {
+						for (i in 0..3) {
+							val copin = cell.getPin("CO[$i]")
+							val opin = cell.getPin("O[$i]")
+                            if (copin.net == null || opin.net == null)
+                                continue
+                            if (doesNotDriveFF(copin) && doesNotDriveFF(opin)) {
+                                insertFFRoutethrough(design, opin)
+                            }
+						}
+					}
+				}
+			}
+
+        }
+
+        /**
+         * Return true if this pin drives a flip flop's or latch's D input.
+         */
+        private fun doesNotDriveFF(pin: CellPin): Boolean {
+            val n = pin.net!!
+			for (sp in n.sinkPins)
+                if (sp.cell.libCell in ffCells && sp.name == "D")
+                    return false
+            return true
+        }
+
+
+		/**
+		 * Insert FF pass-through for the specified pin
+		 */
+		private fun insertFFRoutethrough(design: CellDesign, pin: CellPin) {
+			val net = pin.net
+			val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
+			val netName = design.getUniqueNetName("${net.name}-${pin.name}-pass")
+			val newCell = Cell(cellName, cellLibrary["LDCE"])
+			design.addCell(newCell)
+        	val newNet = CellNet(netName, NetType.WIRE)
+            design.addNet(newNet)
+
+            net.disconnectFromPin(pin)
+            net.connectToPin(newCell.getPin("Q"))
+
+			newNet.connectToPin(pin)
+			newNet.connectToPin(newCell.getPin("D"))
+
+            val vccNet = design.getNet("RapidSmithGlobalVCCNet")
+            val gndNet = design.getNet("RapidSmithGlobalGNDNet")
+            assert(vccNet != null)
+            assert(gndNet != null)
+            vccNet.connectToPin(newCell.getPin("G"))
+            vccNet.connectToPin(newCell.getPin("GE"))
+            gndNet.connectToPin(newCell.getPin("CLR"))
+
 		}
 
 		/**
@@ -318,8 +401,8 @@ private class SitePackerFactory(
 						let {
 							val cyinit = cell.getPin("CYINIT")!!
 							if (cyinit.isConnectedToNet && !cyinit.net.isStaticNet) {
-								val di0 = cell.getPin("DI[0]")
-								ensurePrecedingLut(design, di0)
+								ensurePrecedingLutA(design, cell.getPin("DI[0]"),
+										cell.getPin("S[0]"))
 							}
 						}
 					}
@@ -333,6 +416,67 @@ private class SitePackerFactory(
 			}
 		}
 
+        /*
+         * Insert LUT pass-through for the specified pin
+         */
+		private fun insertRoutethrough(design: CellDesign, pin: CellPin) {
+			val net = pin.net
+			val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
+			val netName = design.getUniqueNetName("${net.name}-${pin.name}-pass")
+			val newCell = Cell(cellName, cellLibrary["LUT1"])
+			newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
+			design.addCell(newCell)
+			net.disconnectFromPin(pin)
+			net.connectToPin(newCell.getPin("I0"))
+
+			val newNet = CellNet(netName, NetType.WIRE)
+			design.addNet(newNet)
+			newNet.connectToPin(pin)
+			newNet.connectToPin(newCell.getPin("O"))
+		}
+
+		/**
+		 * Handle ALUT route-through case since it involves AX pin as well.
+		 * Assumption: this is only called when the CYINIT pin is using the AX pin.
+		 * Cases LUT6 + null, LUT5 + null, null + LUT6, null + LUT5, tot > 5
+		 */
+		private fun ensurePrecedingLutA(design: CellDesign, di0Pin: CellPin, s0Pin: CellPin) {
+			if (di0Pin.net == null)
+				return
+			ensurePrecedingLut(design, di0Pin)
+
+			if (s0Pin.net == null)
+				return
+
+			val dCell = di0Pin.net.sourcePin.cell
+			val sCell = s0Pin.net.sourcePin.cell
+			if (pinCount(dCell, sCell)) {
+				// Don't insert duplicates
+				if (dCell != cellLibrary["LUT1"]) {
+					println("NOTE: inserting ALUT passthrough for DI[0] on cell ${di0Pin.cell}")
+					insertRoutethrough(design, di0Pin)
+				}
+				if (sCell != cellLibrary["LUT1"]) {
+					println("NOTE: inserting ALUT passthrough for S[0] on cell ${di0Pin.cell}")
+					insertRoutethrough(design, s0Pin)
+				}
+			}
+		}
+
+		/*
+		 * Count number of unique nets feeding the two LUT's
+		 */
+		private fun pinCount(a: Cell, b: Cell): Boolean {
+			val nets = HashSet<CellNet>()
+			for (cp in a.inputPins)
+				nets.add(cp.net)
+			for (cp in b.inputPins)
+				nets.add(cp.net)
+
+			return (nets.size > 5)
+		}
+
+
 		/**
 		 * Checks if the pin is driven by a LUT.  If not, inserts a pass-through LUT
 		 * before the pin.
@@ -343,18 +487,7 @@ private class SitePackerFactory(
 				if (!net.isStaticNet) {
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
-						val cellName = design.getUniqueCellName("${net.name}-${pin.name}-pass")
-						val netName = design.getUniqueNetName("${net.name}-${pin.name}-pass")
-						val newCell = Cell(cellName, cellLibrary["LUT1"])
-						newCell.properties.update("INIT", PropertyType.EDIF, "0x2'h2")
-						design.addCell(newCell)
-						net.disconnectFromPin(pin)
-						net.connectToPin(newCell.getPin("I0"))
-
-						val newNet = CellNet(netName, NetType.WIRE)
-						design.addNet(newNet)
-						newNet.connectToPin(pin)
-						newNet.connectToPin(newCell.getPin("O"))
+						insertRoutethrough(design, pin)
 					}
 				}
 			}
@@ -460,11 +593,11 @@ private fun releaseDIWires(
 				if (sourcePin.name == "MC31") {
 					when (sinkBel.name) {
 						"A6LUT", "A5LUT" -> toInvalidate.remove(
-							site.getWire("intrasite:SLICEM/ADI1MUX.BMC31"))
+								site.getWire("intrasite:SLICEM/ADI1MUX.BMC31"))
 						"B6LUT", "B5LUT" -> toInvalidate.remove(
-							site.getWire("intrasite:SLICEM/BDI1MUX.CMC31"))
+								site.getWire("intrasite:SLICEM/BDI1MUX.CMC31"))
 						"C6LUT", "C5LUT" -> toInvalidate.remove(
-							site.getWire("intrasite:SLICEM/CDI1MUX.DMC31"))
+								site.getWire("intrasite:SLICEM/CDI1MUX.DMC31"))
 					}
 				}
 
@@ -476,11 +609,11 @@ private fun releaseDIWires(
 //			if (cellType in setOf("SRLC32E", "SRLC16E")) {
 				when (sinkBel.name) {
 					"A6LUT", "A5LUT" -> toInvalidate.remove(
-						site.getWire("intrasite:SLICEM/ADI1MUX.BDI1"))
+							site.getWire("intrasite:SLICEM/ADI1MUX.BDI1"))
 					"B6LUT", "B5LUT" -> toInvalidate.remove(
-						site.getWire("intrasite:SLICEM/BDI1MUX.DI"))
+							site.getWire("intrasite:SLICEM/BDI1MUX.DI"))
 					"C6LUT", "C5LUT" -> toInvalidate.remove(
-						site.getWire("intrasite:SLICEM/CDI1MUX.DI"))
+							site.getWire("intrasite:SLICEM/CDI1MUX.DI"))
 				}
 //			}
 			}
@@ -692,7 +825,7 @@ private fun CellPin.findPinMapping(b: Bel): List<BelPin>? {
 		// already placed and so we know the bel.  In reality, you will
 		// usually be asking the question regarding a potential cell placement
 		// onto a  bel.
-		var pm = PinMapping.findPinMappingForCell(c, b.fullName)
+		val pm = PinMapping.findPinMappingForCell(c, b.fullName)
 		if (pm == null) {
 			throw IllegalArgumentException("No pin mapping found for ${c.type} -> ${b.name}")
 		}
