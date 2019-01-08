@@ -323,10 +323,9 @@ private class ZynqSitePackerFactory(
 		private fun insertFFRoutethroughs(design: CellDesign) {
 			val carry4 = cellLibrary["CARRY4"]
 
-			val cells = ArrayList(design.leafCells.toList())
+			val cells = ArrayList(design.inContextLeafCells.toList())
 			cells.sortBy { it.name }
 			for (cell in cells) {
-				//val cell = design.getCell("reg_InPort_WrBack_InPort_Mult1_shift4_0_to_InPort_WrBack_InPort_Add3_add_1_q_reg[5]_i_1")
 				when (cell.libCell) {
 					carry4 -> {
 						for (i in 0..3) {
@@ -334,7 +333,7 @@ private class ZynqSitePackerFactory(
 							val opin = cell.getPin("O[$i]")
 							if (copin.net == null || opin.net == null)
 								continue
-							if (doesNotDriveFF(copin) && doesNotDriveFF(opin)) {
+							if (doesNotDriveFFOrCarry4(copin) && doesNotDriveFFOrCarry4(opin)) {
 								insertFFRoutethrough(design, opin)
 							}
 						}
@@ -346,12 +345,14 @@ private class ZynqSitePackerFactory(
 
 		/**
 		 * Return true if this pin drives a flip flop's or latch's D input.
+		 * Also returns true if this pin is CO3 and it drives the CI pin of a CARRY4 cell.
 		 */
-		private fun doesNotDriveFF(pin: CellPin): Boolean {
-			val n = pin.net
-			assert(n != null)
+		private fun doesNotDriveFFOrCarry4(pin: CellPin): Boolean {
+			val n = pin.net!!
 			for (sp in n.sinkPins)
-				if (sp.cell.libCell in ffCells && sp.name.equals("D"))
+				if (sp.cell.libCell in ffCells && sp.name == "D")
+					return false
+				else if (pin.name == "CO[3]" && sp.cell.libCell == cellLibrary["CARRY4"] && sp.name == "CI")
 					return false
 			return true
 		}
@@ -497,7 +498,8 @@ private class ZynqSitePackerFactory(
 						insertRoutethrough(design, pin)
 					}
 					else if (net.sinkPins.count() > 1) {
-						insertRoutethrough(design, pin)
+						println("not needed for net " + net.name)
+						//insertRoutethrough(design, pin)
 					}
 				}
 			}

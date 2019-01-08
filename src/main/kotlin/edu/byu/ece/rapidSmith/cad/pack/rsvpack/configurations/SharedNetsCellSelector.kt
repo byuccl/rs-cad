@@ -125,12 +125,6 @@ class SharedNetsCellSelector(
 	}
 
 	private fun shouldFilterNet(net: CellNet): Boolean {
-		//if (net.name.equals("clk")) {
-		//	println("clk filter")
-		//}
-
-		// TODO: Add case for partition pins nets, specifically clk partition pin nets.
-	//	if (!net.hasPartitionPin() && (net.isStaticNet || net.pins.size > HIGH_FANOUT_LIMIT))
 		if (net.isStaticNet || net.pins.size > HIGH_FANOUT_LIMIT)
 			return true
 		for (pin in net.pins) {
@@ -233,7 +227,7 @@ class SharedNetsCellSelector(
 
 	private fun computeSecondaryCellGains(): MutableMap<Cell, Double> {
 		val primaryCells = getPrimaryCells()
-		val gains = LinkedHashMap<Cell, Double>()
+		val gains = HashMap<Cell, Double>()
 		for (primaryCell in primaryCells) {
 			val primaryGain = computeCellGain(primaryCell, cluster.cells)
 			val secondaryCells = getSecondaryCells(primaryCell)

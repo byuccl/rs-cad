@@ -126,6 +126,10 @@ class TableBasedRoutabilityChecker(
 	// treated as being outside the cluster
 	private fun initNetSource(net: CellNet) {
 		val source = Source.Builder()
+
+		if (net.sourcePin == null)
+			println("no")
+
 		when {
 			net.type == NetType.VCC -> {
 				source.vcc = true
@@ -708,8 +712,29 @@ class TableBasedRoutabilityChecker(
 					status = Routability.VALID
 			} else if (source.gnd) {
 				// valid if the source is gnd and unoccupied
-				if (entryPin in template.gndSources && !entryPin.bel.isOccupied())
+				if (entryPin in template.gndSources && !entryPin.bel.isOccupied()) {
+					// What if this BEL is a LUT5 and the LUT6 is occupied by a LUT6 cell?
+
+					//if (entryPin.bel.type == "LUT5") {
+
+						// Check if the 6LUT is occupied and if a 6-input LUT is mapped to it
+						//entryPin.bel.sources.iterator().next().bel.i
+						//val lut6Bel = entryPin.bel.fullName.substring(0, entryPin.bel.fullName.length - 4) + "6LUT"
+						//println("look at it")
+						//lut6Bel.isOccupied
+						//cluster.get
+
+
+						//substring(0, 1) + "6" +
+						//if (entryPin.bel.name.substring(0, 1))
+					//}
+
+
+					//if (entryPin.bel.is)
+
 					status = Routability.VALID
+				}
+
 			} else {
 				// the source doesn't match the requirement.  can't be a valid route
 				// but could be conditional if the source is not yet placed and can

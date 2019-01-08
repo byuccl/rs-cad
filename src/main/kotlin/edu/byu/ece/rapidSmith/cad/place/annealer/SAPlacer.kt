@@ -43,6 +43,7 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 		//println("Instances: " + clusters.size)
 		val allGroups = ArrayList(pdesign.groups)
 		val initialPlaceSuccessful = initPlacer.initialPlace(pdesign, pdevice, state)
+		println("Finished initial placement")
 
 		// Check to see if the initial placer was successful or not
 		if (!initialPlaceSuccessful) {
@@ -53,8 +54,8 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 		var currCost = state.currentCost
 		val initialCost = currCost
 
-//		println("Initial placement cost: $initialCost, " +
-//			"Initial Temperature: ${coolingSchedule.temperature}")
+		println("Initial placement cost: $initialCost, " +
+			"Initial Temperature: ${coolingSchedule.temperature}")
 
 		// Initialize time counter
 		val initTime = System.currentTimeMillis()
@@ -113,8 +114,8 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 			val moves = numMoves - prevNumMoves
 			val dTime = currTime - lastTime
 			val movesPerMiliSecond = moves.toDouble() / dTime
-//			println("\tTime: ${dTime.toDouble() / 1000} seconds. $moves moves. " +
-//				"Moves per second: ${movesPerMiliSecond * 1000}")
+			println("\tTime: ${dTime.toDouble() / 1000} seconds. $moves moves. " +
+				"Moves per second: ${movesPerMiliSecond * 1000}")
 			prevNumMoves = numMoves
 
 			coolingSchedule.update(coolingSchedule.stepsPerTemp, numMovesAccepted)
@@ -123,11 +124,11 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 		// Done. Reached the ending condition.
 
 		//System.out.println("Final cost: " + currCost);
-		//val timeInMiliSeconds = System.currentTimeMillis() - initTime
-		//val movesPerSecond = numMoves.toDouble() / timeInMiliSeconds * 1000
-		//println("Final cost: " + currCost + " (" + currCost / initialCost * 100 + "% of initial cost:" +
-		//	initialCost + ")")
-		//println(numMoves.toString() + " Moves in " + timeInMiliSeconds.toDouble() / 1000 + " seconds (" + movesPerSecond + " moves per second)")
+		val timeInMiliSeconds = System.currentTimeMillis() - initTime
+		val movesPerSecond = numMoves.toDouble() / timeInMiliSeconds * 1000
+		println("Final cost: " + currCost + " (" + currCost / initialCost * 100 + "% of initial cost:" +
+			initialCost + ")")
+		println(numMoves.toString() + " Moves in " + timeInMiliSeconds.toDouble() / 1000 + " seconds (" + movesPerSecond + " moves per second)")
 		finalizePlacement(state, pdesign)
 		pdesign.commit()
 	}

@@ -93,7 +93,7 @@ private class _RSVPack<out T: PackUnit>(
 
 		// Set the unclustered cells to all non-port cells in the design
 		// We don't want to pack port cells if doing partial reconfig - they are outside the reconfig. partition!
-		unclusteredCells += design.leafCells.toList().sortedBy { it.name }
+		unclusteredCells += design.inContextLeafCells.toList().sortedBy { it.name }
 		// remove the shared gnd and vcc cells
 		unclusteredCells -= design.vccNet.sourcePin.cell
 		unclusteredCells -= design.gndNet.sourcePin.cell
@@ -150,6 +150,9 @@ private class _RSVPack<out T: PackUnit>(
 			// choose a seed cell for a new cluster
 			val seedCell = seedSelector.nextSeed()
 
+			if (seedCell.name.equals("\$abc\$9470\$auto\$blifparse.cc:492:parse_blif\$9474.fpga_lut_0"))
+				println("check it")
+
 			var best: Cluster<T, *>? = null
 			for (type in clusterFactory.supportedPackUnits) {
 				// make sure we have more of this type available
@@ -186,6 +189,7 @@ private class _RSVPack<out T: PackUnit>(
 					s += "Input pin: ${cp.name.split("/").last()} is driven by net: $n \n"
 					s += "  which is cell: ${cp.net?.sourcePin?.cell?.name ?: "no cell"} --> ${cp.net?.sourcePin?.name ?: "no pin"} pin \n"
 				}
+				s += "$remainingCells remaining cells\n"
 				throw CadException("No valid pack unit for clusterChain " + seedCell.name + "\n" + s)
 			}
 

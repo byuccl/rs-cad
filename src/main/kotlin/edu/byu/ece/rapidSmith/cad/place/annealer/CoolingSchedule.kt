@@ -124,10 +124,12 @@ class DefaultCoolingSchedule<S: ClusterSite>(
 		oldCost = currCost
 
 		val groups = design.groups.toTypedArray()
+		println("Find initial temperature - Why does this sometimes get caught in a loop??")
 		temperature = 1.5 * findInitialTemperature(
 			state, groups, currCost, random, design, validator)
 		val numRealNets = getRealNets(design).size
 
+		println("set max range limit")
 		// TODO: Use the constraint rather than the device size
 		MAX_RANGE_LIMIT = device.columns + device.rows
 		rangeLimit = MAX_RANGE_LIMIT
