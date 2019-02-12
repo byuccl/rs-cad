@@ -307,7 +307,6 @@ private class SitePackerFactory(
 		override fun prepareDesign(design: CellDesign) {
 			insertLutRoutethroughs(design)
 			insertFFRoutethroughs(design)
-            println("Done preparing")
 		}
 
         /**
@@ -329,8 +328,8 @@ private class SitePackerFactory(
 							val opin = cell.getPin("O[$i]")
                             if (copin.net == null || opin.net == null)
                                 continue
-                            if (doesNotDriveFF(copin) && doesNotDriveFF(opin)) {
-                                insertFFRoutethrough(design, opin)
+                            if (doesNotDriveFFOrCarry4(copin) && doesNotDriveFFOrCarry4(opin)) {
+								insertFFRoutethrough(design, opin)
                             }
 						}
 					}
@@ -341,12 +340,15 @@ private class SitePackerFactory(
 
         /**
          * Return true if this pin drives a flip flop's or latch's D input.
+		 * Also returns true if this pin is CO3 and it drives the CI pin of a CARRY4 cell.
          */
-        private fun doesNotDriveFF(pin: CellPin): Boolean {
+        private fun doesNotDriveFFOrCarry4(pin: CellPin): Boolean {
             val n = pin.net!!
 			for (sp in n.sinkPins)
                 if (sp.cell.libCell in ffCells && sp.name == "D")
                     return false
+				else if (pin.name == "CO[3]" && sp.cell.libCell == cellLibrary["CARRY4"] && sp.name == "CI")
+					return false
             return true
         }
 
