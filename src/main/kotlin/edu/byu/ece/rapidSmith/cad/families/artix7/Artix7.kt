@@ -69,10 +69,14 @@ class SiteCadFlow {
 		design.leafCells.forEach { it.removePseudoPins() }
 		design.nets.forEach { it.disconnectFromPins(
 				it.pins.filter { it.isPseudoPin }) }
-		val ciPins = design.gndNet.sinkPins
+		val gndCiPins = design.gndNet.sinkPins
 				.filter { it.cell.libCell.name == "CARRY4" }
 				.filter { it.name == "CI"  }
-		design.gndNet.disconnectFromPins(ciPins)
+		design.gndNet.disconnectFromPins(gndCiPins)
+		val vccCiPins = design.vccNet.sinkPins
+				.filter { it.cell.libCell.name == "CARRY4" }
+				.filter { it.name == "CI"  }
+		design.vccNet.disconnectFromPins(vccCiPins)
 	}
 
 	companion object {
