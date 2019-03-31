@@ -83,7 +83,7 @@ class ZynqSiteCadFlow {
 	companion object {
 		@JvmStatic
 		fun main(args: Array<String>) {
-			val rscp = VivadoInterface.loadRSCP(args[0], true, EdifType.VIVADO)
+			val rscp = VivadoInterface.loadRSCP(args[0], true)
 			val design = rscp.design
 			val device = rscp.device
 			val flow = ZynqSiteCadFlow()
@@ -92,7 +92,7 @@ class ZynqSiteCadFlow {
 			val rscpFile = Paths.get(args[0]).toFile()
 			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
 			println("writing to $tcp")
-			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, ImplementationMode.REGULAR)
+			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, true, ImplementationMode.REGULAR)
 		}
 	}
 }
@@ -497,9 +497,9 @@ private class ZynqSitePackerFactory(
 					if (sourcePin.cell.libCell !in lutCells) {
 						insertRoutethrough(design, pin)
 					}
-					else if (net.sinkPins.count() > 1) {
-						println("not needed for net " + net.name)
-						//insertRoutethrough(design, pin)
+					else if (sourcePin.cell.libCell in lutCells && net.sinkPins.count() > 1) {
+						//println("not needed for net " + net.name)
+						insertRoutethrough(design, pin)
 					}
 				}
 			}

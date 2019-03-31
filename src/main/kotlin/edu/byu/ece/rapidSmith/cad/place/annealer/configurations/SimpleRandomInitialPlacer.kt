@@ -29,7 +29,7 @@ class SimpleRandomInitialPlacer<S: ClusterSite>(
 
 		// Create a list of groups that need to be placed
 		val orderedGroupsToPlace = ArrayList(groupsToPlace)
-		Collections.shuffle(orderedGroupsToPlace, this.random)
+		orderedGroupsToPlace.shuffle(this.random)
 
 		// Flag for indicating that all the groups were successfully placed
 		var allGroupsPlaced = true
@@ -38,13 +38,13 @@ class SimpleRandomInitialPlacer<S: ClusterSite>(
 			val placementRegion = state.getPlacementRegionForGroup(group)
 			val possibleAnchorSites = placementRegion.validSites
 			if (possibleAnchorSites.isEmpty()) {
-				println("Warning: no placeable sites for group " + group)
-				println("Constraint:" + placementRegion.toString())
+				println("Warning: no placeable sites for group $group")
+				println("Constraint:$placementRegion")
 				allGroupsPlaced = false
 				continue
 			}
 
-			// Iterate until a free size has been selected or there are no
+			// Iterate until a free site has been selected or there are no
 			// free sites.
 			val orderedAnchorSites = ArrayList<S>(possibleAnchorSites)
 			var component: MoveComponent<S>?

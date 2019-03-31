@@ -127,8 +127,7 @@ class TableBasedRoutabilityChecker(
 	private fun initNetSource(net: CellNet) {
 		val source = Source.Builder()
 
-		if (net.sourcePin == null)
-			println("no")
+		assert (net.sourcePin != null)
 
 		when {
 			net.type == NetType.VCC -> {

@@ -89,7 +89,7 @@ class SiteCadFlow {
 			val rscpFile = Paths.get(args[0]).toFile()
 			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
 			println("writing to $tcp")
-			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, ImplementationMode.REGULAR)
+			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, true, ImplementationMode.REGULAR)
 		}
 	}
 }
@@ -491,6 +491,9 @@ private class SitePackerFactory(
 				if (!net.isStaticNet) {
 					val sourcePin = net.sourcePin!!
 					if (sourcePin.cell.libCell !in lutCells) {
+						insertRoutethrough(design, pin)
+					}
+					else if (sourcePin.cell.libCell in lutCells && net.sinkPins.size > 1) {
 						insertRoutethrough(design, pin)
 					}
 				}

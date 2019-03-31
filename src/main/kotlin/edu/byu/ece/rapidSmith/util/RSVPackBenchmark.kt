@@ -40,7 +40,7 @@ fun main(argv: Array<String>) {
 	}
 
 	val timing_report = Paths.get("$benchname.twr")
-	VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, ImplementationMode.REGULAR)
+	VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, true, ImplementationMode.REGULAR)
 	var startTime: Long = -1
 	var routeTime: Long = -1
 	val final = VivadoProject.from_tcp(benchname, tcp).use {

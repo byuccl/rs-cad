@@ -97,11 +97,13 @@ class PlacerDesign<S : ClusterSite>(
 						// so routers can figure out what site pins to route to
 
 					}
+
 					rt.wire.reverseConnectedPin?.let { net.addSinkRouteTree(it, rt) }
 					for (t in rt) {
 						if (t.isLeaf && t.connectedSitePin != null) {
 							net.addSourceSitePin(t.connectedSitePin!!)
 						}
+
 						if (t.isLeaf && t.connectedBelPin != null) {
 							net.addSinkRouteTree(t.connectedBelPin!!, t)
 						}

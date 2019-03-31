@@ -124,12 +124,12 @@ class DefaultCoolingSchedule<S: ClusterSite>(
 		oldCost = currCost
 
 		val groups = design.groups.toTypedArray()
-		println("Find initial temperature - Why does this sometimes get caught in a loop??")
+		//println("Find initial temperature - Why does this sometimes get caught in a loop??")
 		temperature = 1.5 * findInitialTemperature(
 			state, groups, currCost, random, design, validator)
 		val numRealNets = getRealNets(design).size
 
-		println("set max range limit")
+		//println("set max range limit")
 		// TODO: Use the constraint rather than the device size
 		MAX_RANGE_LIMIT = device.columns + device.rows
 		rangeLimit = MAX_RANGE_LIMIT
@@ -263,10 +263,10 @@ private fun <S: ClusterSite> findInitialTemperature(
 	val temperature = stdDev / 15
 
 	// Print debug messages regarding the computation of the initial temperature
-//	println("Initial temperature = " + temperature + " computed from " + allMoveDeltaCosts.size + " moves.")
-//	println("\tAvg delta cost= " + calcMean(allMoveDeltaCosts) + " std=" + stdDev)
-//	println("\tAvg move cost=" + calcMean(allMoveCosts) + " std dev=" + calcStdDev(allMoveCosts) +
-//		" temp would be " + 20 * calcStdDev(allMoveCosts))
+	//println("Initial temperature = " + temperature + " computed from " + allMoveDeltaCosts.size + " moves.")
+	//println("\tAvg delta cost= " + calcMean(allMoveDeltaCosts) + " std=" + stdDev)
+	//println("\tAvg move cost=" + calcMean(allMoveCosts) + " std dev=" + calcStdDev(allMoveCosts) +
+	//	" temp would be " + 20 * calcStdDev(allMoveCosts))
 	return temperature
 }
 

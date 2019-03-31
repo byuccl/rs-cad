@@ -89,7 +89,7 @@ private class _RSVPack<out T: PackUnit>(
 		utils.prepareDesign(design)
 
 		// set the unclustered cells to all cells in the design or to non-port cells in the design for RMs.
-		// We don't want to pack OOC ports if the design is an RM design.
+		// We don't want to pack OOC ponot needed for netrts if the design is an RM design.
 
 		// Set the unclustered cells to all non-port cells in the design
 		// We don't want to pack port cells if doing partial reconfig - they are outside the reconfig. partition!
@@ -139,19 +139,16 @@ private class _RSVPack<out T: PackUnit>(
 
 	private fun packNetlist() {
 		var remainingCells = unclusteredCells.size
-		println("Cells remaining to pack " + remainingCells)
+		//println("Cells remaining to pack " + remainingCells)
 
 		// do until all cells have been packed
 		while (!unclusteredCells.isEmpty()) {
-			if (unclusteredCells.size % 1000 > remainingCells % 1000)
-				println("Cells remaining to pack " + unclusteredCells.size)
+			//if (unclusteredCells.size % 1000 > remainingCells % 1000)
+				//println("Cells remaining to pack " + unclusteredCells.size)
 			remainingCells = unclusteredCells.size
 
 			// choose a seed cell for a new cluster
 			val seedCell = seedSelector.nextSeed()
-
-			if (seedCell.name.equals("\$abc\$9470\$auto\$blifparse.cc:492:parse_blif\$9474.fpga_lut_0"))
-				println("check it")
 
 			var best: Cluster<T, *>? = null
 			for (type in clusterFactory.supportedPackUnits) {

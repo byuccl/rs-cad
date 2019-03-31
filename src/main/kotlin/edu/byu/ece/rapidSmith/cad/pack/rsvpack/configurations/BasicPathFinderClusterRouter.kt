@@ -9,9 +9,7 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.ClusterRouterResult
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.router.PinMapper
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules.Routability
 import edu.byu.ece.rapidSmith.design.NetType
-import edu.byu.ece.rapidSmith.design.subsite.CellNet
-import edu.byu.ece.rapidSmith.design.subsite.CellPin
-import edu.byu.ece.rapidSmith.design.subsite.RouteTree
+import edu.byu.ece.rapidSmith.design.subsite.*
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.getBelPin
 import edu.byu.ece.rapidSmith.util.getSitePinConnection
@@ -45,10 +43,17 @@ private class BasicPathFinderRouter<T: PackUnit>(
 	private val maxIterations: Int
 ) : ClusterRouter<T> {
 	private val clusterOutputs: Terminal
+	private val libCells: CellLibrary
 
 	init {
 		clusterOutputs = Terminal.Builder()
 		clusterOutputs.wires += template.outputs
+
+		// TODOO: Replace with parameter
+		libCells = CellLibrary(RSEnvironment.defaultEnv()
+				.getPartFolderPath(template.device.partName)
+				.resolve("cellLibrary.xml"))
+
 	}
 
 	private val template: PackUnitTemplate
@@ -57,10 +62,35 @@ private class BasicPathFinderRouter<T: PackUnit>(
 	override fun route(cluster: Cluster<T, *>): ClusterRouterResult {
 		val router = Impl(cluster)
 		val result = router.routeCluster(cluster)
-		return if (result == Routability.VALID)
-			ClusterRouterResult(true, router.routeTreeMap, router.belPinMap)
+
+		if (result == Routability.VALID) {
+
+			// Identify Static Source BELs after path finding has completed
+			for (net in cluster.nets.stream().filter { t: CellNet? -> t!!.isStaticNet }) {
+				val rts = router.routeTreeMap[net]
+
+				for (rt in rts!!) {
+					val sourceWire = rt.wire
+					if (sourceWire.name.contains("O6") || sourceWire.name.contains("O5")) {
+						val bel = sourceWire.getBelPin(false)!!.bel
+						// If the LUT6 or LUT5 BEL is not occupied, this is an implied static source BEL.
+						if (!cluster.isBelOccupied(bel)) {
+							// Add a cell for the static source BEL so we can attach pseudo pins if needed.
+							//val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"), true)
+							val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"), false)
+							cell.initPackingInfo()
+							cell.getPin("O").setPinToGlobalNet(net)
+							net.design.addCell(cell)
+							cluster.addCell(bel, cell)
+						}
+					}
+				}
+			}
+
+			return ClusterRouterResult(true, router.routeTreeMap, router.belPinMap)
+		}
 		else
-			ClusterRouterResult(false)
+			return ClusterRouterResult(false)
 	}
 
 	private inner class Impl(val cluster: Cluster<T, *>) {

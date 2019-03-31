@@ -20,7 +20,7 @@ fun main(argv: Array<String>) {
     flow.run(design, device)
     val tcp = benchmarkPath.parent.resolve("$benchname.tcp")
     val timing_report = Paths.get("$benchname.twr")
-    VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, ImplementationMode.REGULAR)
+    VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, true, ImplementationMode.REGULAR)
     val final = VivadoProject.from_tcp(benchname, tcp).use {
         println(it.place().joinToString(System.lineSeparator()) { it })
         println(it.route().joinToString(System.lineSeparator()) { it })

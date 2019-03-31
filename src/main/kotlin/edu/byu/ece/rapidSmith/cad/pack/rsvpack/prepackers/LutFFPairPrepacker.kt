@@ -53,7 +53,7 @@ class Artix7LutFFPrepackerFactory(
 		// Right now, don't worry about SRLs because Yosys won't make them.
 		// Do the same for non-supported LUTRAMs.
 
-		// The following should be removed for Maverick:
+		// The following should be removed for MaverickWIP:
 
 //		lutramLibCells[cellLibrary["SRLC16E"]] = "Q"
 //		lutramLibCells[cellLibrary["SRLC32E"]] = "Q"
