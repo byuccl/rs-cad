@@ -137,7 +137,7 @@ class MultiBelPackStrategy<in T: PackUnit>(
 
 			// conditional means: what we tried couldn't be done.
 			// I placed it...looking forward, I couldn't say that it's not possible
-			// a chance it could be accomplished if I add thjings in different locations
+			// a chance it could be accomplished if I add things in different locations
 			// go forward, see if I can find something.
 			// by this point I've followed the conditional all the way through, discovered
 			// we couldn't actually do it. revert choice.

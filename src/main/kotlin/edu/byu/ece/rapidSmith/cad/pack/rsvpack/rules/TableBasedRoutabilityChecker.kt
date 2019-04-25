@@ -712,25 +712,6 @@ class TableBasedRoutabilityChecker(
 			} else if (source.gnd) {
 				// valid if the source is gnd and unoccupied
 				if (entryPin in template.gndSources && !entryPin.bel.isOccupied()) {
-					// What if this BEL is a LUT5 and the LUT6 is occupied by a LUT6 cell?
-
-					//if (entryPin.bel.type == "LUT5") {
-
-						// Check if the 6LUT is occupied and if a 6-input LUT is mapped to it
-						//entryPin.bel.sources.iterator().next().bel.i
-						//val lut6Bel = entryPin.bel.fullName.substring(0, entryPin.bel.fullName.length - 4) + "6LUT"
-						//println("look at it")
-						//lut6Bel.isOccupied
-						//cluster.get
-
-
-						//substring(0, 1) + "6" +
-						//if (entryPin.bel.name.substring(0, 1))
-					//}
-
-
-					//if (entryPin.bel.is)
-
 					status = Routability.VALID
 				}
 
@@ -805,6 +786,7 @@ class TableBasedRoutabilityChecker(
 	}
 
 	/**
+	 * TODO: Just move this completely to the cluster class. Make it part of cluster's isBelOccupied method.
 	 * Checks if the BEL is occupied in the cluster.  A BEL is occupied if the BEL is
 	 * being used or, if it is a LUT, the corresponding LUT5/LUT6 pair does not prevent
 	 * it from being used as a static source.

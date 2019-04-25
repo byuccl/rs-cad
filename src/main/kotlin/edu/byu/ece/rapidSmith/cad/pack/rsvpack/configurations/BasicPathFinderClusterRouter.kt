@@ -49,7 +49,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 		clusterOutputs = Terminal.Builder()
 		clusterOutputs.wires += template.outputs
 
-		// TODOO: Replace with parameter
+		// TODO: Replace with parameter
 		libCells = CellLibrary(RSEnvironment.defaultEnv()
 				.getPartFolderPath(template.device.partName)
 				.resolve("cellLibrary.xml"))
@@ -143,6 +143,48 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			}.toMap(routePins)
 		}
 
+		/**
+		 * TODO: This method is already in TableBasedRoutabilityChecker.kt. Put this somewhere
+		 * where both classes can access it!
+		 * Checks if the BEL is occupied in the cluster.  A BEL is occupied if the BEL is
+		 * being used or, if it is a LUT, the corresponding LUT5/LUT6 pair does not prevent
+		 * it from being used as a static source.
+		 */
+		private fun Bel.isOccupied(): Boolean {
+			val belOccupied = cluster.isBelOccupied(this)
+			if (belOccupied)
+				return true
+
+			val belName = name
+			if (belName.endsWith("5LUT")) {
+				// get the cell at the corresponding lut6 BEL
+				val lut6Name = belName[0] + "6LUT"
+				val lut6 = site.getBel(lut6Name)
+				val cellAtLut6 = cluster.getCellAtBel(lut6) ?: return false
+
+				// if the cell at the 6LUT uses all 6 inputs, then the 5LUT BEL is
+				// occupied by the 6LUT cell.
+				if (cellAtLut6.libCell.numLutInputs == 6)
+					return true
+
+				// checks that the cell placed here is not a lutram (I think)
+				// a lutram would prevent this cell from being a static source
+				if (!cellAtLut6.libCell.name.startsWith("LUT"))
+					return true
+			} else if (belName.endsWith("6LUT")) {
+				// get the cell at the corresponding lut5 BEL
+				val lut5Name = belName[0] + "5LUT"
+				val lut5 = site.getBel(lut5Name)
+				val cellAtLut5 = cluster.getCellAtBel(lut5) ?: return false
+
+				// checks that the cell placed here is not a lutram (I think)
+				// a lutram would prevent this cell from being a static source
+				if (!cellAtLut5.libCell.name.startsWith("LUT"))
+					return true
+			}
+			return false
+		}
+
 		// initializes the source pin info for a new net. the source at this stage is
 		// treated as being outside the cluster
 		private fun initNetSource(net: CellNet): Source {
@@ -150,11 +192,17 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			when {
 				net.type == NetType.VCC -> {
 					source.wires += template.inputs
-					source.wires += template.vccSources.map { it.wire }
+
+					// Only add the LUT O5 pins as sources the LUT is unoccupied.
+					val vccSources = template.vccSources.filter { belPin ->  !belPin.bel.isOccupied()}
+					source.wires += vccSources.map { it.wire }
 				}
 				net.type == NetType.GND -> {
 					source.wires += template.inputs
-					source.wires += template.gndSources.map { it.wire }
+
+					// Only add the LUT O5 pins as sources the LUT is unoccupied.
+					val gndSources = template.gndSources.filter { belPin ->  !belPin.bel.isOccupied()}
+					source.wires += gndSources.map { it.wire }
 				}
 				net.sourcePin.isPartitionPin -> {
 					// TODO: Handle partition pins intelligently
