@@ -162,6 +162,11 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					val gndSources = template.gndSources.filter {belPin ->  !cluster.isBelOccupied(belPin.bel)}
 					source.wires += gndSources.map { it.wire }
 				}
+				net.sourcePin.isPartitionPin -> {
+					// TODO: Handle partition pins intelligently
+					// This net has no source because the source is out of the boundaries of the partial device.
+					initOutsidePartialDeviceSource(source)
+				}
 				else -> {
 					val sourcePin = net.sourcePin
 					val sourceCell = sourcePin.cell
