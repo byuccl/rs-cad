@@ -65,9 +65,42 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 
 	operator fun contains(cell: Cell): Boolean = hasCell(cell)
 
-	/** Returns `true` if [bel] is used in this cluster */
+	/** Checks if the [bel] is occupied in the cluster.
+	 * A BEL is occupied if the BEL is being used or, if it is a LUT,
+	 * the corresponding LUT5/LUT6 pair does not prevent it from being used as a static source.
+	*/
 	fun isBelOccupied(bel: Bel): Boolean {
-		return bel in placementMap
+		if (bel in placementMap)
+			return true
+
+			val belName = name
+			if (belName.endsWith("5LUT")) {
+				// get the cell at the corresponding lut6 BEL
+				val lut6Name = belName[0] + "6LUT"
+				val lut6 = bel.site.getBel(lut6Name)
+				val cellAtLut6 = placementMap[lut6] ?: return false
+
+				// if the cell at the 6LUT uses all 6 inputs, then the 5LUT BEL is
+				// occupied by the 6LUT cell.
+				if (cellAtLut6.libCell.numLutInputs == 6)
+					return true
+
+				// checks that the cell placed here is not a lutram (I think)
+				// a lutram would prevent this cell from being a static source
+				if (!cellAtLut6.libCell.name.startsWith("LUT"))
+					return true
+			} else if (belName.endsWith("6LUT")) {
+				// get the cell at the corresponding lut5 BEL
+				val lut5Name = belName[0] + "5LUT"
+				val lut5 = bel.site.getBel(lut5Name)
+				val cellAtLut5 = placementMap[lut5] ?: return false
+
+				// checks that the cell placed here is not a lutram (I think)
+				// a lutram would prevent this cell from being a static source
+				if (!cellAtLut5.libCell.name.startsWith("LUT"))
+					return true
+			}
+			return false
 	}
 
 	/** Returns `true` if all Bels in this cluster are occupied. */

@@ -307,7 +307,6 @@ private class SitePackerFactory(
 		override fun prepareDesign(design: CellDesign) {
 			insertLutRoutethroughs(design)
 			insertFFRoutethroughs(design)
-            println("Done preparing")
 		}
 
         /**
@@ -322,7 +321,6 @@ private class SitePackerFactory(
 			val cells = ArrayList(design.leafCells.toList())
 			cells.sortBy { it.name }
 			for (cell in cells) {
-			//val cell = design.getCell("reg_InPort_WrBack_InPort_Mult1_shift4_0_to_InPort_WrBack_InPort_Add3_add_1_q_reg[5]_i_1")
 				when (cell.libCell) {
 					carry4 -> {
 						for (i in 0..3) {
@@ -330,8 +328,8 @@ private class SitePackerFactory(
 							val opin = cell.getPin("O[$i]")
                             if (copin.net == null || opin.net == null)
                                 continue
-                            if (doesNotDriveFF(copin) && doesNotDriveFF(opin)) {
-                                insertFFRoutethrough(design, opin)
+                            if (doesNotDriveFFOrCarry4(copin) && doesNotDriveFFOrCarry4(opin)) {
+								insertFFRoutethrough(design, opin)
                             }
 						}
 					}
@@ -342,13 +340,15 @@ private class SitePackerFactory(
 
         /**
          * Return true if this pin drives a flip flop's or latch's D input.
+		 * Also returns true if this pin is CO3 and it drives the CI pin of a CARRY4 cell.
          */
-        private fun doesNotDriveFF(pin: CellPin): Boolean {
-            val n = pin.net
-            assert(n != null)
-            for (sp in n.sinkPins)
-                if (sp.cell.libCell in ffCells && sp.name.equals("D"))
+        private fun doesNotDriveFFOrCarry4(pin: CellPin): Boolean {
+            val n = pin.net!!
+			for (sp in n.sinkPins)
+                if (sp.cell.libCell in ffCells && sp.name == "D")
                     return false
+				else if (pin.name == "CO[3]" && sp.cell.libCell == cellLibrary["CARRY4"] && sp.name == "CI")
+					return false
             return true
         }
 
@@ -379,7 +379,6 @@ private class SitePackerFactory(
             vccNet.connectToPin(newCell.getPin("GE"))
             gndNet.connectToPin(newCell.getPin("CLR"))
 
-            //println("NOTE: insertingFFRoutethrough on cell ${pin.cell.name}, pin ${pin.name}")
 		}
 
 		/**
@@ -436,7 +435,6 @@ private class SitePackerFactory(
 			design.addNet(newNet)
 			newNet.connectToPin(pin)
 			newNet.connectToPin(newCell.getPin("O"))
-			//println("NOTE: insertingRoutethrough on cell ${pin.cell.name}, pin ${pin.name}")
 		}
 
 		/**
@@ -471,13 +469,13 @@ private class SitePackerFactory(
 		 * Count number of unique nets feeding the two LUT's
 		 */
 		private fun pinCount(a: Cell, b: Cell): Boolean {
-			var nets = HashSet<CellNet>()
+			val nets = HashSet<CellNet>()
 			for (cp in a.inputPins)
-				nets.add(cp.net);
+				nets.add(cp.net)
 			for (cp in b.inputPins)
-				nets.add(cp.net);
+				nets.add(cp.net)
 
-			return (nets.size > 5);
+			return (nets.size > 5)
 		}
 
 
@@ -653,11 +651,11 @@ private fun releaseDIWires(
 				if (sourcePin.name == "MC31") {
 					when (sinkBel.name) {
 						"A6LUT", "A5LUT" -> toInvalidate.remove(
-							site.getWire("intrasite:SLICEM/ADI1MUX.BMC31"))
+								site.getWire("intrasite:SLICEM/ADI1MUX.BMC31"))
 						"B6LUT", "B5LUT" -> toInvalidate.remove(
-							site.getWire("intrasite:SLICEM/BDI1MUX.CMC31"))
+								site.getWire("intrasite:SLICEM/BDI1MUX.CMC31"))
 						"C6LUT", "C5LUT" -> toInvalidate.remove(
-							site.getWire("intrasite:SLICEM/CDI1MUX.DMC31"))
+								site.getWire("intrasite:SLICEM/CDI1MUX.DMC31"))
 					}
 				}
 
@@ -669,11 +667,11 @@ private fun releaseDIWires(
 //			if (cellType in setOf("SRLC32E", "SRLC16E")) {
 				when (sinkBel.name) {
 					"A6LUT", "A5LUT" -> toInvalidate.remove(
-						site.getWire("intrasite:SLICEM/ADI1MUX.BDI1"))
+							site.getWire("intrasite:SLICEM/ADI1MUX.BDI1"))
 					"B6LUT", "B5LUT" -> toInvalidate.remove(
-						site.getWire("intrasite:SLICEM/BDI1MUX.DI"))
+							site.getWire("intrasite:SLICEM/BDI1MUX.DI"))
 					"C6LUT", "C5LUT" -> toInvalidate.remove(
-						site.getWire("intrasite:SLICEM/CDI1MUX.DI"))
+							site.getWire("intrasite:SLICEM/CDI1MUX.DI"))
 				}
 //			}
 			}
@@ -885,7 +883,7 @@ private fun CellPin.findPinMapping(b: Bel): List<BelPin>? {
 		// already placed and so we know the bel.  In reality, you will
 		// usually be asking the question regarding a potential cell placement
 		// onto a  bel.
-		var pm = PinMapping.findPinMappingForCell(c, b.fullName)
+		val pm = PinMapping.findPinMappingForCell(c, b.fullName)
 		if (pm == null) {
 			throw IllegalArgumentException("No pin mapping found for ${c.type} -> ${b.name}")
 		}
