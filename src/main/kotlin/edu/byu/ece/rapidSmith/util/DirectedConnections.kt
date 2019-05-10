@@ -30,6 +30,10 @@ class SitePinConnection internal constructor(
 	private val pin: SitePin,
 	private val dir: PinConnectionDirection
 ) : Connection() {
+	override fun isDirectConnection(): Boolean {
+		return true;
+	}
+
 	override fun getRoutethroughSite(): Site {
 		TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
 	}

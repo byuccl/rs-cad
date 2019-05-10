@@ -69,14 +69,16 @@ private class Mixing5And6LutsRule(
 
 		if (cluster.isBelOccupied(lut6) && cluster.isBelOccupied(lut5)) {
 			val cellAtLut6 = cluster.getCellAtBel(lut6)!!
+
+			// If the 6LUT BEL has a cell that uses all 6 inputs
 			if (cellAtLut6.libCell.name in LUT6TYPES) {
-				// QUESTION: Why did I comment this out before?
-				val cellAtLut5 = cluster.getCellAtBel(lut5)!!
 				return false
-				// TODO See if we can do a 5UT and 6LUT together
-				// return areEquationsCompatible(cellAtLut6, cellAtLut5)
 			} else {
 				assert(cellAtLut6.libCell.name in LUT5TYPES) { "LUT type is: ${cellAtLut6.libCell.name}" }
+
+				// Check if these LUTs are compatible
+				val cellAtLut5 = cluster.getCellAtBel(lut5)!!
+				return areEquationsCompatible(cellAtLut6, cellAtLut5)
 			}
 		}
 
@@ -84,9 +86,17 @@ private class Mixing5And6LutsRule(
 	}
 
 	private fun areEquationsCompatible(cellAtLut6: Cell, cellAtLut5: Cell): Boolean {
-		val initString6 = cellAtLut6.lutContents
-		val initString5 = cellAtLut5.lutContents
-		return initString6 and 0x0FFFFFFFFL == initString5
+		// There can be at most 5 unique inputs for both cells combined
+		val lut5InputNets = cellAtLut5.inputNets
+		val lut6InputNets = cellAtLut6.inputNets
+
+		// Get the number of unique input nets between the two cells
+		// TODO: This assumes that a LUT won't have the same net as an input pin more than once. Is this valid?
+		lut5InputNets.addAll(lut6InputNets)
+
+		if (lut5InputNets.size > 5)
+			return false
+		return true
 	}
 
 	override fun revert() {}

@@ -263,10 +263,10 @@ private fun <S: ClusterSite> findInitialTemperature(
 	val temperature = stdDev / 15
 
 	// Print debug messages regarding the computation of the initial temperature
-	//println("Initial temperature = " + temperature + " computed from " + allMoveDeltaCosts.size + " moves.")
-	//println("\tAvg delta cost= " + calcMean(allMoveDeltaCosts) + " std=" + stdDev)
-	//println("\tAvg move cost=" + calcMean(allMoveCosts) + " std dev=" + calcStdDev(allMoveCosts) +
-	//	" temp would be " + 20 * calcStdDev(allMoveCosts))
+	println("Initial temperature = " + temperature + " computed from " + allMoveDeltaCosts.size + " moves.")
+	println("\tAvg delta cost= " + calcMean(allMoveDeltaCosts) + " std=" + stdDev)
+	println("\tAvg move cost=" + calcMean(allMoveCosts) + " std dev=" + calcStdDev(allMoveCosts) +
+		" temp would be " + 20 * calcStdDev(allMoveCosts))
 	return temperature
 }
 
