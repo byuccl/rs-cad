@@ -55,16 +55,18 @@ class PlacerState<S : ClusterSite>(
 ) {
 	private val groupAnchorList = MutableList<S?>(design.groups.size) { null }
 	private val usedSitesGrid = ArrayGrid<Cluster<*, S>?>(device.grid.dimensions) { null } // TODO replace with gridOfNulls
-	private val _placedGroups = ArrayList<PlacementGroup<S>>()
-	private val _unplacedGroups = ArrayList(design.groups)
 
 	private val groupRegions = createPlacementRegions(design, device, gprFactory)
 
 	/** Groups that are currently placed */
-	val placedGroups: List<PlacementGroup<S>> get() = _placedGroups
+	val groups: List<PlacementGroup<S>> get() = design.groups
+
+	val placedGroups: Sequence<PlacementGroup<S>> get() = design.groups.asSequence()
+		.filter { isGroupPlaced(it) }
 
 	/** Groups that are currently unplaced */
-	val unplacedGroups: List<PlacementGroup<S>> get() = _unplacedGroups
+	val unplacedGroups: Sequence<PlacementGroup<S>> get() = design.groups.asSequence()
+		.filter { !isGroupPlaced(it) }
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Methods for querying the basic current state of placement. None of these methods change

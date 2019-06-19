@@ -33,11 +33,11 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 
 		// Must displace some instances to make room for other instances
 		System.out.println("Displacement initial placement required " +
-			"(${state.unplacedGroups.size} of ${design.groups.size} " +
+			"(${state.unplacedGroups.count()} of ${state.groups.size} " +
 			"groups displaced)")
 
 		// Create a priority queue of placement groups that need to be placed.
-		val unplacedGroupQueue = PriorityQueue(state.unplacedGroups.size,
+		val unplacedGroupQueue = PriorityQueue(state.unplacedGroups.count(),
 			PlacementGroupPlacementComparator(state))
 		unplacedGroupQueue.addAll(state.unplacedGroups)
 
@@ -146,6 +146,7 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 			// Find the cost of placing this group at this site
 			var anchorSiteCost = state.getSitesForGroup(it.group, it.newAnchor!!)!!
 				.sumByDouble { siteCost.getSiteCost(it).toDouble() }
+
 			// we've already confirmed it is placeable at this location
 			if (anchorSiteCost == 0.0)
 				anchorSiteCost = 1.0
@@ -238,7 +239,7 @@ private class PlacementGroupPlacementComparator<S : ClusterSite>(
 ) : Comparator<PlacementGroup<S>> {
 	private val groupProbabilities: Map<PlacementGroup<S>, Double>
 	init {
-		groupProbabilities = LinkedHashMap(2 * s.placedGroups.size)
+		groupProbabilities = LinkedHashMap(2 * s.placedGroups.count())
 		for (g in s.placedGroups) {
 			val grid = s.getPlacementRegionForGroup(g)
 			val possibleAnchorSites = grid.validSites
@@ -251,7 +252,6 @@ private class PlacementGroupPlacementComparator<S : ClusterSite>(
 			}
 			groupProbabilities[g] = placementProbability
 		}
-
 	}
 
 	override fun compare(a: PlacementGroup<S>, b: PlacementGroup<S>): Int {
