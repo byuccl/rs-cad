@@ -21,19 +21,18 @@ class SimpleRandomInitialPlacer<S: ClusterSite>(
 	override fun initialPlace(
 		design: PlacerDesign<S>, device: PlacerDevice<S>, state: PlacerState<S>
 	): Boolean {
-		val groupsToPlace = state.unplacedGroups
+		val groupsToPlace = state.unplacedGroups.toMutableList()
 
 		// See if placement is necessary
-		if (groupsToPlace.isEmpty())
+		if (groupsToPlace.any())
 			return true
 
 		// Create a list of groups that need to be placed
-		val orderedGroupsToPlace = ArrayList(groupsToPlace)
-		orderedGroupsToPlace.shuffle(this.random)
+		groupsToPlace.shuffle(this.random)
 
 		// Flag for indicating that all the groups were successfully placed
 		var allGroupsPlaced = true
-		for (group in orderedGroupsToPlace) {
+		for (group in groupsToPlace) {
 			// Determine the number of possible placement anchors and thus the placement probability
 			val placementRegion = state.getPlacementRegionForGroup(group)
 			val possibleAnchorSites = placementRegion.validSites
