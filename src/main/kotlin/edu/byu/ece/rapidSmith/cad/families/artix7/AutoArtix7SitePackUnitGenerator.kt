@@ -14,6 +14,9 @@ import edu.byu.ece.rapidSmith.device.families.Artix7.*
 import edu.byu.ece.rapidSmith.util.FileTools
 import java.io.IOException
 import java.nio.file.Files
+import java.util.Arrays
+import java.util.Arrays.asList
+import edu.byu.ece.rapidSmith.device.SiteType
 
 class AutoArtix7SitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
 	override val PACKABLE_SITE_TYPES: List<SiteType>
@@ -152,6 +155,18 @@ class AutoArtix7SitePackUnitGenerator(val device: Device) : SitePackUnitGenerato
 		}
 	}
 
+	fun getTopYCoordinate(type: SiteType): Int {
+		return device.sites.values.stream().filter { site -> site.possibleTypes.contains(type)}
+				.max(Comparator.comparing(Site::getInstanceY)).get().instanceY
+
+
+	}
+
+	fun getBottomYCoordinate(type: SiteType): Int {
+		return device.sites.values.stream().filter { site -> site.possibleTypes.contains(type)}
+				.min(Comparator.comparing(Site::getInstanceY)).get().instanceY
+	}
+
 	/**
 	 * Assign valid site instances for every packable site type. The templates are based off of these instances.
 	 */
@@ -171,7 +186,7 @@ class AutoArtix7SitePackUnitGenerator(val device: Device) : SitePackUnitGenerato
 				// TODO: Change device to have build-in coordinate info (to replace the top and bottom y coordinate methods)
 				// Add true device size information to partial device??
 				// QUESTION: Does this matter? Or just the full device coordinates?
-				if (instance.instanceY != device.getTopYCoordinate(it) && instance.instanceY != device.getBottomYCoordinate(it))
+				if (instance.instanceY != getTopYCoordinate(it) && instance.instanceY != getBottomYCoordinate(it))
 					break
 				instance = siteInstances[i]
 			}

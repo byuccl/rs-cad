@@ -21,7 +21,7 @@ import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.device.families.Zynq
 import edu.byu.ece.rapidSmith.device.families.Zynq.SiteTypes.*
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
-import edu.byu.ece.rapidSmith.util.Time
+//import edu.byu.ece.rapidSmith.util.Time
 import edu.byu.ece.rapidSmith.util.getWireConnections
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -92,7 +92,7 @@ class ZynqSiteCadFlow {
 			val rscpFile = Paths.get(args[0]).toFile()
 			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
 			println("writing to $tcp")
-			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, true, ImplementationMode.REGULAR)
+			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, true)
 		}
 	}
 }

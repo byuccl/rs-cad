@@ -89,7 +89,7 @@ class SiteCadFlow {
 			val rscpFile = Paths.get(args[0]).toFile()
 			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
 			println("writing to $tcp")
-			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, true, ImplementationMode.REGULAR)
+			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, true)
 		}
 	}
 }

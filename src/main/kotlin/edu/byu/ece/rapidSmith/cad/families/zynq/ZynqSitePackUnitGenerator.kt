@@ -147,8 +147,17 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
             GND_SOURCES[BelId(SiteTypes.ILOGICE3, "D2OBYP_TSMUX_GND")] = "0"
             GND_SOURCES[BelId(SiteTypes.ILOGICE3, "D2OFFBYP_TSMUX_GND")] = "0"
         }
-
 	}
+
+    fun getTopYCoordinate(type: SiteType): Int {
+        return device.sites.values.stream().filter { site -> site.possibleTypes.contains(type)}
+                .max(Comparator.comparing(Site::getInstanceY)).get().instanceY
+    }
+
+    fun getBottomYCoordinate(type: SiteType): Int {
+        return device.sites.values.stream().filter { site -> site.possibleTypes.contains(type)}
+                .min(Comparator.comparing(Site::getInstanceY)).get().instanceY
+    }
 
 	override fun findClusterInstances(siteType: SiteType, device: Device): List<Site> {
 		return INSTANCE_NAMES[siteType]!!.map { device.getSite(it)!! }
@@ -185,7 +194,7 @@ class ZynqSitePackUnitGenerator(val device: Device) : SitePackUnitGenerator() {
                 // TODO: Change device to have build-in coordinate info (to replace the top and bottom y coordinate methods)
                 // Add true device size information to partial device??
                 // QUESTION: Does this matter? Or just the full device coordinates?
-                if (instance.instanceY != device.getTopYCoordinate(it) && instance.instanceY != device.getBottomYCoordinate(it))
+                if (instance.instanceY != getTopYCoordinate(it) && instance.instanceY != getBottomYCoordinate(it))
                     break
                 instance = siteInstances[i]
             }

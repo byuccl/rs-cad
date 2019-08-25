@@ -31,16 +31,16 @@ class SitePinConnection internal constructor(
 	private val dir: PinConnectionDirection
 ) : Connection() {
 	override fun isDirectConnection(): Boolean {
-		return true;
+		return true
 	}
 
-	override fun getRoutethroughSite(): Site {
+	override fun getSite(): Site {
 		TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
 	}
 
-	override fun getSinkTileWires(alreadyVisited: MutableList<Connection>?): MutableSet<Wire> {
-		TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-	}
+	//override fun getSinkTileWires(alreadyVisited: MutableList<Connection>?): MutableSet<Wire> {
+	//	TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+	//}
 
 	override fun getSourceWire(): Wire = when (dir) {
 		PinConnectionDirection.INWARD -> pin.externalWire

@@ -6,7 +6,6 @@ import edu.byu.ece.rapidSmith.cad.cluster.isValid
 import edu.byu.ece.rapidSmith.design.subsite.*
 import kotlin.streams.asSequence
 
-
 class Ram(var parent: Cell) {
 	val cells : Collection<Cell>
 		get() = parent.internalCells
