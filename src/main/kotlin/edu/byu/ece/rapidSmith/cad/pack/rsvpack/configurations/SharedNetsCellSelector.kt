@@ -11,9 +11,9 @@ import kotlin.streams.toList
 
 class SharedNetsCellSelector(
 	val searchTwoDeep: Boolean,
-	val HIGH_FANOUT_LIMIT: Int = 200, // 400
+	val HIGH_FANOUT_LIMIT: Int = 200,
 	val AB: Double = 0.9,
-	val MAX_ATTEMPTS: Int = 20 // 50
+	val MAX_ATTEMPTS: Int = 20
 ) : CellSelector<PackUnit> {
 	private lateinit var cluster: Cluster<*, *>
 
@@ -227,7 +227,7 @@ class SharedNetsCellSelector(
 
 	private fun computeSecondaryCellGains(): MutableMap<Cell, Double> {
 		val primaryCells = getPrimaryCells()
-		val gains = HashMap<Cell, Double>()
+		val gains = LinkedHashMap<Cell, Double>()
 		for (primaryCell in primaryCells) {
 			val primaryGain = computeCellGain(primaryCell, cluster.cells)
 			val secondaryCells = getSecondaryCells(primaryCell)

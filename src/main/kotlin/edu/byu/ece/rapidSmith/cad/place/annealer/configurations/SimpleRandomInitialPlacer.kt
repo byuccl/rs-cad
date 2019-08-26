@@ -24,7 +24,7 @@ class SimpleRandomInitialPlacer<S: ClusterSite>(
 		val groupsToPlace = state.unplacedGroups.toMutableList()
 
 		// See if placement is necessary
-		if (groupsToPlace.any())
+		if (groupsToPlace.isEmpty())
 			return true
 
 		// Create a list of groups that need to be placed

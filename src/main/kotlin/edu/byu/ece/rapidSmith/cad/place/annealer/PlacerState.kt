@@ -152,8 +152,6 @@ class PlacerState<S : ClusterSite>(
 			usedSitesGrid[site.location] = cluster
 			currentCost += costFunction.place(cluster, site)
 		}
-		_unplacedGroups.remove(group)
-		_placedGroups.add(group)
 	}
 
 	/**

@@ -153,14 +153,14 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					source.wires += template.inputs
 
 					// Only add the LUT O5 pins as sources if the LUT is unoccupied.
-					val vccSources = template.vccSources.filter {belPin ->  !cluster.isBelOccupied(belPin.bel)}
+					val vccSources = template.vccSources.filter {belPin ->  !cluster.isBelOccupied(belPin.bel, true)}
 					source.wires += vccSources.map { it.wire }
 				}
 				net.type == NetType.GND -> {
 					source.wires += template.inputs
 
 					// Only add the LUT O5 pins as sources if the LUT is unoccupied.
-					val gndSources = template.gndSources.filter {belPin ->  !cluster.isBelOccupied(belPin.bel)}
+					val gndSources = template.gndSources.filter {belPin ->  !cluster.isBelOccupied(belPin.bel, true)}
 					source.wires += gndSources.map { it.wire }
 				}
 				net.sourcePin.isPartitionPin -> {

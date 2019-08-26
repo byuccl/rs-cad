@@ -19,7 +19,7 @@ fun <S: ClusterSite> proposeSwap(
 	state: PlacerState<S>, g: PlacementGroup<S>, rangeLimit: Int,
 	design: PlacerDesign<S>, validator: MoveValidator<S>
 ): PlacerMove<S>? {
-	val searchLimit = 1000
+	val searchLimit = 10000
 
 	// Find a new site
 	var component: MoveComponent<S>?
