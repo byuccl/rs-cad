@@ -660,11 +660,11 @@ class TableBasedRoutabilityChecker(
 					status = Routability.VALID
 			} else if (source.vcc) {
 				// valid if the source is vcc and unoccupied
-				if (entryPin in template.vccSources && !cluster.isBelOccupied(entryPin.bel))
+				if (entryPin in template.vccSources && !cluster.isBelOccupied(entryPin.bel, true))
 					status = Routability.VALID
 			} else if (source.gnd) {
 				// valid if the source is gnd and unoccupied
-				if (entryPin in template.gndSources && !cluster.isBelOccupied(entryPin.bel))
+				if (entryPin in template.gndSources && !cluster.isBelOccupied(entryPin.bel, true))
 					status = Routability.VALID
 			} else {
 				// the source doesn't match the requirement.  can't be a valid route
