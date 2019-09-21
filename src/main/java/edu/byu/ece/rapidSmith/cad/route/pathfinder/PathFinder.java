@@ -26,12 +26,13 @@ public class PathFinder {
     private MazeRouter mazeRouter;
     /** Present congestion factor */
     private static double presentCongestionFactor;
+    private static double presentCongestionFactorMult;
     /** Historical congestion factor */
     private static double historyFactor;
     /** The initial value for searching for static sources */
     private static int initStaticSearchSize;
     /** How much to increase the static search size per iteration */
-    private static int staticSearchSizeFactor;
+    private static int staticSearchSizeFactorMult;
     /** Map from wires to their corresponding wire usage. */
     private Map<Wire, WireUsage> wireUsageMap;
 
@@ -42,9 +43,10 @@ public class PathFinder {
         this.mazeRouter = mazeRouter;
         this.wireUsageMap = wireUsageMap;
         presentCongestionFactor = 1; //10000;
+		presentCongestionFactorMult = 2.3;
         historyFactor = 1; //10000;
         initStaticSearchSize = 0;
-        staticSearchSizeFactor = 1;
+        staticSearchSizeFactorMult = 1;
     }
 
     /**
@@ -151,8 +153,9 @@ public class PathFinder {
 
                 // increase the present congestion factor
                 iteration++;
-                presentCongestionFactor *= 2.3;
-                staticSearchSize += (iteration * staticSearchSizeFactor);
+                //presentCongestionFactor *= 2.3;
+                presentCongestionFactor *= presentCongestionFactorMult;
+                staticSearchSize += (iteration * staticSearchSizeFactorMult);
 
                 // Re-sort the list of inter-site routes to route
                 Sorting.quickSort(toRoute, 0, toRoute.size() - 1);
@@ -197,7 +200,7 @@ public class PathFinder {
      * @param staticSearchSizeFactor the factor
      */
     public static void setStaticSearchSizeFactor(int staticSearchSizeFactor) {
-        PathFinder.staticSearchSizeFactor = staticSearchSizeFactor;
+        PathFinder.staticSearchSizeFactorMult = staticSearchSizeFactor;
     }
 
     /**
