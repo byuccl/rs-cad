@@ -6,7 +6,6 @@ import edu.byu.ece.rapidSmith.design.subsite.CellNet
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import edu.byu.ece.rapidSmith.design.subsite.RouteTree
 import edu.byu.ece.rapidSmith.device.*
-import java.io.Serializable
 import java.util.*
 
 /**
@@ -16,8 +15,8 @@ import java.util.*
  * clusters in a packed design.
  */
 abstract class Cluster<out T: PackUnit, S: ClusterSite>(
-	val name: String, val type: T, var anchor: Bel, val index: Int
-) : Serializable {
+		val name: String, val type: T, var anchor: Bel, val index: Int
+) {
 	// Field getters and setters
 	var cost: Double = 0.toDouble()
 	private var _chain: ClusterChain<*>? = null
@@ -110,7 +109,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 
 	/** Returns `true` if all Bels in this cluster are occupied. */
 	fun isFull(): Boolean =
-		placementMap.size == type.template.bels.size
+			placementMap.size == type.template.bels.size
 
 	/**
 	 * Returns the location of [cell] in this cluster or `null` if it is not in
@@ -136,6 +135,10 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		this._chain = chain
 	}
 
+	fun addRouteTree(net : CellNet, trees : ArrayList<RouteTree>) {
+		externalNets?.put(net, trees)
+	}
+
 	// Nets in cluster methods
 	/**
 	 * Method to construct the structures containing the nets in the cluster from
@@ -147,10 +150,10 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		externalNets = LinkedHashMap()
 
 		val nets = cells
-			.flatMap { it.pins }
-			.filter { it.isConnectedToNet }
-			.map { it.net }
-			.distinct()
+				.flatMap { it.pins }
+				.filter { it.isConnectedToNet }
+				.map { it.net }
+				.distinct()
 
 		for (net in nets) {
 			val leavesCluster = net.pins.any { it.isPartitionPin || !hasCell(it.cell) }
@@ -238,13 +241,6 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		}
 	}
 
-	fun addRouteTree(net : CellNet, trees : ArrayList<RouteTree>) {
-		//routeTreeMap.getOrPut(net) {trees}
-		externalNets?.put(net, trees)
-		//routeTreeMap.put(net, trees)
-
-	}
-
 	/**
 	 * Map of nets in the cluster to route trees for the nets.
 	 */
@@ -273,7 +269,6 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	// Pin mapping methods
 	/**
 	 * Sets the pin mapping for [cellPin] in this cluster.
-	 * Called by finalRoute.
 	 */
 	fun setPinMapping(cellPin: CellPin, belPin: List<BelPin>) {
 		pinMap[cellPin] = belPin
@@ -399,7 +394,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 
 				val sourceTree = map[rt.getParent()]!!
 				val newConn = getRelocatedConnection(
-					sourceTree.wire, rt.connection, newAnchor)
+						sourceTree.wire, rt.connection, newAnchor)
 				map[rt] = sourceTree.connect<RouteTree>(newConn)
 			}
 		}
@@ -430,7 +425,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	 * the new anchor [newAnchor].
 	 */
 	protected abstract fun getRelocatedConnection(
-		sourceWire: Wire, connection: Connection, newAnchor: Bel): Connection
+			sourceWire: Wire, connection: Connection, newAnchor: Bel): Connection
 
 	override fun toString(): String {
 		return "Cluster{$name}"
@@ -442,7 +437,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
  *
  * @property location the index in the type grid for this site
  */
-abstract class ClusterSite : Serializable{
+abstract class ClusterSite{
 	/** The coordinates of this site */
 	abstract val location: Coordinates
 	/** The tile coordinates of this site */
