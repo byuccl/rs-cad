@@ -5,7 +5,7 @@ import edu.byu.ece.rapidSmith.util.Index
 
 abstract class GroupPlacementRegionFactory<S: ClusterSite>
 {
-	abstract fun make(group: PlacementGroup<S>, device: PlacerDevice<S>): GroupPlacementRegion<S>
+	abstract fun make(group: PlacementGroup<S>, device: PlacerDevice<S>, design: PlacerDesign<S>): GroupPlacementRegion<S>
 }
 
 /**

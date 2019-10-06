@@ -22,6 +22,8 @@ public class PathFinder {
     private CellDesign design;
     private CellLibrary libCells;
     private FamilyInfo familyInfo;
+    private Set<Bel> vccSourceBels;
+    private Set<Bel> gndSourceBels;
     /** The maze router to use in the inner loop of PathFinder */
     private MazeRouter mazeRouter;
     /** Present congestion factor */
@@ -35,7 +37,7 @@ public class PathFinder {
     /** Map from wires to their corresponding wire usage. */
     private Map<Wire, WireUsage> wireUsageMap;
 
-    public PathFinder(Device device, CellLibrary libCells, CellDesign design, MazeRouter mazeRouter, Map<Wire, WireUsage> wireUsageMap) {
+    public PathFinder(Device device, CellLibrary libCells, CellDesign design, MazeRouter mazeRouter, Map<Wire, WireUsage> wireUsageMap, Set<Bel> vccSourceBels, Set<Bel> gndSourceBels) {
         this.familyInfo = FamilyInfos.get(device.getFamily());
         this.design = design;
         this.libCells = libCells;
@@ -45,6 +47,8 @@ public class PathFinder {
         historyFactor = 1; //10000;
         initStaticSearchSize = 0;
         staticSearchSizeFactor = 1;
+        this.vccSourceBels = vccSourceBels;
+        this.gndSourceBels = gndSourceBels;
     }
 
     /**
@@ -218,9 +222,13 @@ public class PathFinder {
             }
         }
 
-        // TODO: Only get the inter-site sinks
-        for (CellPin sink : intersiteRoute.getNet().getSinkPins()) {
-            intersiteRoute.getNet().removeRoutedSink(sink);
+        // Remove the congested cell pins from the list of routed sinks
+        for (PathFinderRouteTree rt : intersiteRoute.getSinksToRoute()) {
+            Wire terminalWire = intersiteRoute.getSinkTerminalTreeMap().get(rt).getWire();
+            for (CellPin cellPin : intersiteRoute.getSinkCellPins(terminalWire)) {
+                CellNet net = cellPin.getNet();
+                net.removeRoutedSink(cellPin);
+            }
         }
 
         Set<PathFinderRouteTree> terminalsToKeep = new HashSet<>();
@@ -280,25 +288,27 @@ public class PathFinder {
     private void applyRoutes(ArrayList<IntersiteRoute> intersiteRoutes) {
         // Apply Route Trees to RS2 data structures.
         for (IntersiteRoute intersiteRoute : intersiteRoutes) {
-            intersiteRoute.getNet().setIntersiteRouteTrees(null);
+            CellNet net = intersiteRoute.getNet();
+            net.setIntersiteRouteTrees(null);
             assert (intersiteRoute.getRouteTree() != null);
 
             // Add the inter-site route tree to the cell net
-            if (intersiteRoute.getNet().isStaticNet()) {
+            if (intersiteRoute.isStatic()) {
                 // For static nets, every child tree of the start tree (beginning at a global wire) is an inter-site tree
                 RouteTree globalTree = intersiteRoute.getRouteTree();
                 Collection<RouteTree> intersiteTrees = new ArrayList<>(intersiteRoute.getRouteTree().getChildren());
                 for (RouteTree rt : intersiteTrees) {
                     // Disconnect the inter-site tree from the global wire
                     globalTree.disconnect(rt);
-                    intersiteRoute.getNet().addIntersiteRouteTree(rt);
+                    net.addIntersiteRouteTree(rt);
                 }
 
                 // Find any LUT BELs used as static sources and add them
                 addStaticSourceLutCells(intersiteRoute);
             } else {
-                intersiteRoute.getNet().addIntersiteRouteTree(intersiteRoute.getRouteTree());
+                net.addIntersiteRouteTree(intersiteRoute.getRouteTree());
             }
+            net.setRouteStatus(RouteStatus.FULLY_ROUTED);
         }
     }
 
@@ -379,10 +389,11 @@ public class PathFinder {
      * @param staticIntersiteRoute the inter-site route for the static (VCC/GND) net
      */
     private void addStaticSourceLutCells(IntersiteRoute staticIntersiteRoute) {
-        String cellPrefix = (staticIntersiteRoute.getNet().isVCCNet()) ? "StaticVCCSource_" : "StaticGNDSource_";
+        CellNet net = staticIntersiteRoute.getNet();
+        String cellPrefix = (net.isVCCNet()) ? "StaticVCCSource_" : "StaticGNDSource_";
         LibraryCell libCell = libCells.get("LUT1");
 
-        for (RouteTree rt : staticIntersiteRoute.getNet().getIntersiteRouteTreeList()) {
+        for (RouteTree rt : net.getIntersiteRouteTreeList()) {
             Wire startWire = rt.getRoot().getWire();
             SitePin startPin = startWire.getReverseConnectedPin();
             if (startPin != null && familyInfo.sliceSites().contains(startPin.getSite().getType())) {
@@ -400,6 +411,13 @@ public class PathFinder {
                 design.addCell(staticSourceCell);
                 design.placeCell(staticSourceCell, staticSourceBel);
                 design.addPipInputValAtSite(staticSourceBel.getSite(), staticSourceBel.getName().charAt(0) + "USED", "0");
+
+                // Add the BEL to the list of VCC/GND BELs
+                if (net.isVCCNet()) {
+                    vccSourceBels.add(staticSourceBel);
+                } else if (net.isGNDNet()) {
+                    gndSourceBels.add(staticSourceBel);
+                }
 
                 // TODO: RapidSmith2 currently does not represent the intra-site source trees for static nets.
                 // Add this functionality and save the tree (O6 -> USED.0 -> USED.OUT -> A.A/B.B/etc.)

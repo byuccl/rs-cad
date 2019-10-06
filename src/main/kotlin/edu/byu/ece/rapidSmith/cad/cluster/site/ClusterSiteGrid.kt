@@ -1,6 +1,7 @@
 package edu.byu.ece.rapidSmith.cad.cluster.site
 
 import edu.byu.ece.rapidSmith.cad.place.annealer.*
+import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.Device
 import edu.byu.ece.rapidSmith.device.Site
 import edu.byu.ece.rapidSmith.device.Tile
@@ -11,11 +12,12 @@ import edu.byu.ece.rapidSmith.util.Rectangle
 import java.util.*
 
 class SiteClusterGridFactory : ClusterSiteGridFactory<SiteClusterSite> {
-	override fun makeClusterSiteGrid(device: Device): ClusterSiteGrid<SiteClusterSite> =
-		SiteClusterGrid(device)
+	override fun makeClusterSiteGrid(device: Device, design: CellDesign): ClusterSiteGrid<SiteClusterSite> =
+		SiteClusterGrid(device, design)
+
 }
 
-class SiteClusterGrid(device: Device) : ClusterSiteGrid<SiteClusterSite>() {
+class SiteClusterGrid(device: Device, design: CellDesign) : ClusterSiteGrid<SiteClusterSite>() {
 	private val grid : Grid<SiteClusterSite?>
 	private val coordinates : Map<SiteIndex, Coordinates>
 
@@ -23,10 +25,11 @@ class SiteClusterGrid(device: Device) : ClusterSiteGrid<SiteClusterSite>() {
 		val fi = FamilyInfos.get(device.family)
 		val sbTypes = fi.switchboxTiles()
 
+		// Filter out sites in interconnect tile and any reserved sites
 		val sites = device.sites.values
 			.filter { it.tile.type !in sbTypes } // TODO replace with SiteType.Tieoff check
+			.filter{ !design.reservedSites.contains(it)}
 			.associate { SiteIndex(it) to it }
-
 
 		val xlocs = sites.keys
 			.map { SiteColumnIndex(it.col, it.index) }

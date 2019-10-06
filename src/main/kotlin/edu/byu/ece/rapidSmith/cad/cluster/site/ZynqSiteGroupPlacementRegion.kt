@@ -1,7 +1,9 @@
 package edu.byu.ece.rapidSmith.cad.cluster.site
 
 import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
+import edu.byu.ece.rapidSmith.cad.place.Placer
 import edu.byu.ece.rapidSmith.cad.place.annealer.*
+import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.Site
 import edu.byu.ece.rapidSmith.device.SiteType
 import edu.byu.ece.rapidSmith.device.Wire
@@ -33,7 +35,8 @@ class ZynqSiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClus
 
 	override fun make(
 		group: PlacementGroup<SiteClusterSite>,
-		device: PlacerDevice<SiteClusterSite>
+		device: PlacerDevice<SiteClusterSite>,
+		design: PlacerDesign<SiteClusterSite>
 	): ZynqSiteGroupPlacementRegion {
 		return if (group is MultipleClusterPlacementGroup<*>) {
 			val type = group.type as SitePackUnit
@@ -43,9 +46,10 @@ class ZynqSiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClus
 					if (region == null) {
 						val locs = device.grid.sites
 							.filter { it.isCompatibleWith(type) }
+						//	.filter{ !design.design.reservedSites.contains(it.site) }
 							.mapNotNull { getIOPair(device.grid as SiteClusterGrid, it) }
 							.toList()
-						region = ZynqSiteGroupPlacementRegion(locs)
+						region = ZynqSiteGroupPlacementRegion(locs, design)
 						ioGroupsCache = region
 					}
 					region
@@ -54,20 +58,22 @@ class ZynqSiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClus
 					sliceLGroupsCache.computeIfAbsent(group.size) { _ ->
 						val locs = device.grid.sites
 							.filter { it.isCompatibleWith(type) }
-							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
-								Zynq.SiteTypes.SLICEL, it, group.size) }
+							//.filter{ !design.design.reservedSites.contains(it.site) }
+							.mapNotNull { getCCChain(design, device.grid as SiteClusterGrid,
+							Zynq.SiteTypes.SLICEL, it, group.size) }
 							.toList()
-						ZynqSiteGroupPlacementRegion(locs)
+						ZynqSiteGroupPlacementRegion(locs, design)
 					}
 				}
 				Zynq.SiteTypes.SLICEM -> {
 					sliceMGroupsCache.computeIfAbsent(group.size) { _ ->
 						val locs = device.grid.sites
 							.filter { it.isCompatibleWith(type) }
-							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
-								Zynq.SiteTypes.SLICEM, it, group.size) }
+							//.filter{ !design.design.reservedSites.contains(it.site) }
+							.mapNotNull { getCCChain(design, device.grid as SiteClusterGrid,
+							Zynq.SiteTypes.SLICEM, it, group.size) }
 							.toList()
-						ZynqSiteGroupPlacementRegion(locs)
+						ZynqSiteGroupPlacementRegion(locs, design)
 					}
 				}
 				else -> error("unsupported group type")
@@ -76,9 +82,10 @@ class ZynqSiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClus
 			singleClusterCache.computeIfAbsent(group.type) { type ->
 				val locations = device.grid.sites
 					.filter { it.isCompatibleWith(type) }
+				//	.filter{ !design.design.reservedSites.contains(it.site) }
 					.map { listOf(it) }
 					.toList()
-				ZynqSiteGroupPlacementRegion(locations)
+				ZynqSiteGroupPlacementRegion(locations, design)
 			}
 		}
 	}
@@ -114,6 +121,7 @@ class ZynqSiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClus
 
 	// TODO checking site compatibility is still an issue
 	private fun getCCChain(
+		design: PlacerDesign<SiteClusterSite>,
 		grid: SiteClusterGrid,
 		siteType: SiteType,
 		anchor: SiteClusterSite, length: Int
@@ -129,7 +137,11 @@ class ZynqSiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClus
 			while (stack.isNotEmpty()) {
 				val (wire, distance) = stack.pop()
 				val pin = wire.connectedPin
-				if (pin != null && pin.site.isCompatibleWith(siteType)) {
+
+				// Resered sites can't be used in carry chains
+				if (pin != null && pin.site.isCompatibleWith(siteType) && !design.design.reservedSites.contains(pin.site)) {
+				//if (pin != null && pin.site.isCompatibleWith(siteType)) {
+					// SLICE_X61Y26
 					sites += grid.getClusterSite(pin.site)
 					site = pin.site
 					continue@outer
@@ -167,11 +179,13 @@ private fun Site.isCompatibleWith(siteType: SiteType): Boolean {
  *
  */
 class ZynqSiteGroupPlacementRegion(
-	validAreas: List<List<SiteClusterSite>>
+	validAreas: List<List<SiteClusterSite>>,
+	design: PlacerDesign<SiteClusterSite>
 ) : GroupPlacementRegion<SiteClusterSite>() {
 
 	val validAreas: Map<SiteClusterSite, List<SiteClusterSite>> =
 		validAreas.associateBy { it.first() }
+				//.filter { design.design.reservedSites.contains(it.key.site)}
 
 	override val validSites: List<SiteClusterSite> = validAreas.map { it[0] }
 		.sortedWith(Comparator.comparingInt<SiteClusterSite> { it.location.row }

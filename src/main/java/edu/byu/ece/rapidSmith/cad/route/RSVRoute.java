@@ -23,6 +23,8 @@ public class RSVRoute {
 	private FamilyInfo familyInfo;
 	private FamilyType familyType;
 	private CellLibrary libCells;
+	private Set<Bel> vccSourceBels;
+	private Set<Bel> gndSourceBels;
 	/** Whether to use site route-throughs. */
 	private boolean useRoutethroughs;
 
@@ -33,17 +35,19 @@ public class RSVRoute {
 	 * @param libCells the cell library
 	 * @param useRoutethroughs whether site route-throughs are allowed to be used.
 	 */
-	public RSVRoute(Device device, CellDesign design, CellLibrary libCells, boolean useRoutethroughs) {
+	public RSVRoute(Device device, CellDesign design, CellLibrary libCells, boolean useRoutethroughs, Set<Bel> vccSourceBels, Set<Bel> gndSourceBels) {
 		this.device = device;
 		familyType = device.getFamily();
 		familyInfo = FamilyInfos.get(familyType);
 		this.design = design;
 		this.libCells = libCells;
 		this.useRoutethroughs = useRoutethroughs;
+		this.vccSourceBels = vccSourceBels;
+		this.gndSourceBels = gndSourceBels;
 	}
 
-	public RSVRoute(Device device, CellDesign design, CellLibrary libCells) {
-		this(device, design, libCells, false);
+	public RSVRoute(Device device, CellDesign design, CellLibrary libCells, Set<Bel> vccSourceBels, Set<Bel> gndSourceBels) {
+		this(device, design, libCells, false, vccSourceBels, gndSourceBels);
 	}
 
 	/**
@@ -61,7 +65,7 @@ public class RSVRoute {
 		MazeRouter mazeRouter = new AStarRouter(design, wireUsageMap, useRoutethroughs);
 
 		// Start the pathfinder algorithm
-		PathFinder pathFinder = new PathFinder(device, libCells, design, mazeRouter, wireUsageMap);
+		PathFinder pathFinder = new PathFinder(device, libCells, design, mazeRouter, wireUsageMap, vccSourceBels, gndSourceBels);
 		pathFinder.execute(intersiteRoutes);
 	}
 

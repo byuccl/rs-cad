@@ -116,6 +116,7 @@ class DisplacementRandomInitialPlacer<S: ClusterSite>(
 		// TODO cache this result?
 		// TODO We're using a move validator that checks the current state of the circuit and prevents moving it
 		val anchorSites = region.validSites
+
 		val validAnchorSites = anchorSites.asSequence()
 			.map { MoveComponent(g, null, it) }
 			.filter { moveValidator.validate(state, it) }

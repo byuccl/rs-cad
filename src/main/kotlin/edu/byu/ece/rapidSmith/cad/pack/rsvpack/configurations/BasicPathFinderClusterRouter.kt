@@ -78,7 +78,7 @@ private class BasicPathFinderRouter<T: PackUnit>(
 							// Add a cell for the static source BEL so we can attach pseudo pins if needed.
 							//val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"), true)
 							//val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"), false)
-							val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"))
+							val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"), true)
 							cell.initPackingInfo()
 							cell.getPin("O").setPinToGlobalNet(net)
 							net.design.addCell(cell)

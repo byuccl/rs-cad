@@ -66,6 +66,7 @@ class PlacerDesign<S : ClusterSite>(
 
 			for ((cellPin, belPin) in cluster.getPinMap()) {
 				cellPin.mapToBelPins(belPin)
+                
 				if (cellPin.isInpin) {
 					val net = cellPin.net
 					net.addRoutedSink(cellPin)

@@ -35,7 +35,7 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 	 */
 	override fun place(device: Device, design: CellDesign, clusters: List<Cluster<*, S>>) {
 		val pdesign = PlacerDesign(clusters, design)
-		val pdevice = PlacerDevice(device, csgFactory)
+		val pdevice = PlacerDevice(device, design, csgFactory)
 		val state = PlacerState(pdesign, pdevice, gprFactory, random, costFunctionFactory.make(pdesign))
 		val coolingSchedule = coolingScheduleFactory.make(state, random)
 
@@ -127,5 +127,11 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 		//println(numMoves.toString() + " Moves in " + timeInMiliSeconds.toDouble() / 1000 + " seconds (" + movesPerSecond + " moves per second)")
 		finalizePlacement(state, pdesign)
 		pdesign.commit()
+
+		// VCC and GND could possibly be fully routed now, so re-compute their route status if they have no site route trees
+		if (design.vccNet.sinkSitePinRouteTrees.isEmpty())
+			design.vccNet.computeRouteStatus()
+		if (design.gndNet.sinkSitePinRouteTrees.isEmpty())
+			design.gndNet.computeRouteStatus()
 	}
 }
