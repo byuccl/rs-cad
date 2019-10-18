@@ -247,8 +247,9 @@ public class RSVRoute {
 			}
 
 			// If index is 1, we need to go up 1 tile to get to the desired INT tile
-			intTile = intTile.getAdjacentTile(TileDirection.NORTH);
-
+			if (siteIndex == 0) {
+				intTile = intTile.getAdjacentTile(TileDirection.NORTH);
+			}
 			assert (familyInfo.switchboxTiles().contains(intTile.getType()));
 
 			// Find the VCC/GND source wire
@@ -304,9 +305,21 @@ public class RSVRoute {
 				// More than one cell pin may share the same site pin.
 				// We need to make sure there is only one unique sink site pin tree.
 				List<SitePin> sinkSitePins = getSinkSitePins(sinkPin);
+
+				if (!net.getSourcePin().isPartitionPin()) {
+					Site sourceSite = net.getSourcePin().getCell().getBel().getSite();
+					Site sinkSite = sinkPin.getCell().getBel().getSite();
+
+					if (sinkSitePins == null && sourceSite == sinkSite) {
+						// If the pins are in the same site, no inter-site routing needed (this seems to only come up
+						// for yosys-synthesized designs. Why?
+						continue;
+					}
+				}
+
 				assert (sinkSitePins != null);
 
-				for (SitePin sitePin : getSinkSitePins(sinkPin)) {
+				for (SitePin sitePin : sinkSitePins) {
 					Wire terminalWire = sitePin.getExternalWire();
 
 					if (terminalWireCellPinMap.containsKey(terminalWire)) {
@@ -399,6 +412,16 @@ public class RSVRoute {
 				.filter(cellPin -> net.getSinkSitePins(cellPin) != null)
 				.collect(Collectors.toList());
 
+		Collection<SitePin> sitePins = net.getSinkSitePins();
+		Collection<Site> allSites = new ArrayList<>();
+		Collection<Site> siteSet = new HashSet<>();
+
+		for (SitePin sitePin : sitePins) {
+			allSites.add(sitePin.getSite());
+			siteSet.add(sitePin.getSite());
+		}
+
+
 		for (CellPin sinkPin : sinkPins) {
 			List<SitePin> sinkSitePins = net.getSinkSitePins(sinkPin);
 
@@ -442,6 +465,7 @@ public class RSVRoute {
 		// Filter out static (VCC/GND), intra-site, and nets with no sinks.
 		Collection<CellNet> logicNets = design.getNets().stream()
 				.filter(cellNet -> !cellNet.isIntrasite())
+				.filter(CellNet::isSourced)
 				.filter(cellNet -> !cellNet.getRouteStatus().equals(RouteStatus.FULLY_ROUTED))
 				.filter(cellNet -> !cellNet.isStaticNet())
 				.filter(cellNet -> !cellNet.getSinkPins().isEmpty())

@@ -15,6 +15,8 @@ public class PathFinderRouteTree extends RouteTree {
 	private double pathFinderCost = 1;
 	/** The manually registered leaves of the tree. */
 	private Collection<PathFinderRouteTree> leaves;
+	private double previousWireSegmentCost = 0;
+	private double previousPathFinderCost = 0;
 
 	public PathFinderRouteTree(Wire wire) {
 		super(wire);
@@ -28,6 +30,18 @@ public class PathFinderRouteTree extends RouteTree {
 		this.pathFinderCost = pathFinderCost;
 	}
 
+	public void freePathFinderCost() {
+		previousPathFinderCost = pathFinderCost;
+		pathFinderCost = 0;
+	}
+
+	public void unfreePathFinderCost() {
+		if (pathFinderCost == 0) {
+			pathFinderCost = previousPathFinderCost;
+			previousPathFinderCost = 0;
+		}
+	}
+
 	@Override
 	protected PathFinderRouteTree newInstance(Wire wire) {
 		return new PathFinderRouteTree(wire);
@@ -39,6 +53,19 @@ public class PathFinderRouteTree extends RouteTree {
 
 	public void setWireSegmentCost(double wireSegmentCost) {
 		this.wireSegmentCost = wireSegmentCost;
+	}
+
+	public void freeWireSegmentCost() {
+		previousWireSegmentCost = wireSegmentCost;
+		wireSegmentCost = 0;
+	}
+
+	public void unfreeWireSegmentCost() {
+		if (wireSegmentCost == 0) {
+			wireSegmentCost = previousWireSegmentCost;
+			previousWireSegmentCost = 0;
+		}
+
 	}
 
 	/**

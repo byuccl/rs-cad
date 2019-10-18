@@ -94,4 +94,8 @@ public class WireUsage {
 		return routes;
 	}
 
+	public boolean isCongested() {
+		return routes.size() > capacity;
+	}
+
 }

@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
  */
 public abstract class MazeRouter {
     protected CellDesign design;
-    private FamilyType family;
+    protected FamilyType family;
     /** A map from wires to their wire usage. */
     protected Map<Wire, WireUsage> wireUsageMap;
     /** Whether to use site routethroughs */
@@ -50,6 +50,9 @@ public abstract class MazeRouter {
      */
     protected int manhattanDistance(RouteTree tree, Tile compareTile) {
         Wire wire = tree.getWire();
+
+     //   if (wire.getTile() == compareTile)
+      //  	System.out.println("OK");
 
         if (wire instanceof GlobalWire) {
             return 0;
