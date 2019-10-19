@@ -206,12 +206,66 @@ public class RSVRoute {
 
 	/**
 	 * Get the tie-off wires located in INT tiles for a static net. Note that this does not gather all tie-off wires
-	 * in a device, but only the tie-off wires located in the INT tiles next to used slices.
+	 * in a device, but only the tie-off wires located in the INT tiles next to used slices and IO.
 	 *
 	 * @param staticNet the VCC/2GND net
 	 * @return a collection of tie-off wires.
 	 */
-	private Collection<Wire> getTieOffWires(CellNet staticNet) throws CadException {
+	private Collection<Wire> getTieOffWires(CellNet staticNet, Map<Tile, Tile> tileToTieOffTileMap) throws CadException {
+
+		Collection<Wire> wires = new HashSet<>();
+		Set<Tile> staticClbTiles = staticNet.getSinkTiles().stream()
+				.filter(tile -> familyInfo.clbTiles().contains(tile.getType()))
+				.collect(Collectors.toSet());
+
+		for (Tile sinkTile : staticClbTiles) {
+			// Find the neighboring tile tie-off.
+			Tile tieOffTile = getNeighborIntTile(sinkTile);
+			SitePin tieOffPin = getIntTieOffPin(tieOffTile, staticNet.isVCCNet());
+			wires.add(tieOffPin.getExternalWire());
+			tileToTieOffTileMap.put(sinkTile, tieOffTile);
+		}
+
+		// Handle the I/O sinks.
+		Set<Site> staticIoSites = staticNet.getSinkSites().stream()
+				.filter(site -> familyInfo.ioSites().contains(site.getType()))
+				.collect(Collectors.toSet());
+
+		for (Site sinkSite : staticIoSites) {
+			// index of 0 means it is the bottom site in the tile
+			int siteIndex = sinkSite.getIndex();
+			assert (siteIndex == 0 || siteIndex == 1);
+
+			Tile sinkTile = sinkSite.getTile();
+			int tileCol = sinkTile.getColumn();
+			assert (tileCol == 0 || tileCol == device.getColumns() - 1);
+
+			// There should be an INT tile to the left or right of the IO tile
+			TileDirection tileDirection = (tileCol == 0) ? TileDirection.EAST : TileDirection.WEST;
+			Tile intTile = sinkTile;
+			TileType tileType = null;
+			while (!familyInfo.switchboxTiles().contains(tileType)) {
+				intTile = intTile.getAdjacentTile(tileDirection);
+				tileType = intTile.getType();
+			}
+
+			// If index is 1, we need to go up 1 tile to get to the desired INT tile
+			if (siteIndex == 0) {
+				intTile = intTile.getAdjacentTile(TileDirection.NORTH);
+			}
+			assert (familyInfo.switchboxTiles().contains(intTile.getType()));
+			tileToTieOffTileMap.put(sinkTile, intTile);
+
+			// Find the VCC/GND source wire
+			SitePin tieOffPin = getIntTieOffPin(intTile, staticNet.isVCCNet());
+			wires.add(tieOffPin.getExternalWire());
+		}
+
+		return wires;
+	}
+
+
+	private Collection<Wire> getTieOffWiresOld(CellNet staticNet) throws CadException {
 		Collection<Wire> wires = new HashSet<>();
 		Set<Tile> staticClbTiles = staticNet.getSinkTiles().stream()
 				.filter(tile -> familyInfo.clbTiles().contains(tile.getType()))
@@ -376,12 +430,12 @@ public class RSVRoute {
 	 * @param staticNet the VCC/GND net.
 	 * @return the global wire
 	 */
-	private GlobalWire createGlobalWire(CellNet staticNet) throws CadException {
+	private GlobalWire createGlobalWire(CellNet staticNet, Map<Tile, Tile> tileToTieOffTileMap) throws CadException {
 		GlobalWire staticWire = new GlobalWire(device, staticNet.isVCCNet());
 		Set<Connection> forwardStaticConnections = new HashSet<>();
 
 		// Make connections for the tie-off wires in INT tiles
-		Collection<Wire> tieOffWires = getTieOffWires(staticNet);
+		Collection<Wire> tieOffWires = getTieOffWires(staticNet, tileToTieOffTileMap);
 		for (Wire tieOffWire : tieOffWires) {
 			forwardStaticConnections.add(new GlobalWireConnection(staticWire, tieOffWire));
 		}
@@ -399,7 +453,8 @@ public class RSVRoute {
 	 */
 	private IntersiteRoute createStaticIntersiteRoute(CellNet net) throws CadException {
 		// Create a global wire for VCC/GND.
-		GlobalWire staticWire = createGlobalWire(net);
+		Map<Tile, Tile> tileToTieOffTileMap = new HashMap<>();
+		GlobalWire staticWire = createGlobalWire(net, tileToTieOffTileMap);
 		PathFinderRouteTree staticRouteTree = new PathFinderRouteTree(staticWire);
 
 		// Get the inter-site sink route tree
@@ -445,7 +500,7 @@ public class RSVRoute {
 			}
 		}
 
-		return new IntersiteRoute(net, staticRouteTree, sinkTreeMap, terminalSinkTreeMap, terminalWireCellPinMap);
+		return new IntersiteRoute(net, staticRouteTree, sinkTreeMap, terminalSinkTreeMap, terminalWireCellPinMap, tileToTieOffTileMap);
 	}
 
 	/**
@@ -460,6 +515,7 @@ public class RSVRoute {
 				.filter(cellNet -> !cellNet.isIntrasite())
 				.filter(cellNet -> !cellNet.getRouteStatus().equals(RouteStatus.FULLY_ROUTED))
 				.filter(cellNet -> !cellNet.getSinkPins().isEmpty())
+				.filter(cellNet -> !cellNet.getSinkSites().isEmpty()) // CI GND case. See pwm256
 				.collect(Collectors.toList());
 
 		// Filter out static (VCC/GND), intra-site, and nets with no sinks.

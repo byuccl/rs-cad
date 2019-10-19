@@ -10,6 +10,7 @@ import edu.byu.ece.rapidSmith.device.*;
 import edu.byu.ece.rapidSmith.device.families.FamilyInfo;
 import edu.byu.ece.rapidSmith.device.families.FamilyInfos;
 import edu.byu.ece.rapidSmith.util.Sorting;
+import edu.byu.ece.rapidSmith.util.Time;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -57,7 +58,7 @@ public class PathFinder {
      * Execute the pathfinder algorithm.
      * @param intersiteRoutes The inter-site routes for PathFinder to route
      */
-    public void execute(ArrayList<IntersiteRoute> intersiteRoutes) throws CadException {
+    public void execute(ArrayList<IntersiteRoute> intersiteRoutes) {
         // Initialize the static search size (the tile distance to search for static sources)
         int staticSearchSize = initStaticSearchSize;
 
@@ -81,7 +82,11 @@ public class PathFinder {
                 }
 
                 if (intersiteRoute.isStatic()) {
-                   // addPossibleStaticSources(intersiteRoute, staticSearchSize);
+                    //addPossibleStaticSources(intersiteRoute, staticSearchSize);
+                }
+
+                if (intersiteRoute.getNet().getName().equals("ecg_inst/ins1/x3c[11]")) {
+                    System.out.println("2485 is bad");
                 }
 
                 System.out.println("[INFO] Finding route for " + intersiteRoute.getNet().getName() + " (" + numRouted + "/" + toRoute.size() + ")");
@@ -113,15 +118,24 @@ public class PathFinder {
                     assert (wireUsage.getRoutes() != null);
                     assert (wireUsageMap.get(rt.getWire()) != null);
 
-                    if (wireUsage.getRoutes().size() > wireUsageMap.get(rt.getWire()).getCapacity()) {
+                    if (wireUsage.isCongested()) {
                         congestedWires.add(wireUsage);
+
 
                         // TODO: Remove me! Only here for some debugging.
                         for (IntersiteRoute inter : wireUsage.getRoutes()) {
-                            if (inter.getNet().getName().equals("ecg_inst/ins1/ins11/ins4/z[191]")) {
+                            if (inter.getNet().getName().equals("g0_b0__114_i_6_n_0")) {
                                 System.out.println("Wire is: " + rt.getWire().getFullName());
                             }
+
+                            if (inter.getNet().getName().equals("ecg_inst/ins1/y3c[117]")) {
+                                System.out.println("ecg_inst/ins1/y3c[117] Wire is: " + rt.getWire().getFullName());
+                            }
+
+
+
                         }
+
 
                     }
                 }
@@ -222,10 +236,6 @@ public class PathFinder {
      */
     private void ripUpRoute(IntersiteRoute intersiteRoute) {
         assert (intersiteRoute.getRouteTree() != null);
-
-        if (intersiteRoute.getNet().getName().equals("ecg_inst/ins1/ins11/ins4/z[191]"))
-            System.out.println("this one");
-
         // Update the congestion for every node (and its wires)
         for (RouteTree rt : intersiteRoute.getRouteTree().getRoot()) {
             // Update for every wire in the node
@@ -253,19 +263,19 @@ public class PathFinder {
         intersiteRoute.getRouteTree().prune(terminalsToKeep);
         intersiteRoute.getRouteTree().unregisterLeaves();
 
-        //assert (!intersiteRoute.getSinksToRoute().isEmpty());
-        if (intersiteRoute.getSinksToRoute().isEmpty()) {
-            System.out.println("PROBLEM");
-        }
-
+        assert (!intersiteRoute.getSinksToRoute().isEmpty());
     }
 
     /**
      * Finds the conflicted sinks of an inter-site route and moves them from the set of routed sinks to the set
-     * of sinks to route. NOTE: Also detaches trees to conflicted children!
+     * of sinks to route. NOTE: Also detaches trees of conflicted children!
      * @param intersiteRoute the inter-site route to search
      */
     private void updateSinkStatus(IntersiteRoute intersiteRoute) {
+        if (intersiteRoute.getNet().getName().equals("g0_b0__114_i_6_n_0")) {
+            System.out.println("ok");
+        }
+
         Stack<PathFinderRouteTree> stack = new Stack<>();
         stack.push(intersiteRoute.getRouteTree().getRoot());
 
@@ -276,16 +286,16 @@ public class PathFinder {
             Wire wire = tree.getWire();
             WireUsage wireUsage = wireUsageMap.get(wire);
 
+            if (wire.getFullName().equals("INT_R_X19Y11/GFAN1")) {
+                System.out.println("ME!");
+            }
+
+            //I NEVER GET INTO THIS IF STATEMETN!!!!
             // If there is congestion
             if (wireUsage.isCongested()) {
                 // Remove the sinks of the conflicted wire from the inter-site route's list of routed sinks
                 // and add them to the list of sinks to route
                 for (PathFinderRouteTree terminal : tree.getLeaves()) {
-
-                    if (intersiteRoute.getNet().getName().equals("ecg_inst/ins1/ins11/ins4/z[191]"))
-                        System.out.println("dummy one");
-
-
                     PathFinderRouteTree sink = intersiteRoute.getTerminalSinkTreeMap().get(terminal);
                     intersiteRoute.getRoutedSinks().remove(sink);
 
@@ -316,8 +326,9 @@ public class PathFinder {
         }
 
         if (intersiteRoute.getSinksToRoute().isEmpty()) {
-            System.out.println("PROBLEM! Should not be empty!");
+            System.out.println("DFSDF");
         }
+
 
         //assert(!intersiteRoute.getSinksToRoute().isEmpty());
     }
@@ -367,6 +378,9 @@ public class PathFinder {
      * @param staticSearchSize the distance in tiles to search for sources
      */
     private void addPossibleStaticSources(IntersiteRoute intersiteRoute, int staticSearchSize) {
+        Time runTime = new Time();
+        runTime.setStartTime();
+
         Device device = design.getDevice();
         FamilyInfo familyInfo = FamilyInfos.get(device.getFamily());
         List<Wire> staticSourceWires = new ArrayList<>();
@@ -423,6 +437,10 @@ public class PathFinder {
         for (Wire wire : staticSourceWires) {
             ((GlobalWire) globalWire).addConnection(new GlobalWireConnection(globalWire, wire));
         }
+
+        runTime.setEndTime();
+        System.err.println("Took " + runTime.getTotalTime() + " seconds to get more static sources");
+
     }
 
 

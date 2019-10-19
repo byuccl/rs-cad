@@ -3,6 +3,7 @@ package edu.byu.ece.rapidSmith.cad.route;
 import edu.byu.ece.rapidSmith.cad.route.pathfinder.PathFinderRouteTree;
 import edu.byu.ece.rapidSmith.design.subsite.CellNet;
 import edu.byu.ece.rapidSmith.design.subsite.CellPin;
+import edu.byu.ece.rapidSmith.device.Tile;
 import edu.byu.ece.rapidSmith.device.Wire;
 
 import java.util.*;
@@ -31,6 +32,8 @@ public class IntersiteRoute implements Comparable<IntersiteRoute> {
 	/** Sinks that are currently routed without conflict. */
 	private Set<PathFinderRouteTree> routedSinks;
 
+	private Map<Tile, Tile> tileToTieOffTileMap;
+
 	/**
 	 * Public constructor for a normal Inter-site Route.
 	 * @param net the {@link CellNet} for this inter-site route
@@ -55,6 +58,27 @@ public class IntersiteRoute implements Comparable<IntersiteRoute> {
 		this.routedSinks = new HashSet<>();
 		this.terminalSinkTreeMap = terminalSinkTreeMap;
 		this.terminalWireCellPinMap = terminalWireCellPinMap;
+		this.tileToTieOffTileMap = null;
+	}
+
+	// static intersite route
+	public IntersiteRoute(CellNet net, PathFinderRouteTree routeTree,
+						  Map<PathFinderRouteTree, PathFinderRouteTree> sinkTerminalTreeMap,
+						  Map<PathFinderRouteTree, PathFinderRouteTree> terminalSinkTreeMap,
+						  Map<Wire, List<CellPin>> terminalWireCellPinMap, Map<Tile, Tile> tileToTieOffTileMap) {
+		this.net = net;
+		isGlobalClkNet = net.isGlobalClkNet();
+		isLocalClkNet = net.isLocalClkNet();
+		assert (!(isGlobalClkNet && isLocalClkNet));
+		isClkBufferNet = net.isClkBufferNet();
+		this.routeTree = routeTree;
+		this.sinkTerminalTreeMap = sinkTerminalTreeMap;
+		this.sinksToRoute = new ArrayList<>();
+		sinksToRoute.addAll(sinkTerminalTreeMap.keySet());
+		this.routedSinks = new HashSet<>();
+		this.terminalSinkTreeMap = terminalSinkTreeMap;
+		this.terminalWireCellPinMap = terminalWireCellPinMap;
+		this.tileToTieOffTileMap = tileToTieOffTileMap;
 	}
 
 	/**
@@ -216,6 +240,13 @@ public class IntersiteRoute implements Comparable<IntersiteRoute> {
 	 */
 	public boolean isStatic() {
 		return net.isStaticNet();
+	}
+
+	public boolean isLocalTieOff(Tile sinkTile, Tile tieOffTile) {
+		if (tileToTieOffTileMap == null)
+			return false;
+
+		return tileToTieOffTileMap.get(sinkTile) == tieOffTile;
 	}
 
 }

@@ -88,7 +88,7 @@ public class RSVRouteExample {
             System.exit(1);
         }
         String checkpointIn = args[0];
-        String tcpOut = checkpointIn.substring(0, checkpointIn.length() - 4) + "tcp";
+        String tcpOut = checkpointIn.substring(0, checkpointIn.length() - 4) + ".routed.tcp";
 
         // Import a placed design
         importDesign(checkpointIn);

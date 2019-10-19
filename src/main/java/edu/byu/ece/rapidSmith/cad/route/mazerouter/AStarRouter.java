@@ -41,14 +41,6 @@ public class AStarRouter extends MazeRouter {
             // distance from source + distance remaining + pathfinder cost
             Double costOne = one.getWireSegmentCost() + manhattanDistance(one, targetTile) + one.getPathFinderCost();
             Double costTwo = two.getWireSegmentCost() + manhattanDistance(two, targetTile) + two.getPathFinderCost();
-
-         //   System.out.println("COMPARE");
-            //if (costOne == 0)
-            //	System.out.println(one.getWire().getFullName() + " gon be free");
-//
-			//if (costTwo == 0)
-			//	System.out.println(two.getWire().getFullName() + " gon be free");
-
             return costOne.compareTo(costTwo);
         };
 
@@ -86,113 +78,108 @@ public class AStarRouter extends MazeRouter {
 	// This is nasty and should be changed.
 	// It is possible that we may have "accidentally" routed to our current sink already (because we routed to a further one already).
 	// If so, return the tree to indicate that we have already made a route to this sink.
-    private PathFinderRouteTree makePreviousSinksFree(IntersiteRoute intersiteRoute, RouteTree startTree, Set<Wire> processedWires, PriorityQueue<PathFinderRouteTree> priorityQueue, PathFinderRouteTree currSink) {
-		PathFinderRouteTree sinkAlreadyRouted = null;
-
+    private void makePreviousSinksFree(IntersiteRoute intersiteRoute, PathFinderRouteTree startTree, Set<Wire> processedWires, PriorityQueue<PathFinderRouteTree> priorityQueue, PathFinderRouteTree currSink) {
+		int freeCount = 0;
     	if (intersiteRoute.isStatic()) {
 			// Since VCC/GND have multiple inter-site routes, all previous sinks can't be free.
 			// Only consider sinks that originate from (a) neighboring tie-offs free and (b)
 			// sinks that are driven by static source LUTs.
 
 			// First, add the global wire's connections back
-			PathFinderRouteTree startCost = (PathFinderRouteTree) startTree;
-			//startCost.setWireSegmentCost(0);
-			//startCost.setPathFinderCost(0);
-			processedWires.add(startCost.getWire());
-			//priorityQueue.add(startCost);
+			//PathFinderRouteTree startCost = (PathFinderRouteTree) startTree;
+			processedWires.add(startTree.getWire());
+			priorityQueue.add(startTree);
 
-			for (Connection connection : startTree.getWire().getWireConnections()) {
-				PathFinderRouteTree connTree = processConnection(startCost, connection, processedWires);
-				if (!priorityQueue.contains(connTree)) {
-					priorityQueue.add(connTree);
-				}
+			//for (Connection connection : startTree.getWire().getWireConnections()) {
+			//	PathFinderRouteTree connTree = processConnection(startCost, connection, processedWires);
+			//	if (!priorityQueue.contains(connTree)) {
+			//		priorityQueue.add(connTree);
+			//	}
+		//	}
 
-			}
-
-			boolean mustOccur = false;
-
+			//  Iterable<PathFinderRouteTree> root = startTree.typedIterator();
+			//for (PathFinderRouteTree rt : root) {
+			//   priorityQueue.add(rt);
+			//     processedWires.add(rt.getWire());
+			// }
 
 			for (RouteTree childTree : startTree.getChildren()) {
 				// If the child tree is a VCC/GND wire, it and its children can only be free if it originates from
 				// a tie-off that neighbors the current sink
 				if (childTree.getWire().getName().equals("VCC_WIRE") || childTree.getWire().getName().equals("GND_WIRE")) {
-					if (isNeighboringTieOff(childTree.getWire(), currSink.getWire())) {
-						mustOccur = true;
+
+					if (childTree.getWire().getTile() == currSink.getWire().getTile()) {
 						// Make this and all of its children free
-						for (RouteTree rt : childTree) {
-							PathFinderRouteTree rtCost = (PathFinderRouteTree) rt;
-							rtCost.freeWireSegmentCost();
-							rtCost.freePathFinderCost();
-							processedWires.add(rtCost.getWire());
-							priorityQueue.add(rtCost);
-
-							if (rtCost.getWire().equals(currSink.getWire())) {
-								sinkAlreadyRouted = rtCost;
+						freeCount++;
+						Iterable<PathFinderRouteTree> pfChildTree = childTree.typedIterator();
+						for (PathFinderRouteTree rt : pfChildTree) {
+							rt.freeWireSegmentCost();
+							rt.freePathFinderCost();
+							if (processedWires.contains(rt.getWire())) {
+								System.out.println("wtf 1");
+							}
+							if (priorityQueue.contains(rt)) {
+								System.out.println("wtf 2");
 							}
 
-						}
-					} else {
-						// Make sure they aren't free
-						for (RouteTree rt : childTree) {
-							PathFinderRouteTree rtCost = (PathFinderRouteTree) rt;
-							rtCost.unfreeWireSegmentCost();
-							rtCost.unfreePathFinderCost();
-							processedWires.add(rtCost.getWire());
-							priorityQueue.add(rtCost);
+							processedWires.add(rt.getWire());
 
-							if (rtCost.getWire().equals(currSink.getWire())) {
-								sinkAlreadyRouted = rtCost;
-							}
+
+
+							priorityQueue.add(rt);
 						}
-					}
+					} //else {
+						// don't include
+				//	}
 				} else {
-					// non tie-off sources should be free for all sinks
-					for (RouteTree rt : childTree) {
-						PathFinderRouteTree rtCost = (PathFinderRouteTree) rt;
-						// Re-using wires that have already been used for prior sinks should be considered "free"
-						rtCost.setWireSegmentCost(0);
-						rtCost.setPathFinderCost(0);
-						processedWires.add(rtCost.getWire());
-						priorityQueue.add(rtCost);
+					// Make non tie-offs not quite free since tie-offs should be preferred, but still cheap.
+					// It would be nice to do this more intelligently.
+					Iterable<PathFinderRouteTree> pfChildTree = childTree.typedIterator();
+					for (PathFinderRouteTree rt : pfChildTree) {
+						rt.setWireSegmentCost(1);
 
-						if (rtCost.getWire().equals(currSink.getWire())) {
-							sinkAlreadyRouted = rtCost;
+						// The path finder cost shouldn't be equal for every single tie-off.
+						// Further sources should
+
+						rt.setPathFinderCost(4);
+						if (processedWires.contains(rt.getWire())) {
+							System.out.println("wtf 1");
 						}
-
+						if (priorityQueue.contains(rt)) {
+							System.out.println("wtf 2");
+						}
+						processedWires.add(rt.getWire());
+						priorityQueue.add(rt);
 					}
 				}
 			}
-
-			if (!mustOccur)
-				System.out.println("HOW");
-
 		} else {
-			for (RouteTree rt : startTree) {
-				PathFinderRouteTree rtCost = (PathFinderRouteTree) rt;
+			Iterable<PathFinderRouteTree> pfStartTree = startTree.typedIterator();
+			for (PathFinderRouteTree rt : pfStartTree) {
 				// Re-using wires that have already been used for prior sinks should be considered "free"
-				rtCost.setWireSegmentCost(0);
-				rtCost.setPathFinderCost(0);
-				processedWires.add(rtCost.getWire());
-				priorityQueue.add(rtCost);
-
-				if (rtCost.getWire().equals(currSink.getWire())) {
-					sinkAlreadyRouted = rtCost;
+				rt.setWireSegmentCost(0);
+				rt.setPathFinderCost(0);
+				if (processedWires.contains(rt.getWire())) {
+					System.out.println("wtf 1");
 				}
+				if (priorityQueue.contains(rt)) {
+					System.out.println("wtf 2");
+				}
+				processedWires.add(rt.getWire());
+				priorityQueue.add(rt);
 			}
 		}
 
-    	return sinkAlreadyRouted;
-	}
+    	if (freeCount > 1) {
+    		System.out.println("WTFFF");
+		}
+    }
 
     /**
      * Routes the specified {@link IntersiteRoute} using the A* routing algorithm.
      * @return True if successful, false otherwise.
      */
     public boolean routeNet(IntersiteRoute intersiteRoute) {
-    	if (intersiteRoute.getNet().getName().equals("angle_in_IBUF[12]"))
-    		System.out.println("DUE");
-
-
         // Priority Queue of route trees, sorted by decreasing cost to the sink
         PriorityQueue<PathFinderRouteTree> priorityQueue = new PriorityQueue<>(routeTreeComparator);
 
@@ -219,13 +206,18 @@ public class AStarRouter extends MazeRouter {
         // existing trees have already connected to.
         Set<Wire> processedWires = new HashSet<>();
 
+        if (intersiteRoute.isStatic()) {
+        	System.out.println("previous stuff shouldn't be free (except for the desired source) for static crap");
+		}
+
+        // TODO: Remove. makePreviousSinksFree() takes care of this now.
         // Add all existing route trees to the priority queue. This allows new sinks to re-use wires that have
         // already been connected to by previously routed sinks.
-        Iterable<PathFinderRouteTree> root = startTree.typedIterator();
-        for (PathFinderRouteTree rt : root) {
-            priorityQueue.add(rt);
-            processedWires.add(rt.getWire());
-        }
+      //  Iterable<PathFinderRouteTree> root = startTree.typedIterator();
+       //for (PathFinderRouteTree rt : root) {
+         //   priorityQueue.add(rt);
+       //     processedWires.add(rt.getWire());
+       // }
 
         // Add the terminals of the routed sinks to the set of terminals
         for (PathFinderRouteTree sink : intersiteRoute.getRoutedSinks()) {
@@ -237,37 +229,27 @@ public class AStarRouter extends MazeRouter {
             assert (sinkTree != null);
             assert (intersiteRoute.getSinkTerminalTreeMap().get(sinkTree) != null);
 
+			Wire terminalWire = intersiteRoute.getTerminalTree(sinkTree).getWire();
+			Wire targetWire = sinkTree.getWire();
+			targetTile = targetWire.getTile();
 
 			// If there are remaining sinks to route for this net, reset the existing branches to only include
 			// wires already in the final route tree. These route trees will be added to the priority queue, but
 			// adding their wires to processedWires will prevent duplicate route trees from being added.
-			if (sinksToRoute.indexOf(sinkTree) != 0) {
-				processedWires = new HashSet<>();
-				priorityQueue.clear();
-				PathFinderRouteTree sinkAlreadyRouted = makePreviousSinksFree(intersiteRoute, startTree, processedWires, priorityQueue, sinkTree);
+			processedWires = new HashSet<>();
+			priorityQueue.clear();
+			//if (intersiteRoute.isStatic() && sinksToRoute.indexOf(sinkTree) == (0)) {
+			//	processedWires.add(startTree.getWire());
+			//	priorityQueue.add(startTree);
+			//}
 
-				if (sinkAlreadyRouted != null) {
-					System.out.println("Sink for " + intersiteRoute.getNet().getName() + " routed");
-				}
+			makePreviousSinksFree(intersiteRoute, startTree, processedWires, priorityQueue, sinkTree);
 
-				// Connect the trees
-				//if (sinkAlreadyRouted != null) {
-					//sinkAlreadyRouted.getParent().connect(sinkAlreadyRouted.getConnection(), sinkTree);
-					//terminals.add(intersiteRoute.getTerminalTree(sinkTree));
-				//	continue;
-				//}
-			}
-
-            Wire terminalWire = intersiteRoute.getTerminalTree(sinkTree).getWire();
-            Wire targetWire = sinkTree.getWire();
-            targetTile = targetWire.getTile();
 
             // Resort the priority queue for the new costs of the RouteTrees for the new target wire
-			//System.out.println("BEFORE");
 			Collection<PathFinderRouteTree> oldQueue = new ArrayList<>(priorityQueue);
             priorityQueue.clear();
 			priorityQueue.addAll(oldQueue);
-           // System.out.println("AFTER");
             boolean routeFound = false;
 
             // This loop actually builds the routing data structure
@@ -297,7 +279,6 @@ public class AStarRouter extends MazeRouter {
 
 						// TODO: Why did I have the other line before? Is there another case?
 
-						System.out.println("SPECIAL CASE: " + intersiteRoute.getNet().getName());
 
 						// must preserve sink tree for inter-site maps, etc.
 						PathFinderRouteTree parent = currTree.getParent();
@@ -323,7 +304,7 @@ public class AStarRouter extends MazeRouter {
                 }
 
                 // Add possible connections to the queue
-                Collection<Connection> currConnections = getFilteredConnections(intersiteRoute, currTree, processedWires);
+                Collection<Connection> currConnections = getFilteredConnections(intersiteRoute, terminalWire, currTree, processedWires);
                 for (Connection connection : currConnections) {
                     // If a connection is the solution, don't bother processing the remaining connections
                     if (connection.getSinkWire().equals(targetWire)) {
@@ -332,7 +313,7 @@ public class AStarRouter extends MazeRouter {
                         routeFound = true;
                         break;
                     } else {
-                        PathFinderRouteTree connTree = processConnection(currTree, connection, processedWires);
+                        PathFinderRouteTree connTree = processConnection(intersiteRoute, currTree, connection, processedWires);
                         if (!priorityQueue.contains(connTree)) {
                             priorityQueue.add(connTree);
                         }
@@ -349,25 +330,6 @@ public class AStarRouter extends MazeRouter {
             }
 
             startTree.prune(terminals);
-
-            /*
-            // If there are remaining sinks to route for this net, reset the existing branches to only include
-            // wires already in the final route tree. These route trees will be added to the priority queue, but
-            // adding their wires to processedWires will prevent duplicate route trees from being added.
-            if (sinksToRoute.indexOf(sinkTree) != (sinksToRoute.size() - 1)) {
-                processedWires = new HashSet<>();
-                priorityQueue.clear();
-
-                for (RouteTree rt : startTree) {
-                    PathFinderRouteTree rtCost = (PathFinderRouteTree) rt;
-                    // Re-using wires that have already been used for prior sinks should be considered "free"
-                    rtCost.setWireSegmentCost(0);
-                    rtCost.setPathFinderCost(0);
-                    processedWires.add(rtCost.getWire());
-                    priorityQueue.add(rtCost);
-                }
-            }
-            */
         }
 
         // Register the leaves for the inter-site route tree
@@ -387,30 +349,33 @@ public class AStarRouter extends MazeRouter {
      * @param searchedWires the set of wires that have already been considered
      * @return the sink tree
      */
-    private PathFinderRouteTree processConnection(PathFinderRouteTree parent, Connection connection, Set<Wire> searchedWires) {
+    private PathFinderRouteTree processConnection(IntersiteRoute intersiteRoute, PathFinderRouteTree parent, Connection connection, Set<Wire> searchedWires) {
         Wire sinkWire = connection.getSinkWire();
-
-        if (sinkWire.equals(parent.getWire())) {
-        	System.out.println("HOW ID HAPPEN");
-		}
-
+		assert(!sinkWire.equals(parent.getWire()));
         PathFinderRouteTree sinkTree = parent.connect(connection);
-        WireUsage wireUsage = this.wireUsageMap.get(sinkWire);
-        double pfCost = (wireUsage == null) ? 1 : wireUsage.getPFCost();
 
-        if (!connection.isPip()) {
-            sinkTree.setWireSegmentCost(parent.getWireSegmentCost());
-            sinkTree.setPathFinderCost(parent.getPathFinderCost());
-        } else {
-            sinkTree.setPathFinderCost(parent.getPathFinderCost() + pfCost);
+		//if (intersiteRoute.isStatic() && (sinkWire.getName().equals("GND_WIRE") || sinkWire.getName().equals("VCC_WIRE")))  {
+		//	sinkTree.setWireSegmentCost(1);
+	//		sinkTree.setPathFinderCost(4);
+	//	} else {
+			WireUsage wireUsage = this.wireUsageMap.get(sinkWire);
+			double pfCost = (wireUsage == null) ? 1 : wireUsage.getPFCost();
 
-            // Make it cheaper to connect within the same tile (bounce pips, etc.)
-            if (connection.getSourceWire().getTile() == connection.getSinkWire().getTile()) {
-                sinkTree.setWireSegmentCost(parent.getWireSegmentCost() + 0.5);
-            } else {
-                sinkTree.setWireSegmentCost(parent.getWireSegmentCost() + 1);
-            }
-        }
+			if (!connection.isPip()) {
+				sinkTree.setWireSegmentCost(parent.getWireSegmentCost());
+				sinkTree.setPathFinderCost(parent.getPathFinderCost());
+			} else {
+				sinkTree.setPathFinderCost(parent.getPathFinderCost() + pfCost);
+
+				// Make it cheaper to connect within the same tile (bounce pips, etc.)
+				if (connection.getSourceWire().getTile() == connection.getSinkWire().getTile()) {
+					sinkTree.setWireSegmentCost(parent.getWireSegmentCost() + 0.65);
+				} else {
+					sinkTree.setWireSegmentCost(parent.getWireSegmentCost() + 1);
+				}
+			}
+	//	}
+
 
         searchedWires.add(sinkWire);
         return sinkTree;

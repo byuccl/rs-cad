@@ -71,10 +71,10 @@ public abstract class MazeRouter {
      * @param excludeWires sink wires to not include
      * @return the list of filtered connections
      */
-    protected Collection<Connection> getFilteredConnections(IntersiteRoute intersiteRoute, RouteTree routeTree, Set<Wire> excludeWires) {
+    protected Collection<Connection> getFilteredConnections(IntersiteRoute intersiteRoute, Wire terminalWire, RouteTree routeTree, Set<Wire> excludeWires) {
         return routeTree.getWire().getWireConnections().stream()
                 .filter(conn -> !excludeWires.contains(conn.getSinkWire()))
-                .filter(conn -> isConnectionValid(intersiteRoute, conn))
+                .filter(conn -> isConnectionValid(intersiteRoute, conn, terminalWire))
                 .filter(conn -> design.isWireAvailable(intersiteRoute.getNet(), conn.getSinkWire()))
                 .collect(Collectors.toList());
     }
@@ -83,9 +83,10 @@ public abstract class MazeRouter {
      * Returns whether a given connection is valid, taking into account the type of net that is being routed, the type of
      * sink wire, and the type of the connection.
      */
-    private boolean isConnectionValid(IntersiteRoute intersiteRoute, Connection connection) {
+    private boolean isConnectionValid(IntersiteRoute intersiteRoute, Connection connection, Wire terminalWire) {
         Wire wire = connection.getSinkWire();
         Tile sinkTile = wire.getTile();
+
         boolean clk = wire.getName().contains("CLK");
         boolean gfan = wire.getName().contains("GFAN");
 
@@ -114,7 +115,13 @@ public abstract class MazeRouter {
             // CGF_CENTER_MID, INT_INTERFACE, INT, etc.
             return true;
         } else if (intersiteRoute.isStatic()) {
-            // static nets can connect to clock sinks
+			if (intersiteRoute.isGnd() && (wire.getName().equals("GND_WIRE"))) {
+				// For speed, don't allow tie-offs from other tiles
+				return intersiteRoute.isLocalTieOff(terminalWire.getTile(), sinkTile);
+			} else if (intersiteRoute.isVcc() && (wire.getName().equals("VCC_WIRE"))) {
+				return intersiteRoute.isLocalTieOff(terminalWire.getTile(), sinkTile);
+			}
+			// static nets can connect to clock sinks
             if (clk)
                 return true;
         } else {
