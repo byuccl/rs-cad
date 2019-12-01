@@ -83,12 +83,16 @@ public class RSVRouteExample {
     }
 
     public static void main(String[] args) throws IOException {
-        if (args.length < 1) {
-            System.err.println("Usage: RSVRouteExample rscpCheckpointDirectoryName");
+        if (args.length < 4) {
+            System.err.println("Usage: RSVRouteExample rscpCheckpointDirectoryName presentCongestionFactor presentCongestionMultFactor historyFactor");
             System.exit(1);
         }
         String checkpointIn = args[0];
         String tcpOut = checkpointIn.substring(0, checkpointIn.length() - 4) + ".routed.tcp";
+
+        double presentCongestionFactor = Double.parseDouble(args[1]); //1;
+        double presentCongestionMultFactor = Double.parseDouble(args[2]); //1.3;
+        double historyFactor = Double.parseDouble(args[3]); // 1
 
         // Import a placed design
         importDesign(checkpointIn);
@@ -99,9 +103,9 @@ public class RSVRouteExample {
         try {
             Time runTime = new Time();
             runTime.setStartTime();
-            router.routeDesign();
+            router.routeDesign(presentCongestionFactor, presentCongestionMultFactor, historyFactor);
             runTime.setEndTime();
-            System.out.println("RSVRoute took " + runTime.getTotalTime() + " seconds.");
+            System.out.print(runTime.getTotalTime() + " ");
         } catch (CadException e) {
             e.printStackTrace();
         }

@@ -124,12 +124,10 @@ class DefaultCoolingSchedule<S: ClusterSite>(
 		oldCost = currCost
 
 		val groups = design.groups.toTypedArray()
-		//println("Find initial temperature - Why does this sometimes get caught in a loop??")
 		temperature = 1.5 * findInitialTemperature(
 			state, groups, currCost, random, design, validator)
 		val numRealNets = getRealNets(design).size
 
-		//println("set max range limit")
 		// TODO: Use the constraint rather than the device size
 		MAX_RANGE_LIMIT = device.columns + device.rows
 		rangeLimit = MAX_RANGE_LIMIT
@@ -138,7 +136,7 @@ class DefaultCoolingSchedule<S: ClusterSite>(
 		// placed, it looks at a different group.
 
 		stepsPerTemp = (Math.pow(groups.size.toDouble(), 1.33) * qualityMultiplier).toInt()
-//		println("Max Range Limit = $MAX_RANGE_LIMIT steps per temp=$stepsPerTemp")
+		println("Max Range Limit = $MAX_RANGE_LIMIT steps per temp=$stepsPerTemp")
 
 		COST_THRESHOLD = .05 * currCost / numRealNets
 		this.design = design
@@ -155,12 +153,12 @@ class DefaultCoolingSchedule<S: ClusterSite>(
 			numTemperaturesBelowCostThreshold++
 			if (numTemperaturesBelowCostThreshold >= MAX_TEMPERATURES_BELOW_COST_THRESHOLD) {
 				keepGoing = false
-//				if (!usePercentMode)
-//					println("Did not meet threshold of $COST_THRESHOLD for " +
-//						"$numTemperaturesBelowCostThreshold consecutive temperatures")
-//				else
-//					println("The delta cost percent fell below -$percentageThreshold% for " +
-//						"$numTemperaturesBelowCostThreshold consecutive times.")
+				if (!usePercentMode)
+					println("Did not meet threshold of $COST_THRESHOLD for " +
+						"$numTemperaturesBelowCostThreshold consecutive temperatures")
+				else
+					println("The delta cost percent fell below -$percentageThreshold% for " +
+						"$numTemperaturesBelowCostThreshold consecutive times.")
 			}
 		} else {
 			numTemperaturesBelowCostThreshold = 0
@@ -170,11 +168,11 @@ class DefaultCoolingSchedule<S: ClusterSite>(
 		val fractionOfMovesAccepted = numTempMovesAccepted.toDouble() / numTempMoves.toDouble()
 		temperature = findNewTemperature(fractionOfMovesAccepted, temperature)
 
-//		val diffPercent = String.format("%3.3f", tempDiffCost / currentCost * 100)
-//		println("\tNew cost=$currentCost delta cost: $tempDiffCost ($diffPercent%)")
+		val diffPercent = String.format("%3.3f", tempDiffCost / currentCost * 100)
+		println("\tNew cost=$currentCost delta cost: $tempDiffCost ($diffPercent%)")
 		rangeLimit = findNewRangeLimit(fractionOfMovesAccepted, rangeLimit, MAX_RANGE_LIMIT)
 
-//		println("\tRange Limit: " + rangeLimit)
+		println("\tRange Limit: " + rangeLimit)
 
 		//work harder in more productive parts of the anneal
 		//TODO: make this vary directly with alpha? We want alpha=.44, and

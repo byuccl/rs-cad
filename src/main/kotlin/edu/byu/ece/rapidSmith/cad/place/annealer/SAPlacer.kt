@@ -110,8 +110,8 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 			val moves = numMoves - prevNumMoves
 			val dTime = currTime - lastTime
 			val movesPerMiliSecond = moves.toDouble() / dTime
-			//println("\tTime: ${dTime.toDouble() / 1000} seconds. $moves moves. " +
-			//	"Moves per second: ${movesPerMiliSecond * 1000}")
+			println("\tTime: ${dTime.toDouble() / 1000} seconds. $moves moves. " +
+				"Moves per second: ${movesPerMiliSecond * 1000}")
 			prevNumMoves = numMoves
 
 			coolingSchedule.update(coolingSchedule.stepsPerTemp, numMovesAccepted)
@@ -119,12 +119,12 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 
 		// Done. Reached the ending condition.
 
-		//System.out.println("Final cost: " + currCost);
+		System.out.println("Final cost: " + currCost);
 		val timeInMiliSeconds = System.currentTimeMillis() - initTime
 		val movesPerSecond = numMoves.toDouble() / timeInMiliSeconds * 1000
-		//println("Final cost: " + currCost + " (" + currCost / initialCost * 100 + "% of initial cost:" +
-		//	initialCost + ")")
-		//println(numMoves.toString() + " Moves in " + timeInMiliSeconds.toDouble() / 1000 + " seconds (" + movesPerSecond + " moves per second)")
+		println("Final cost: " + currCost + " (" + currCost / initialCost * 100 + "% of initial cost:" +
+			initialCost + ")")
+		println(numMoves.toString() + " Moves in " + timeInMiliSeconds.toDouble() / 1000 + " seconds (" + movesPerSecond + " moves per second)")
 		finalizePlacement(state, pdesign)
 		pdesign.commit()
 

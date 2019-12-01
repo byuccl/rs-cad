@@ -50,10 +50,30 @@ public class RSVRoute {
 		this(device, design, libCells, false, vccSourceBels, gndSourceBels);
 	}
 
-	/**
-	 * Routes the cell-design. Currently automatically creates inter-site route objects for all nets in the design
-	 * (so all nets become routed) and uses the A* router as the maze router.
-	 */
+
+	public void routeDesign(double presentCongestionFactor, double presentCongestionMultFactor, double historyFactor) throws CadException {
+		// Perform necessary initialization, creating inter-site route objects for each net.
+		ArrayList<IntersiteRoute> intersiteRoutes = createIntersiteRoutes();
+
+		// Create a map from wires to WireUsage to keep track of how wires are used
+		Map<Wire, WireUsage> wireUsageMap = new HashMap<>();
+
+		// Choose a maze router to use
+		MazeRouter mazeRouter = new AStarRouter(design, wireUsageMap, useRoutethroughs);
+
+		// Start the pathfinder algorithm
+		PathFinder pathFinder = new PathFinder(device, libCells, design, mazeRouter, wireUsageMap, vccSourceBels, gndSourceBels);
+		pathFinder.setPresentCongestionFactor(presentCongestionFactor);
+		pathFinder.setPresentCongestionMultFactor(presentCongestionMultFactor);
+		pathFinder.setHistoryFactor(historyFactor);
+		pathFinder.execute(intersiteRoutes);
+	}
+
+
+		/**
+		 * Routes the cell-design. Currently automatically creates inter-site route objects for all nets in the design
+		 * (so all nets become routed) and uses the A* router as the maze router.
+		 */
 	public void routeDesign() throws CadException {
 		// Perform necessary initialization, creating inter-site route objects for each net.
 		ArrayList<IntersiteRoute> intersiteRoutes = createIntersiteRoutes();
@@ -113,7 +133,7 @@ public class RSVRoute {
 		// (at least if it is routing to a slice). If this is an RM where the clock net isn't being used, it will
 		// route to a LUT input pin. In this case, the sink wire at this point will not be CLK_L0 or CLK_L1. The sink
 		// will instead need to be routed to by a GFAN pip. Find this and use it as the sink wire.
-		if (net.isGlobalClkNet() && !wire.getName().contains("CLK")) {
+		if (net.isGlobalClkNet() && !wire.getName().contains("CLK") && !(sinkWire.getName().contains("IOB"))) {
 			// Filter for just GFANs.
 			Collection<Connection> filteredReverseConns = wire.getReverseWireConnections().stream()
 					.filter(connection -> connection.getSinkWire().getName().contains("GFAN"))
@@ -122,6 +142,7 @@ public class RSVRoute {
 			// Assuming there will only ever be one GFAN connecting to this wire.
 			assert (filteredReverseConns.size() == 1);
 			wiresForTree.push(wire);
+
 			wire = filteredReverseConns.iterator().next().getSinkWire();
 		}
 

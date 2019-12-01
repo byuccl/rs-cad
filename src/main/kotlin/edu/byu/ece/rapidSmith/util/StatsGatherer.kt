@@ -10,7 +10,6 @@ import java.io.PrintWriter
 import java.io.Writer
 import java.lang.Math.abs
 
-
 val CellDesign.logicCells: Sequence<Cell>
 	get() = this.cells.asSequence().filter { !it.isGndSource && !it.isVccSource}
 
@@ -26,7 +25,7 @@ fun gatherStats(design: CellDesign, resultsFile: Writer) {
 
 fun computeWireLength(design: CellDesign): Int {
 	fun isResetNet(net: CellNet): Boolean {
-		var rst_pins = net.pins.asSequence().count { it.name in listOf("RESET", "RST") }
+		var rst_pins = net.pins.asSequence().count { it.name in listOf("RESET", "RST", "reset", "rst") }
 		return rst_pins.toFloat() / net.pins.size > 0.8
 	}
 
@@ -39,11 +38,9 @@ fun computeWireLength(design: CellDesign): Int {
 			continue
 
 		for (trees in net.intersiteRouteTreeList) {
-			for (tree in trees) {
-				for (c in tree) {
-					if (c.getParent<RouteTree>() != null) {
-						wireLength += manhattanDistance(c.getParent<RouteTree>().wire.tile, c.wire.tile)
-					}
+			for (c in trees) {
+				if (c.getParent<RouteTree>() != null) {
+					wireLength += manhattanDistance(c.getParent<RouteTree>().wire.tile, c.wire.tile)
 				}
 			}
 		}
