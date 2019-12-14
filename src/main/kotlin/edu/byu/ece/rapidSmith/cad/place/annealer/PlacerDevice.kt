@@ -1,17 +1,17 @@
 package edu.byu.ece.rapidSmith.cad.place.annealer
 
+import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
-import edu.byu.ece.rapidSmith.design.subsite.CellDesign
+import edu.byu.ece.rapidSmith.cad.cluster.PackUnit
 import edu.byu.ece.rapidSmith.device.Device
 import edu.byu.ece.rapidSmith.device.Site
 import edu.byu.ece.rapidSmith.device.Tile
 
 class PlacerDevice<S: ClusterSite>(
-		device: Device,
-		design: CellDesign,
-		csgFactory: ClusterSiteGridFactory<S>
+	device: Device,
+	csgFactory: ClusterSiteGridFactory<S>
 ) {
-	val grid = csgFactory.makeClusterSiteGrid(device, design)
+	val grid = csgFactory.makeClusterSiteGrid(device)
 
 	fun getRelatedClusterSites(site: Site): List<S> =
 		grid.getRelatedClusterSites(site)

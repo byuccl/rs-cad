@@ -6,6 +6,7 @@ import edu.byu.ece.rapidSmith.cad.cluster.isValid
 import edu.byu.ece.rapidSmith.design.subsite.*
 import kotlin.streams.asSequence
 
+
 class Ram(var parent: Cell) {
 	val cells : Collection<Cell>
 		get() = parent.internalCells
@@ -35,7 +36,7 @@ class RamMaker(cellLibrary: CellLibrary) {
 		cellLibrary.get("RAMS64E"))
 
 	fun make(design: CellDesign): Map<Cell, Ram> {
-		return design.inContextLeafCells.asSequence()
+		return design.leafCells.asSequence()
 			.sortedBy { it.name }
 			.filter { it.libCell in leafRamCellTypes } // look at just RAM cells
 			.map { it to it.parent } // RAM cell to parent cell

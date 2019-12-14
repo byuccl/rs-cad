@@ -220,7 +220,7 @@ private fun <S: ClusterSite> createPlacementRegions(
 	gprFactory: GroupPlacementRegionFactory<S>
 ): Array<GroupPlacementRegion<S>> {
 	// A temporary map between each type and the constraint used for that type
-	return design.groups.map { gprFactory.make(it, device, design) }.toTypedArray()
+	return design.groups.map { gprFactory.make(it, device) }.toTypedArray()
 }
 
 private fun <S: ClusterSite> calculateUtilizations(

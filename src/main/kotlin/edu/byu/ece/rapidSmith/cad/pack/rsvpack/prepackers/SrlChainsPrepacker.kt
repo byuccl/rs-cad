@@ -10,13 +10,11 @@ import edu.byu.ece.rapidSmith.device.Bel
 import java.util.*
 import kotlin.streams.asSequence
 
-// make sure SRL chains are grouped together.
-
 class SRLChainsPrepackerFactory : PrepackerFactory<PackUnit>() {
 	private val mc31Sinks = LinkedHashMap<Cell, Cell>()
 
 	override fun init(design: CellDesign) {
-		val q31SourceCells = design.inContextLeafCells.asSequence()
+		val q31SourceCells = design.leafCells.asSequence()
 			.sortedBy { it.name }
 			.filter { it.usesPin("Q31") || it.usesPin("Q15") }
 

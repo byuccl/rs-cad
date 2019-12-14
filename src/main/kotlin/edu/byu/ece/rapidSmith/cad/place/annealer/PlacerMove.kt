@@ -59,10 +59,8 @@ class PlacerMove<S : ClusterSite>(
 		////////////////////////////////////////////////////////////////////////////////////////////////////
 		// unplace all groups involved in this move
 		for ((group, oldSite) in components) {
-			if (oldSite != null) {
+			if (oldSite != null)
 				placerState.unplaceGroup(group)
-			}
-
 		}
 
 		// place all groups involved in this move

@@ -112,7 +112,6 @@ class TableBasedRoutabilityChecker(
 			for (pin in cell.pins) {
 				if (pin.isConnectedToNet) {
 					val net = pin.net
-					// If the net and its possible sources have already been initialized for the cluster, skip
 					if (net !in netSources) {
 						initNetSource(net)
 						initNetSinks(net)
@@ -126,9 +125,6 @@ class TableBasedRoutabilityChecker(
 	// treated as being outside the cluster
 	private fun initNetSource(net: CellNet) {
 		val source = Source.Builder()
-
-		assert (net.sourcePin != null)
-
 		when {
 			net.type == NetType.VCC -> {
 				source.vcc = true
@@ -138,28 +134,15 @@ class TableBasedRoutabilityChecker(
 				source.gnd = true
 				source.drivesGeneralFabric = true
 			}
-			net.sourcePin.isPartitionPin -> {
-				// if the sourcePin is null, then assume the source cell is a top-level port (which has been removed from the
-				// design if we are packing OOC)
-
-				//println("Top Level Port found.")
-
-				// There are no possible sources because the source is outside of the partial device boundaries
-				//  Let's just say the source can reach the general fabric
-				source.cellPin = net.sourcePin
-				source.drivesGeneralFabric = true
-			}
 			else -> {
 				val sourcePin = net.sourcePin
-
-				// TODO: More intelligent handling of partition pins
 				val sourceCell = sourcePin.cell
 
 				source.cellPin = sourcePin
 				val sourceCluster = sourceCell.getCluster<Cluster<*, *>>()
 
 				// source is placed outside the cluster
-				if (sourceCluster !== null && sourceCluster !== cluster) {
+				if (sourceCluster != null && sourceCluster !== cluster) {
 					initOutsideClusterSource(source, sourcePin)
 				} else {
 					// even if the source is placed, we are treating it as unplaced
@@ -234,13 +217,12 @@ class TableBasedRoutabilityChecker(
 
 	/**
 	 * Move all of the pins affected by this change from unused to being within
-	 * the cluster. update the net info with any pins that now exist in the cluster
+	 * the cluster
 	 */
 	private fun updateChangedNets(changed: Collection<Cell>): Boolean {
 		for (cell in changed) {
 			for (pin in cell.pins) {
 				if (pin.isConnectedToNet) {
-
 					if (pin.isInpin) {
 						if (!updateSinkPin(pin))
 							return false
@@ -329,15 +311,6 @@ class TableBasedRoutabilityChecker(
 		// update the sinks with external routes now
 		val sinks = _netSinks[net]!!
 		for (sinkPin in net.sinkPins) {
-
-			// TODO: Handle partition pins intelligently
-			if (sinkPin.isPartitionPin) {
-				// sink is driven by general fabric
-				sinks.mustLeave = true
-				continue
-			}
-
-
 			val sinkCell = sinkPin.cell
 			val sinkCluster = sinkCell.getCluster<Cluster<*, *>>()
 			if (sinkCluster == null) {
@@ -553,8 +526,8 @@ class TableBasedRoutabilityChecker(
 	}
 
 	/**
-	 * Check the status of a row of the pin group. Searches for a valid solution
-	 * to each sink and source pin from the pin group. Terminates early if possible.
+	 * Check the status of a row of the pin group.  Searches for a valid solution
+	 * to each sink and source pin from the pin group.  Terminates early if possible
 	 */
 	private fun checkRow(pg: PinGroup, row: RoutingTable.Row): RowStatus {
 		val rowStatus = RowStatus()
@@ -608,11 +581,7 @@ class TableBasedRoutabilityChecker(
 				} else {
 					// claim this source preventing any other pins from
 					// trying to use it
-
-                   // val isPassThru = cellPin.cell.libCell.isLut	&& cellPin.cell.properties.get("INIT").stringValue.equals("0x2'h2")
-
-                   // if (!isPassThru)
-                    	 rowStatus.claimedSources[result.claimedSource!!] = net
+					rowStatus.claimedSources[result.claimedSource!!] = net
 				}
 			}
 		}
@@ -620,10 +589,6 @@ class TableBasedRoutabilityChecker(
 
 	private fun checkRowSources(row: RoutingTable.Row, rowStatus: RowStatus) {
 		for ((belPin) in row.sourcePins) {
-
-			// Partial-Device: If the source pin of a net is null, the source is outside of the entire partial device.
-
-
 			// get the cell pin related to the current source BelPin
 			// if the pin is not used, continue to the next BelPin
 			val cellPin = bel2CellPinMap[belPin] ?: continue
@@ -647,7 +612,7 @@ class TableBasedRoutabilityChecker(
 	}
 
 	/**
-	 * Merge each of the conditional cells for a row to produce a single set of
+	 * Merge each of the conitional cells for a row to produce a single set of
 	 * conditional build requirements
 	 */
 	private fun mergeConditionalsInRow(
@@ -684,19 +649,7 @@ class TableBasedRoutabilityChecker(
 		val claimedSource: Any?
 		var conditionalSource: Bel? = null
 
-		if (cellPin.net.sourcePin.isPartitionPin && entry.drivenByGeneralFabric) {
-			// claimedSource = sourcePin
-
-			// the source for this row comes from general routing
-			claimedSource = entry.sourceClusterPin
-			assert (claimedSource != null)
-			// we're coming from outside the cluster.  Let's just make sure the
-			// source can reach general fabric
-			if (source.drivesGeneralFabric) {
-				status = Routability.VALID
-			}
-		}
-		else if (entry.sourcePin != null) {
+		if (entry.sourcePin != null) {
 			// the source for this pin is in the pin group
 			val entryPin = entry.sourcePin
 			claimedSource = entryPin
@@ -713,12 +666,10 @@ class TableBasedRoutabilityChecker(
 				// valid if the source is gnd and unoccupied
 				if (entryPin in template.gndSources && !cluster.isBelOccupied(entryPin.bel, true))
 					status = Routability.VALID
-			}
-			else {
+			} else {
 				// the source doesn't match the requirement.  can't be a valid route
 				// but could be conditional if the source is not yet placed and can
 				// go the the source BEL
-
 				val sourceCell = sourcePin!!.cell
 				val entrySourceBel = entry.sourcePin.bel
 
@@ -744,7 +695,7 @@ class TableBasedRoutabilityChecker(
 				assert(source.belPin != null)
 
 				// the source of this net is in this pin group,  this means the
-				// source leaves the cluster and re-enters from another pin TODO: How do I detect this scenario for part pins??
+				// source leaves the cluster and re-enters from another pin
 				if (source.belPin in pg.sourcePins) {
 					val sourcePinEntry = tableRow.sourcePins[source.belPin]!!
 					if (sourcePinEntry.drivesGeneralFabric)

@@ -12,7 +12,7 @@ import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 
 /**
-  different RAMs have to go in different locations.
+
  */
 class RamPositionsPackRuleFactory(private val ramMaker: RamMaker) : PackRuleFactory {
 	private var rams: Map<Cell, Ram>? = null

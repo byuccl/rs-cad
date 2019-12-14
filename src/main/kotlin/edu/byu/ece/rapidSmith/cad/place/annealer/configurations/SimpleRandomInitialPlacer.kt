@@ -43,7 +43,7 @@ class SimpleRandomInitialPlacer<S: ClusterSite>(
 				continue
 			}
 
-			// Iterate until a free site has been selected or there are no
+			// Iterate until a free size has been selected or there are no
 			// free sites.
 			val orderedAnchorSites = ArrayList<S>(possibleAnchorSites)
 			var component: MoveComponent<S>?

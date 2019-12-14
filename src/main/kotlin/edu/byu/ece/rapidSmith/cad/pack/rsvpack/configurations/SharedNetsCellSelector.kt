@@ -26,13 +26,13 @@ class SharedNetsCellSelector(
 	private val filteredNets = LinkedHashSet<CellNet>()
 
 	override fun init(design: CellDesign) {
-		val inContextLeafCells = design.inContextLeafCells.asSequence().toMutableList()
-        inContextLeafCells.sortBy { it.name }
+		val leafCells = design.leafCells.asSequence().toMutableList()
+		leafCells.sortBy { it.name }
 		design.nets.sortedBy { it.name }.forEach { if (shouldFilterNet(it)) filteredNets += it }
-        inContextLeafCells.forEach { numUsedPinsMap[it] = computeNumUsedPinsOnCell(it) }
-        inContextLeafCells.forEach { numUniqueNetsMap[it] = computeNumUniqueNetsOnCell(it) }
-        inContextLeafCells.forEach { sharedNetsMap[it] = findSharedNets(it) }
-        inContextLeafCells.forEach { sharedPinsMap[it] = findSharedPins(it) }
+		leafCells.forEach { numUsedPinsMap[it] = computeNumUsedPinsOnCell(it) }
+		leafCells.forEach { numUniqueNetsMap[it] = computeNumUniqueNetsOnCell(it) }
+		leafCells.forEach { sharedNetsMap[it] = findSharedNets(it) }
+		leafCells.forEach { sharedPinsMap[it] = findSharedPins(it) }
 	}
 
 	private fun computeNumUsedPinsOnCell(cell: Cell): Int {
@@ -62,9 +62,7 @@ class SharedNetsCellSelector(
 	private fun findSharedNets(cell: Cell): Map<Cell, List<CellNet>> {
 		val netCellPairs = cell.netList
 			.filter { !it.isFilteredNet() }
-			.flatMap { net ->
-				net.pins.filter { pin -> !pin.isPartitionPin }.map{ pin -> Pair(net, pin.cell) }
-			}
+			.flatMap { net -> net.pins.map { pin -> Pair(net, pin.cell) } }
 		val sharedNetsGroup = netCellPairs.groupingBy { it.second }
 		val sharedNets = sharedNetsGroup
 			.fold({ _, _ -> HashSet<CellNet>() }) { _, a, (e) ->
@@ -78,7 +76,7 @@ class SharedNetsCellSelector(
 		val pinCellPairs = cell.netList
 			.filter { !it.isFilteredNet() }
 			.flatMap { net ->
-				net.pins.filter { pin -> !pin.isPartitionPin }.map { pin -> Pair(pin, pin.cell as Cell) }
+				net.pins.map { pin -> Pair(pin, pin.cell as Cell) }
 			}
 		val sharedNetsGroup = pinCellPairs.groupingBy { it.second }
 		val sharedPins = sharedNetsGroup

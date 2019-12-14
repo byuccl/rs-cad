@@ -14,7 +14,7 @@ import edu.byu.ece.rapidSmith.device.families.Artix7
 import java.util.*
 
 /**
- Makes sure entire LUTRAM is packed into a single cluster.
+
  */
 class RamFullyPackedPackRuleFactory(private val ramMaker: RamMaker) : PackRuleFactory {
 	private var rams: Map<Cell, Ram>? = null

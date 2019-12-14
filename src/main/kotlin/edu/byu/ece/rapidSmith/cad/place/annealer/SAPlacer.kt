@@ -7,7 +7,6 @@ import edu.byu.ece.rapidSmith.cad.place.Placer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.DisplacementRandomInitialPlacer
 import edu.byu.ece.rapidSmith.cad.place.annealer.configurations.HPWLCostFunctionFactory
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
-import edu.byu.ece.rapidSmith.device.Device
 import java.util.*
 
 /**
@@ -33,24 +32,28 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 	 * "VPR: A New Packing, Placement and Routing Tool for FPGA Research"
 	 * by Betz and Rose.
 	 */
-	override fun place(device: Device, design: CellDesign, clusters: List<Cluster<*, S>>) {
+	override fun place(design: CellDesign, clusters: List<Cluster<*, S>>) {
 		val pdesign = PlacerDesign(clusters, design)
-		val pdevice = PlacerDevice(device, design, csgFactory)
+		val pdevice = PlacerDevice(design.device, csgFactory)
 		val state = PlacerState(pdesign, pdevice, gprFactory, random, costFunctionFactory.make(pdesign))
 		val coolingSchedule = coolingScheduleFactory.make(state, random)
 
-		// Perform initial placement
+			// Perform initial placement
+		System.out.println("Instances: " + clusters.size)
 		val allGroups = ArrayList(pdesign.groups)
 		val initialPlaceSuccessful = initPlacer.initialPlace(pdesign, pdevice, state)
 
 		// Check to see if the initial placer was successful or not
 		if (!initialPlaceSuccessful) {
-			throw CadException("Unsuccessful initial place")
+			throw CadException("Unsuccesful initial place")
 		}
 
 		coolingSchedule.initialize(pdesign, pdevice, validator)
 		var currCost = state.currentCost
 		val initialCost = currCost
+
+		println("Initial placement cost: $initialCost, " +
+			"Initial Temperature: ${coolingSchedule.temperature}")
 
 		// Initialize time counter
 		val initTime = System.currentTimeMillis()
@@ -65,7 +68,6 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 		while (coolingSchedule.keepGoing) {
 			var numMovesAccepted = 0
 
-			// This may also take forever (the while move == null loop)
 			// This loop will perform a single move. It will be done "stepsPerTemp" times.
 			for (unused in 0 until coolingSchedule.stepsPerTemp) {
 				// Identify a move
@@ -119,7 +121,7 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 
 		// Done. Reached the ending condition.
 
-		System.out.println("Final cost: " + currCost);
+		//System.out.println("Final cost: " + currCost);
 		val timeInMiliSeconds = System.currentTimeMillis() - initTime
 		val movesPerSecond = numMoves.toDouble() / timeInMiliSeconds * 1000
 		println("Final cost: " + currCost + " (" + currCost / initialCost * 100 + "% of initial cost:" +
@@ -127,11 +129,5 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 		println(numMoves.toString() + " Moves in " + timeInMiliSeconds.toDouble() / 1000 + " seconds (" + movesPerSecond + " moves per second)")
 		finalizePlacement(state, pdesign)
 		pdesign.commit()
-
-		// VCC and GND could possibly be fully routed now, so re-compute their route status if they have no site route trees
-		if (design.vccNet.sinkSitePinRouteTrees.isEmpty())
-			design.vccNet.computeRouteStatus()
-		if (design.gndNet.sinkSitePinRouteTrees.isEmpty())
-			design.gndNet.computeRouteStatus()
 	}
 }

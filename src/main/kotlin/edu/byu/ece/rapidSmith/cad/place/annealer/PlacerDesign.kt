@@ -66,43 +66,23 @@ class PlacerDesign<S : ClusterSite>(
 
 			for ((cellPin, belPin) in cluster.getPinMap()) {
 				cellPin.mapToBelPins(belPin)
-                
 				if (cellPin.isInpin) {
 					val net = cellPin.net
 					net.addRoutedSink(cellPin)
 				}
 			}
 
-			// TODO: Actually check that partition pins can be routed earlier? Like the other pins?
-		//	for (net in cluster.getExternalNets()) {
-		//		if (net.sinkPins.iterator().hasNext()) {
-		///			val sinkPin = net.sinkPins.iterator().next()
-		//			if (sinkPin.isPartitionPin)
-		//				net.addRoutedSink(sinkPin)
-		//		}
-		//	}
-
 			for ((net, tree) in cluster.routeTreeMap) {
 				for (rt in tree) {
 					if (rt.wire.source != null) {
 						net.sourceRouteTree = rt
-
-						// TODO: This is inadequate. A static net might be intrasite still.
-						// Figure out why GND is sometimes being marked as intrasite and do a proper check.
-						if (!net.isStaticNet)
-							net.setIsIntrasite(rt.none { it.isLeaf && it.connectedSitePin != null })
-
-						// TODO: If not intrasite, figure out the used SITE PIPs (Routing BELs)
-						// so routers can figure out what site pins to route to
-
+						net.setIsIntrasite(rt.none { it.isLeaf && it.connectedSitePin != null })
 					}
-
 					rt.wire.reverseConnectedPin?.let { net.addSinkRouteTree(it, rt) }
 					for (t in rt) {
 						if (t.isLeaf && t.connectedSitePin != null) {
 							net.addSourceSitePin(t.connectedSitePin!!)
 						}
-
 						if (t.isLeaf && t.connectedBelPin != null) {
 							net.addSinkRouteTree(t.connectedBelPin!!, t)
 						}

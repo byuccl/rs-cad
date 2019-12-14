@@ -55,7 +55,7 @@ class SiteCadFlow {
 		val packTime = System.currentTimeMillis()
 		println("Done packing...")
 		val placer = getGroupSAPlacer()
-		placer.place(device, design, clusters)
+		placer.place(design, clusters)
 		val placeTime = System.currentTimeMillis()
 		this.packerLoadTime = packerLoadTime - startTime
 		this.packTime = packTime - startTime
@@ -93,7 +93,7 @@ class SiteCadFlow {
 			val rscpFile = Paths.get(args[0]).toFile()
 			val tcp = rscpFile.absoluteFile.parentFile.toPath().resolve("${rscpFile.nameWithoutExtension}.tcp")
 			println("writing to $tcp")
-			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, true)
+			VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells)
 		}
 	}
 }
@@ -395,7 +395,7 @@ private class SitePackerFactory(
 			val carry4 = cellLibrary["CARRY4"]
 			val muxf7 = cellLibrary["MUXF7"]
 
-			val cells = ArrayList(design.inContextLeafCells.toList())
+			val cells = ArrayList(design.leafCells.toList())
 			cells.sortBy { it.name }
 			for (cell in cells) {
 				when (cell.libCell) {
@@ -495,9 +495,6 @@ private class SitePackerFactory(
 					if (sourcePin.cell.libCell !in lutCells) {
 						insertRoutethrough(design, pin)
 					}
-					else if (sourcePin.cell.libCell in lutCells && net.sinkPins.size > 1) {
-						insertRoutethrough(design, pin)
-					}
 				}
 			}
 		}
@@ -510,53 +507,9 @@ private class SitePackerFactory(
 				addPseudoPins(cluster)
 				cluster.constructNets()
 				finalRoute(routerFactory, cluster)
-				addFracLutPseudoPins(cluster)
 			}
 		}
 	}
-}
-
-
-fun addFracLutPseudoPins(cluster: Cluster<*, *>) {
-    for (cell in cluster.cells) {
-        val vcc = cell.design.vccNet
-        val bel = cluster.getCellPlacement(cell)
-        if (bel!!.name.matches(Regex("[A-D]6LUT"))) {
-            when (cell.type) {
-                "LUT6", "RAMS64E", "RAMD64E" -> { /* nothing */ }
-                "LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> {
-                    // If the corresponding 5LUT is also used, tie A6 to VCC
-                    // TODO: Replace this by instead using a map w/ A,B,C,D that is updated in this loop?
-                    val bel5Lut = bel.name[0] + "5" + bel.name.substring(2)
-                    if (cluster.isBelOccupied(bel.site.getBel(bel5Lut))) {
-                        //cluster.setPinMapping()
-                        val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
-                        val belPin = bel.getBelPin("A6")
-                        // Assume that vcc can be routed to this pin.
-                        cluster.setPinMapping(pin, listOf(belPin))
-                        vcc.connectToPin(pin)
-
-                        // Add a route tree for this pin to the cluster's route tree map.
-                        val reverseConns = belPin.wire.reverseWireConnections
-                        assert (reverseConns.size == 1)
-                        val sitePinWire = reverseConns.iterator().next().sinkWire
-                        val rt = RouteTreeWithCost(sitePinWire)
-                        //rt.connect<RouteTreeWithCost>(sitePinWire.getWireConnections(true).iterator().next())
-                        rt.connect<RouteTreeWithCost>(sitePinWire.wireConnections.iterator().next())
-
-                        if (cluster.routeTreeMap[vcc] == null) {
-                            val list = ArrayList<RouteTree>()
-                            list.add(rt)
-                            cluster.addRouteTree(vcc, list)
-                        }
-                        else {
-                            cluster.routeTreeMap[vcc]!!.add(rt)
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 private fun addPseudoPins(cluster: Cluster<*, *>) {
@@ -567,17 +520,8 @@ private fun addPseudoPins(cluster: Cluster<*, *>) {
 			when (cell.type) {
 				"LUT6", "RAMS64E", "RAMD64E" -> { /* nothing */ }
 				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> {
-                    // If the corresponding 5LUT is also used, tie A6 to VCC
-                    // TODO: Is this necessary/helpful so we can check that VCC can be routed to any A6 pin on a LUT?
-                    // If so, this unfortunately doesn't work in the case of static source BELs
-                    //	val bel5Lut = bel.name[0] + "5" + bel.name.substring(2)
-                    //	if (cluster.isBelOccupied(bel.site.getBel(bel5Lut))) {
-                    //val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
-                    //vcc.connectToPin(pin)
-                    //	}
-
-                    //val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
-					//vcc.connectToPin(pin)
+					val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
+					vcc.connectToPin(pin)
 				}
 				"SRLC32E" -> {
 					val pin = cell.attachPseudoPin("pseudoA1", PinDirection.IN)

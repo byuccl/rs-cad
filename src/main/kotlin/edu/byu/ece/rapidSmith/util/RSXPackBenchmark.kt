@@ -1,7 +1,6 @@
 package edu.byu.ece.rapidSmith.util
 
 import edu.byu.ece.rapidSmith.cad.families.artix7.SiteCadFlow
-import edu.byu.ece.rapidSmith.design.subsite.ImplementationMode
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -20,7 +19,7 @@ fun main(argv: Array<String>) {
     flow.run(design, device)
     val tcp = benchmarkPath.parent.resolve("$benchname.tcp")
     val timing_report = Paths.get("$benchname.twr")
-    VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells, true)
+    VivadoInterface.writeTCP(tcp.toString(), design, device, rscp.libCells)
     val final = VivadoProject.from_tcp(benchname, tcp).use {
         println(it.place().joinToString(System.lineSeparator()) { it })
         println(it.route().joinToString(System.lineSeparator()) { it })

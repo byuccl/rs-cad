@@ -15,8 +15,7 @@ import java.util.HashSet
 import kotlin.streams.asSequence
 
 /**
- * Postpones flip flop packing until carry chains taken care of, etc.
- * May need similar rule for LUTs.
+ *
  */
 class ReserveFFForSourcePackRuleFactory(cellLibrary: CellLibrary) : PackRuleFactory {
 	private val ccLibCell: LibraryCell = cellLibrary.get("CARRY4")
@@ -32,7 +31,7 @@ class ReserveFFForSourcePackRuleFactory(cellLibrary: CellLibrary) : PackRuleFact
 	override fun init(design: CellDesign) {
 		mergedCells = LinkedHashMap()
 
-		for (cell in design.inContextLeafCells.asSequence().sortedBy { it.name }) {
+		for (cell in design.leafCells.asSequence().sortedBy { it.name }) {
 			if (cell.libCell === ccLibCell) {
 				val packCell = cell as Cell
 				var le = 'A'

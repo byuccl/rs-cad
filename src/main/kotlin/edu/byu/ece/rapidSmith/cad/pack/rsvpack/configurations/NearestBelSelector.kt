@@ -9,6 +9,7 @@ import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.*
 import org.jdom2.input.SAXBuilder
 import java.io.IOException
+import java.io.Serializable
 import java.nio.file.Path
 import java.util.*
 
@@ -23,8 +24,7 @@ constructor(
 	private val baseBelCostMap: BelCostMap,
 	private val HIGH_FANOUT_LIMIT: Int = 500,
 	private val LEAVE_SITE_PENALTY: Double = 0.5
-)
-	: BelSelector<PackUnit> {
+) : BelSelector<PackUnit> {
 	private val sinksOfSources: Map<BelPin, Map<BelPin, CCList>>
 	private val sourcesOfSinks: Map<BelPin, Map<BelPin, CCList>>
 	private val reserveBelCostMap = StackedHashMap<Bel, Double>()
@@ -42,9 +42,6 @@ constructor(
 
 	override fun init(design: CellDesign) {
 		fun shouldFilterNet(net: CellNet): Boolean {
-
-			// What if it is a partition pin? Specifically, what about clk partition pins?
-			// 			if (!net.hasPartitionPin() && (net.isStaticNet || net.pins.size > HIGH_FANOUT_LIMIT))
 			if (net.isStaticNet || net.pins.size > HIGH_FANOUT_LIMIT)
 				return true
 			for (pin in net.pins) {
@@ -75,7 +72,7 @@ constructor(
 		val template = cluster.type.template
 
 		pq = PriorityQueue()
-		val candidateRoots = getPossibleCellRoots(template, cell, forcedAnchors) // get possible Bels
+		val candidateRoots = getPossibleCellRoots(template, cell, forcedAnchors)
 		for (candidateRoot in candidateRoots) {
 			val cost = calcCost(cell, cluster, candidateRoot)
 			if (cost != null)
@@ -119,10 +116,6 @@ constructor(
 
 			val connectedPins = net.pins.filter { it !== pin }
 			for (connPin in connectedPins) {
-				// TODO: Account for partition pins better
-				if (connPin.isPartitionPin)
-					continue // partition pins have no corresponding cell
-
 				val connCell = connPin.cell
 				assert(if (cluster.hasCell(connCell)) connCell.getCluster<Cluster<*, *>>() === cluster else true)
 				if (connCell.getCluster<Cluster<*, *>>() === cluster) {
@@ -250,9 +243,9 @@ private class ClusterConnection(
 
 private class CachedClusterConnection(
 	val pin: BelPinSaver, val isWithinSite: Boolean, val distance: Int
-)
+) : Serializable
 
-private class BelPinSaver(val site: String, val bel: String, val pin: String)  {
+private class BelPinSaver(val site: String, val bel: String, val pin: String) : Serializable {
 	fun resolve(packUnit: PackUnit): BelPin {
 		return packUnit.template.device.getSite(site).getBel(bel).getBelPin(pin)
 	}
@@ -262,7 +255,7 @@ private class CachedClusterConnections(
 	val sourcesOfSinks: Map<BelPinSaver, Map<BelPinSaver, CCCList>>,
 	val sinksOfSources: Map<BelPinSaver, Map<BelPinSaver, CCCList>>,
 	val version: Version = LATEST_VERSION
-) {
+) : Serializable {
 	fun resolve(packUnit: PackUnit): ClusterConnections {
 		val sosi = sourcesOfSinks.mapKeys { (k1, _) -> k1.resolve(packUnit) }
 			.mapValues { (_, v1) ->
@@ -374,14 +367,10 @@ private class ClusterConnectionsBuilder {
 	}
 
 	fun build(
-            //template: PackUnitTemplate
 		packUnit: PackUnit
 	): ClusterConnections {
 		val template = packUnit.template
 		for (bel in template.bels) {
-		//	if (bel.type.equals("SELMUX2_1")) // Can we skip these? No cells get packed onto these BELs.
-			//	continue
-
 			bel.sources.associateTo(sinksOfSources) {
 				it to traverse(it, true).groupBy { it.pin }
 			}

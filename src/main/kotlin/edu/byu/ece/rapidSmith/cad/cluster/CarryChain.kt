@@ -114,16 +114,15 @@ class ClusterChain<C: Cluster<*, *>>(cluster: C) {
 
 /**
  *  Class used to find carry chains in a design.
- *  Carry chains are not explicitly represented in the netlist, so we need to identify them.
  */
 class CarryChainFinder {
 	fun findCarryChains(packUnits: Collection<PackUnit>, design: CellDesign) {
-        for (net in design.nets.sortedBy { it.name }) {
-			if (net.isSourced && !net.sourcePin.isPartitionPin) {
+		for (net in design.nets.sortedBy { it.name }) {
+			if (net.isSourced) {
 				val sourcePin = net.sourcePin
 				val dcs = getDirectSinks(packUnits, sourcePin)
 
-				// Identify carry chains by matching them against direct connections
+				// Identify carry chains be matching them against direct connections
 				for (sinkPin in net.sinkPins) {
 					for (dc in dcs) {
 						val sinkPinTemplate = dc.endPin

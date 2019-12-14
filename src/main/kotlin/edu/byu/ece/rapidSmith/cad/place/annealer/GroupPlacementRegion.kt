@@ -3,9 +3,8 @@ package edu.byu.ece.rapidSmith.cad.place.annealer
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
 import edu.byu.ece.rapidSmith.util.Index
 
-abstract class GroupPlacementRegionFactory<S: ClusterSite>
-{
-	abstract fun make(group: PlacementGroup<S>, device: PlacerDevice<S>, design: PlacerDesign<S>): GroupPlacementRegion<S>
+abstract class GroupPlacementRegionFactory<S: ClusterSite> {
+	abstract fun make(group: PlacementGroup<S>, device: PlacerDevice<S>): GroupPlacementRegion<S>
 }
 
 /**

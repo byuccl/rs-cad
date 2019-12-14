@@ -30,18 +30,6 @@ class SitePinConnection internal constructor(
 	private val pin: SitePin,
 	private val dir: PinConnectionDirection
 ) : Connection() {
-	override fun isDirectConnection(): Boolean {
-		return true
-	}
-
-	override fun getSite(): Site {
-		TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-	}
-
-	//override fun getSinkTileWires(alreadyVisited: MutableList<Connection>?): MutableSet<Wire> {
-	//	TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-	//}
-
 	override fun getSourceWire(): Wire = when (dir) {
 		PinConnectionDirection.INWARD -> pin.externalWire
 		PinConnectionDirection.OUTWARD -> pin.internalWire

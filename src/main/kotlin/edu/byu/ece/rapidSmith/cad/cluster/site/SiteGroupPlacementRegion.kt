@@ -32,8 +32,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 
 	override fun make(
 		group: PlacementGroup<SiteClusterSite>,
-		device: PlacerDevice<SiteClusterSite>,
-		design: PlacerDesign<SiteClusterSite>
+		device: PlacerDevice<SiteClusterSite>
 	): SiteGroupPlacementRegion {
 		return if (group is MultipleClusterPlacementGroup<*>) {
 			val type = group.type as SitePackUnit

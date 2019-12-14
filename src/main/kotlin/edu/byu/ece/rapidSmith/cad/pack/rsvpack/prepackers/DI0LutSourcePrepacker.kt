@@ -11,8 +11,6 @@ import java.util.HashMap
 import kotlin.streams.asSequence
 import kotlin.streams.toList
 
-// connect carry chain and DI0 LUT
-
 class DI0LutSourcePrepackerFactory(
 	cellLibrary: CellLibrary
 ) : PrepackerFactory<PackUnit>() {
@@ -23,7 +21,7 @@ class DI0LutSourcePrepackerFactory(
 	override fun init(design: CellDesign) {
 		// Finds all of the LUTs driving the DI0 pin of a CARRY4 which must
 		// be packed with the CARRY4.
-		val pairs = design.inContextLeafCells.asSequence()
+		val pairs = design.leafCells.asSequence()
 			.sortedBy { it.name }
 			.filter { it.libCell == carry4 }
 			.filter { requiresExternalCYInitPin(it) }
