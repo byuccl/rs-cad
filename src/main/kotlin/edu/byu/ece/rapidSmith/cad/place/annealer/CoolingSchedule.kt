@@ -204,9 +204,9 @@ private fun findNewTemperature(fractionOfMovesAccepted: Double, curTemp: Double)
 
 	newTemp = alpha * curTemp
 	val fiftyPercentCostAccept = (-Math.log(.5)) * newTemp
-	//println("New temp=" + newTemp + " " + (fractionOfMovesAccepted * 100).toInt() +
-	//	"% accepted Alpha=" + alpha +
-	//	" 50% delta cost accept=" + fiftyPercentCostAccept)
+	println("New temp=" + newTemp + " " + (fractionOfMovesAccepted * 100).toInt() +
+		"% accepted Alpha=" + alpha +
+		" 50% delta cost accept=" + fiftyPercentCostAccept)
 	return newTemp
 }
 
@@ -222,8 +222,8 @@ private fun findNewTemperature(fractionOfMovesAccepted: Double, curTemp: Double)
 private fun findNewRangeLimit(fractionOfMovesAccepted: Double, oldLimit: Int, maxRangeLimit: Int): Int {
 	val computedLimit = oldLimit * (1 - TARGET_ALPHA + fractionOfMovesAccepted)
 	val newLimit = computedLimit.toInt().coerceIn(1, maxRangeLimit)
-//	if (newLimit != oldLimit)
-//		println("\tNew range=$computedLimit old range=$oldLimit")
+	if (newLimit != oldLimit)
+		println("\tNew range=$computedLimit old range=$oldLimit")
 	return newLimit
 }
 

@@ -1,7 +1,6 @@
 package edu.byu.ece.rapidSmith.util
 
 import kotlin.math.max
-import java.io.Serializable
 
 /** Constant for Index(0, 0) */
 val ZERO_INDEX = Index(0, 0)
@@ -38,7 +37,7 @@ data class Dimensions(val rows: Int, val columns: Int) {
  * @property row the row of the index
  * @property column the column of the index
  */
-data class Index(val row: Int, val column: Int) : Serializable {
+data class Index(val row: Int, val column: Int) {
 	/**
 	 * Returns the index of this index shifted by [offset]
 	 */
@@ -71,7 +70,7 @@ data class Index(val row: Int, val column: Int) : Serializable {
 /**
  * A row, column offset from a grid index.
  */
-data class Offset(val rows: Int, val columns: Int): Serializable {
+data class Offset(val rows: Int, val columns: Int) {
 	/** Returns the offset computed by adding this offset with [other]. */
 	operator fun plus(other: Offset): Offset =
 		Offset(rows + other.rows, columns + other.columns)

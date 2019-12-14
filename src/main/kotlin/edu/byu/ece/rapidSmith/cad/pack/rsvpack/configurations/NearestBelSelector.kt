@@ -9,7 +9,6 @@ import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.*
 import org.jdom2.input.SAXBuilder
 import java.io.IOException
-import java.io.Serializable
 import java.nio.file.Path
 import java.util.*
 
@@ -25,7 +24,7 @@ constructor(
 	private val HIGH_FANOUT_LIMIT: Int = 500,
 	private val LEAVE_SITE_PENALTY: Double = 0.5
 )
-	: BelSelector<PackUnit>, Serializable {
+	: BelSelector<PackUnit> {
 	private val sinksOfSources: Map<BelPin, Map<BelPin, CCList>>
 	private val sourcesOfSinks: Map<BelPin, Map<BelPin, CCList>>
 	private val reserveBelCostMap = StackedHashMap<Bel, Double>()
@@ -241,7 +240,7 @@ private class ClusterConnection(
 	val pin: BelPin,
 	val isWithinSite: Boolean,
 	val distance: Int
-) : Comparable<ClusterConnection>, Serializable {
+) : Comparable<ClusterConnection> {
 	override fun compareTo(other: ClusterConnection): Int {
 		return Comparator.comparing { cc: ClusterConnection -> cc.isWithinSite }
 			.thenComparing { cc -> cc.distance }
@@ -251,9 +250,9 @@ private class ClusterConnection(
 
 private class CachedClusterConnection(
 	val pin: BelPinSaver, val isWithinSite: Boolean, val distance: Int
-) : Serializable
+)
 
-private class BelPinSaver(val site: String, val bel: String, val pin: String) : Serializable {
+private class BelPinSaver(val site: String, val bel: String, val pin: String)  {
 	fun resolve(packUnit: PackUnit): BelPin {
 		return packUnit.template.device.getSite(site).getBel(bel).getBelPin(pin)
 	}
@@ -263,7 +262,7 @@ private class CachedClusterConnections(
 	val sourcesOfSinks: Map<BelPinSaver, Map<BelPinSaver, CCCList>>,
 	val sinksOfSources: Map<BelPinSaver, Map<BelPinSaver, CCCList>>,
 	val version: Version = LATEST_VERSION
-) : Serializable {
+) {
 	fun resolve(packUnit: PackUnit): ClusterConnections {
 		val sosi = sourcesOfSinks.mapKeys { (k1, _) -> k1.resolve(packUnit) }
 			.mapValues { (_, v1) ->

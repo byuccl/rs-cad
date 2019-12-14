@@ -82,7 +82,6 @@ internal class DirectConnectionFinder(
 			while (q.isNotEmpty()) {
 				val wrapped = q.poll()
 				val wire = wrapped.wire
-
 				if (!visited.add(wire))
 					continue
 

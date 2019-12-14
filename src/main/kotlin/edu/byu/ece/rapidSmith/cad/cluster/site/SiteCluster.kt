@@ -8,7 +8,6 @@ import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
 import edu.byu.ece.rapidSmith.util.Exceptions.DesignAssemblyException
-import java.io.Serializable
 import java.nio.file.Path
 
 /**
@@ -17,7 +16,7 @@ import java.nio.file.Path
 class SiteCluster(
 	name: String, packUnit: SitePackUnit, index: Int
 ) : Cluster<SitePackUnit, SiteClusterSite>
-(name, packUnit, packUnit.template.anchor, index), Comparable<SiteCluster>, Serializable {
+(name, packUnit, packUnit.template.anchor, index), Comparable<SiteCluster> {
 	override val isPlaceable: Boolean
 		get() = true
 
@@ -68,7 +67,7 @@ class SiteClusterSite(
 	val site: Site,
 	override val location: Coordinates,
 	override val tileLocation: Coordinates
-) : Serializable, ClusterSite() {
+) : ClusterSite() {
 	constructor(
 		site: Site, location: Coordinates
 	) : this(site, location, getTileIndex(site))

@@ -4,7 +4,6 @@ import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import edu.byu.ece.rapidSmith.util.Offset
-import java.io.Serializable
 import java.util.*
 
 /**
@@ -13,7 +12,7 @@ import java.util.*
  *  chain in the device.  This class is used to determine how fully built the carry
  *  chain is.
  */
-class CarryChain private constructor(): Serializable {
+class CarryChain private constructor() {
 	private val cells = LinkedHashSet<Cell>()
 
 	private fun addCell(cell: Cell) {
@@ -62,7 +61,7 @@ class CarryChain private constructor(): Serializable {
 /**
  *
  */
-class CarryChainConnection(val clusterPin: CellPin, endPin: CellPin): Serializable {
+class CarryChainConnection(val clusterPin: CellPin, endPin: CellPin) {
 	val endCell = endPin.cell!!
 
 	override fun equals(other: Any?): Boolean {
@@ -87,7 +86,7 @@ class CarryChainConnection(val clusterPin: CellPin, endPin: CellPin): Serializab
 /**
  *
  */
-class ClusterChain<C: Cluster<*, *>>(cluster: C): Serializable {
+class ClusterChain<C: Cluster<*, *>>(cluster: C) {
 	private val _clusters = LinkedHashMap<C, Offset>()
 
 	init {
