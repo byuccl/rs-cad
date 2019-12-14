@@ -1,4 +1,4 @@
-package edu.byu.ece.rapidSmith.cad.families.artix7
+package edu.byu.ece.rapidSmith.cad.families
 
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.getCluster

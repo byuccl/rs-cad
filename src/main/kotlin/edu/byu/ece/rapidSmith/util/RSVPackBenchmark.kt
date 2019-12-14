@@ -1,7 +1,6 @@
 package edu.byu.ece.rapidSmith.util
 
-import edu.byu.ece.rapidSmith.cad.families.artix7.SiteCadFlow
-import edu.byu.ece.rapidSmith.design.subsite.ImplementationMode
+import edu.byu.ece.rapidSmith.cad.families.SiteCadFlow
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface
 import java.nio.file.Files
 import java.nio.file.Paths

@@ -3,7 +3,7 @@ package edu.byu.ece.rapidSmith.cad.route.examples;
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster;
 import edu.byu.ece.rapidSmith.cad.cluster.site.SiteClusterSite;
 import edu.byu.ece.rapidSmith.cad.cluster.site.SitePackUnit;
-import edu.byu.ece.rapidSmith.cad.families.zynq.ZynqSiteCadFlow;
+import edu.byu.ece.rapidSmith.cad.families.SiteCadFlow;
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.CadException;
 import edu.byu.ece.rapidSmith.cad.place.annealer.SimulatedAnnealingPlacer;
 import edu.byu.ece.rapidSmith.cad.route.RSVRoute;
@@ -23,7 +23,9 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static edu.byu.ece.rapidSmith.cad.families.zynq.ZynqKt.getZynqGroupSAPlacer;
+import static edu.byu.ece.rapidSmith.cad.families.Series7Kt.getGroupSAPlacer;
+
+//import static edu.byu.ece.rapidSmith.cad.families.zynq.ZynqKt.getZynqGroupSAPlacer;
 
 public class MaverickDemo {
 
@@ -95,7 +97,7 @@ public class MaverickDemo {
 		design.getVccNet().disconnectFromPins(vccCiPins);
 
 		// Pack the design
-		ZynqSiteCadFlow zynqSiteCadFlow = new ZynqSiteCadFlow();
+		SiteCadFlow zynqSiteCadFlow = new SiteCadFlow();
 
 		return zynqSiteCadFlow.pack(design, device);
 	}
@@ -347,11 +349,11 @@ public class MaverickDemo {
 		List<Cluster<SitePackUnit, SiteClusterSite>> clusters = packDesign(design);
 		runTime.setEndTime();
 		System.out.print(runTime.getTotalTime() + " ");
-		System.out.println("Clusterz: " + clusters.size());
+		System.out.println("Clusters: " + clusters.size());
 
 		// Place the design
 		runTime.setStartTime();
-		SimulatedAnnealingPlacer<SiteClusterSite> placer = getZynqGroupSAPlacer();
+		SimulatedAnnealingPlacer<SiteClusterSite> placer = getGroupSAPlacer();
 		placer.place(device, design, clusters);
 
 		// These steps should be included in the packer/placer in the future.
