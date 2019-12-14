@@ -70,10 +70,10 @@ public class RSVRoute {
 	}
 
 
-		/**
-		 * Routes the cell-design. Currently automatically creates inter-site route objects for all nets in the design
-		 * (so all nets become routed) and uses the A* router as the maze router.
-		 */
+	/**
+	 * Routes the cell-design. Currently automatically creates inter-site route objects for all nets in the design
+	 * (so all nets become routed) and uses the A* router as the maze router.
+	 */
 	public void routeDesign() throws CadException {
 		// Perform necessary initialization, creating inter-site route objects for each net.
 		ArrayList<IntersiteRoute> intersiteRoutes = createIntersiteRoutes();
