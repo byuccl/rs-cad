@@ -10,8 +10,9 @@ import edu.byu.ece.rapidSmith.device.Bel
 import java.util.*
 import kotlin.streams.asSequence
 
-// make sure SRL chains are grouped together.
-
+/**
+ * Makes sure SRL chains are grouped together.
+ */
 class SRLChainsPrepackerFactory : PrepackerFactory<PackUnit>() {
 	private val mc31Sinks = LinkedHashMap<Cell, Cell>()
 

@@ -12,10 +12,8 @@ import edu.byu.ece.rapidSmith.device.Bel
 import edu.byu.ece.rapidSmith.util.luts.InitString
 
 /**
- * dont pack 6 input function with a 5 input function onto the same
- * frac lut.
- *
- * also make sure you dont pack a lutram cell and a non-lutram cell in the same
+ * Dont pack 6 input function with a 5 input function onto the same frac lut.
+ * Also make sure you dont pack a lutram cell and a non-lutram cell in the same cluster.
  */
 class Mixing5And6LutsRuleFactory : PackRuleFactory {
 	override fun make(cluster: Cluster<*, *>): PackRule {
@@ -27,18 +25,10 @@ class Mixing5And6LutsRuleFactory : PackRuleFactory {
 		private val LUT6TYPES: Set<String> = setOf(
 			"LUT6", "SRLC32E", "RAMS64E", "RAMD64E"
 		)
-		// Yosys supported only:
-		//private val LUT6TYPES: Set<String> = setOf(
-		//		"LUT6", "RAMD64E"
-	//	)
 		private val LUT5TYPES: Set<String> = setOf(
-				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5",
-				"SRL16E", "RAMS32", "RAMD32"
+			"LUT1", "LUT2", "LUT3", "LUT4", "LUT5",
+			"SRL16E", "RAMS32", "RAMD32"
 		)
-		// Yosys supported only:
-	//	private val LUT5TYPES: Set<String> = setOf(
-//				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5"
-//		)
 	}
 }
 
@@ -91,7 +81,6 @@ private class Mixing5And6LutsRule(
 		val lut6InputNets = cellAtLut6.inputNets
 
 		// Get the number of unique input nets between the two cells
-		// TODO: This assumes that a LUT won't have the same net as an input pin more than once. Is this valid?
 		lut5InputNets.addAll(lut6InputNets)
 
 		if (lut5InputNets.size > 5)

@@ -42,9 +42,6 @@ constructor(
 
 	override fun init(design: CellDesign) {
 		fun shouldFilterNet(net: CellNet): Boolean {
-
-			// What if it is a partition pin? Specifically, what about clk partition pins?
-			// 			if (!net.hasPartitionPin() && (net.isStaticNet || net.pins.size > HIGH_FANOUT_LIMIT))
 			if (net.isStaticNet || net.pins.size > HIGH_FANOUT_LIMIT)
 				return true
 			for (pin in net.pins) {
@@ -75,7 +72,7 @@ constructor(
 		val template = cluster.type.template
 
 		pq = PriorityQueue()
-		val candidateRoots = getPossibleCellRoots(template, cell, forcedAnchors) // get possible Bels
+		val candidateRoots = getPossibleCellRoots(template, cell, forcedAnchors)
 		for (candidateRoot in candidateRoots) {
 			val cost = calcCost(cell, cluster, candidateRoot)
 			if (cost != null)
@@ -119,9 +116,9 @@ constructor(
 
 			val connectedPins = net.pins.filter { it !== pin }
 			for (connPin in connectedPins) {
-				// TODO: Account for partition pins better
+				// partition pins have no corresponding cell
 				if (connPin.isPartitionPin)
-					continue // partition pins have no corresponding cell
+					continue
 
 				val connCell = connPin.cell
 				assert(if (cluster.hasCell(connCell)) connCell.getCluster<Cluster<*, *>>() === cluster else true)
@@ -374,14 +371,10 @@ private class ClusterConnectionsBuilder {
 	}
 
 	fun build(
-            //template: PackUnitTemplate
 		packUnit: PackUnit
 	): ClusterConnections {
 		val template = packUnit.template
 		for (bel in template.bels) {
-		//	if (bel.type.equals("SELMUX2_1")) // Can we skip these? No cells get packed onto these BELs.
-			//	continue
-
 			bel.sources.associateTo(sinksOfSources) {
 				it to traverse(it, true).groupBy { it.pin }
 			}

@@ -526,7 +526,6 @@ fun addFracLutPseudoPins(cluster: Cluster<*, *>) {
                 "LUT6", "RAMS64E", "RAMD64E" -> { /* nothing */ }
                 "LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> {
                     // If the corresponding 5LUT is also used, tie A6 to VCC
-                    // TODO: Replace this by instead using a map w/ A,B,C,D that is updated in this loop?
                     val bel5Lut = bel.name[0] + "5" + bel.name.substring(2)
                     if (cluster.isBelOccupied(bel.site.getBel(bel5Lut))) {
                         //cluster.setPinMapping()
@@ -541,7 +540,6 @@ fun addFracLutPseudoPins(cluster: Cluster<*, *>) {
                         assert (reverseConns.size == 1)
                         val sitePinWire = reverseConns.iterator().next().sinkWire
                         val rt = RouteTreeWithCost(sitePinWire)
-                        //rt.connect<RouteTreeWithCost>(sitePinWire.getWireConnections(true).iterator().next())
                         rt.connect<RouteTreeWithCost>(sitePinWire.wireConnections.iterator().next())
 
                         if (cluster.routeTreeMap[vcc] == null) {
@@ -566,19 +564,7 @@ private fun addPseudoPins(cluster: Cluster<*, *>) {
 		if (bel!!.name.matches(Regex("[A-D]6LUT"))) {
 			when (cell.type) {
 				"LUT6", "RAMS64E", "RAMD64E" -> { /* nothing */ }
-				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> {
-                    // If the corresponding 5LUT is also used, tie A6 to VCC
-                    // TODO: Is this necessary/helpful so we can check that VCC can be routed to any A6 pin on a LUT?
-                    // If so, this unfortunately doesn't work in the case of static source BELs
-                    //	val bel5Lut = bel.name[0] + "5" + bel.name.substring(2)
-                    //	if (cluster.isBelOccupied(bel.site.getBel(bel5Lut))) {
-                    //val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
-                    //vcc.connectToPin(pin)
-                    //	}
-
-                    //val pin = cell.attachPseudoPin("pseudoA6", PinDirection.IN)
-					//vcc.connectToPin(pin)
-				}
+				"LUT1", "LUT2", "LUT3", "LUT4", "LUT5" -> { /* handled elsewhere */ }
 				"SRLC32E" -> {
 					val pin = cell.attachPseudoPin("pseudoA1", PinDirection.IN)
 					vcc.connectToPin(pin)

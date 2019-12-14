@@ -74,7 +74,6 @@ class ForcedRoutingPrepacker(
 					continue
 
 				for (sinkCellPin in sourceCellPin.net.pins) {
-					//TODO: Possibly handle partition pins more intelligently.
 					if (sinkCellPin === sourceCellPin || sinkCellPin.isPartitionPin)
 						continue
 
@@ -175,7 +174,6 @@ class ForcedRoutingPrepacker(
 
 				val sourceCellPin = sinkCellPin.net.sourcePin ?: continue
 
-				// TODO: Handle partition pins more intelligently?
 				if (sourceCellPin.isPartitionPin)
 					continue
 
@@ -209,10 +207,12 @@ class ForcedRoutingPrepacker(
 		return if (changed) PrepackStatus.CHANGED else PrepackStatus.UNCHANGED
 	}
 
-// Null indicate the connections are possible through general fabric
-// Empty set indicates an invalid configuration
-// One element indicates a forced packing
-// More than one element indicates multiple possible packings (Answers the question: do these cell pins need to be in the same cluster?)
+	/**
+	 * Answers the question: do these cell pins need to be in the same cluster?
+	 * Null indicate the connections are possible through general fabric.
+	 * Empty set indicates an invalid configuration.
+	 * One element indicates a forced packing.
+	 */
 	private fun getPossibleSourceBels(
 		sinkCellPin: CellPin, sourceCellPin: CellPin, candidate: Cluster<*, *>
 	): Set<Bel>? {
@@ -234,11 +234,6 @@ class ForcedRoutingPrepacker(
 				}
 			}
 		}
-
-		// Check if the source is a route-through LUT
-		// TODO: Add a "isPassThruLut" method to cell class.
-		// In this method, check that the cell is a LUT1
-		//val sourceIsRoutethrough = sourceCell.libCell.isLut	&& sourceCell.properties.get("INIT").stringValue.equals("0x2'h2")
 
 		// test if the connection is possible between sites
 		val sourceDrivesFabric = sourceCellPin.cellPinDrivesFabric()

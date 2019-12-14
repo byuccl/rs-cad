@@ -77,33 +77,18 @@ class MultiBelPackStrategy<in T: PackUnit>(
 	}
 
 
+
 	private fun fillCluster(cluster: Cluster<T, *>, state: RSVPackState): PackStatus {
-		// Roll back until we found a valid final cluster, or determined that
-		// none exists.  Keeps us ending with a conditional cluster
-
-		// if first time in here. RSVPackState class. Cell is the cell we're trying to pack.
-		// this is the seed cell.
-
-		// if failed to find a place to pack the cell, method will choose a bel, try it out,
-		// and if it couldnt find something, it says this is a bad BEL choice.
-		// we never choose a different seed
-
-		// if valid, we've packed this cell and potentially several others in a state that worked.
-		// we say this can be done, but can't do anymore.
-
-		// fallback loop. comes in and says: You went all the way forward with the seed cell,
-		// you came out of it now.
 		do {
 			var breakFromLoop = false
 			// roll back loop
 			do {
-				// try to pack current cell we're working with
-				// will continue until it finds something
+				// Try to pack the current cell we're working with.
+				// Will continue until it finds something.
 				tryCellsUntilSuccess(cluster, state)
 
 				when (state.status) {
-					// last cell i tried, didn't work.
-					// done here with this cell.
+					// If the last cell didn't work, we are done with it.
 					PackStatus.INFEASIBLE -> {
 						assert(state.cell == null)
 						// No rolling back seed
@@ -115,17 +100,19 @@ class MultiBelPackStrategy<in T: PackUnit>(
 					}
 
 					// continue on, create a checkpoint of the cell bel pair.
-					// but conditional. hold on. IF we come back here, ...
 					PackStatus.CONDITIONAL -> {
 						assert(state.nextConditionals != null)
-						if (packMore(cluster)) { // if we can pack more into the cluster (it's not full)
-							commitCellBelPair(state, state.nextConditionals!!.keys) // commit cells and bels packed so far
-							nextCell(state) // get a next cell from the conditionals
+						// if we can pack more into the cluster (it's not full)
+						if (packMore(cluster)) {
+							// commit cells and bels packed so far
+							commitCellBelPair(state, state.nextConditionals!!.keys)
+							// get a next cell from the conditionals
+							nextCell(state)
 						} else {
 							breakFromLoop = true
 						}
 					}
-					// great, go ahead. grab another cell. try and pack that cell.
+					// Grab another cell and try to pack it in.
 					PackStatus.VALID -> if (packMore(cluster)) {
 						commitCellBelPair(state, null)
 						nextCell(state)
@@ -135,20 +122,14 @@ class MultiBelPackStrategy<in T: PackUnit>(
 				}
 			} while (!breakFromLoop)
 
-			// conditional means: what we tried couldn't be done.
-			// I placed it...looking forward, I couldn't say that it's not possible
-			// a chance it could be accomplished if I add things in different locations
-			// go forward, see if I can find something.
-			// by this point I've followed the conditional all the way through, discovered
-			// we couldn't actually do it. revert choice.
-			// try different BEL for seed.
+			// Conditional means whatever we tried couldn't be done now, but might be possible in the future.
 			if (state.status == PackStatus.CONDITIONAL) {
 				state.status = PackStatus.INFEASIBLE
 				revertBelChoice(cluster, state)
 			} else if (state.status == PackStatus.INFEASIBLE) {
 				assert(state.isSeedState)
 				break
-			} else { // if valid. This can be done. break out of loop.
+			} else {
 				assert(state.status == PackStatus.VALID)
 				break
 			}
@@ -160,15 +141,6 @@ class MultiBelPackStrategy<in T: PackUnit>(
 		return !cluster.isFull()
 	}
 
-	// try one or more cells.
-	// I have a cell I'm working with. try to pack it.
-	// If it packs, great. I have success, go back to higher level method
-	// which will checkpoint everything and continue on.
-	// if it failed, undo the packing i did with that cell, grab another cell to try
-	// it will pack one cell at a time until it get ones that succeeded....
-	// then go back up.
-	// exception: if trying to pack seed, don't pack another cell.
-	// if it fails, don't try another.
 	private fun tryCellsUntilSuccess(
 		cluster: Cluster<T, *>, state: RSVPackState
 	) {
@@ -176,8 +148,7 @@ class MultiBelPackStrategy<in T: PackUnit>(
 			assert(state.cell!!.isValid)
 			assert(state.cell!!.getCluster<Cluster<*, *>>() == null)
 
-			// pack a single cell, defined by the state.
-			// try and place it somewhere. at some bel.
+			// Try to pack a single cell.
 			tryCell(cluster, state)
 
 			if (state.status == PackStatus.INFEASIBLE) {
@@ -219,7 +190,6 @@ class MultiBelPackStrategy<in T: PackUnit>(
 		return state
 	}
 
-
 	private fun revertToLastCommit(cluster: Cluster<*, *>, state: RSVPackState): RSVPackState {
 		belSelector.revertToLastCommit()
 
@@ -240,7 +210,6 @@ class MultiBelPackStrategy<in T: PackUnit>(
 		return state
 	}
 
-	// try to pack a single cell onto every possible bel
 	private fun tryCell(cluster: Cluster<T, *>, state: RSVPackState) {
 		var status: PackStatus
 		val cell = state.cell!!
@@ -248,8 +217,8 @@ class MultiBelPackStrategy<in T: PackUnit>(
 		// if can't find an anchor, break out (ran out of BELs)
 		var anchor: Bel?
 		do {
-			// try another BEL and repeat
-			anchor = belSelector.nextBel() ?: break // get BEL from belSelector's priority queue (based on BEL cost)
+			// Get a BEL from belSelector's priority queue (based on BEL cost)
+			anchor = belSelector.nextBel() ?: break
 
 			// try to add anchor into cluster
 
@@ -258,9 +227,9 @@ class MultiBelPackStrategy<in T: PackUnit>(
 			if (status != PackStatus.INFEASIBLE)
 				state.packedCells[cell] = anchor
 
-			// prepackers: Checks that say if I've done this, I have to do this as well..
-			// in all these cases, packer should find a valid state...
-			// prepackers help it to resolve quicker. Prepacker might actually do some packing!!
+			// Prepackers: Checks that say if I've done this, I have to do this as well..
+			// In all these cases, packer should find a valid state...
+			// Prepackers might actually do some packing.
 			var prepackStatus = PrepackStatus.CHANGED
 			while (status != PackStatus.INFEASIBLE && prepackStatus == PrepackStatus.CHANGED) {
 				prepackStatus = PrepackStatus.UNCHANGED
@@ -292,10 +261,6 @@ class MultiBelPackStrategy<in T: PackUnit>(
 		}
 	}
 
-	// try each rule.
-	// if any say infeasible, infeasible and die
-	// if conditional, we're in a conditional state,
-	// if all valid, we're in a valid state
 	private fun validateRules(state: RSVPackState) {
 		val rulesIterator = packRules!!.iterator()
 		while (rulesIterator.hasNext() && state.status != PackStatus.INFEASIBLE) {
@@ -312,7 +277,11 @@ class MultiBelPackStrategy<in T: PackUnit>(
 			state.checkedRules.add(rule)
 		}
 	}
-	// By this point, there is already a mapping from conditional cells to possible Bels
+
+	/**
+	 * Merge conditionals.
+	 * By this point, there is already a mapping from conditional cells to possible BELs.
+	 */
 	private fun mergeConditionals(
 		conditionals: HashMap<Cell, HashSet<Bel>>,
 		toAdd: Map<Cell, Set<Bel>>

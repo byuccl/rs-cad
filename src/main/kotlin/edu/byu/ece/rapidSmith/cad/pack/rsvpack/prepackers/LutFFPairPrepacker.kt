@@ -7,13 +7,11 @@ import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellLibrary
 import edu.byu.ece.rapidSmith.design.subsite.LibraryCell
 import edu.byu.ece.rapidSmith.device.Bel
-import java.util.HashMap
 import kotlin.streams.asSequence
-import kotlin.streams.toList
 
-
-// if a lut is driving a single ff and there is a space, pack it.
-
+/**
+ * If a lut is driving a single ff and there is a space, pack it.
+ */
 class Artix7LutFFPrepackerFactory(
 	cellLibrary: CellLibrary
 ) : PrepackerFactory<PackUnit>() {
@@ -50,17 +48,12 @@ class Artix7LutFFPrepackerFactory(
 		lutramLibCells = LinkedHashMap()
 		lutramLibCells[cellLibrary["RAMD64E"]] = "O"
 
-		// Right now, don't worry about SRLs because Yosys won't make them.
-		// Do the same for non-supported LUTRAMs.
-
-		// The following should be removed for MaverickWIP:
-
-//		lutramLibCells[cellLibrary["SRLC16E"]] = "Q"
-//		lutramLibCells[cellLibrary["SRLC32E"]] = "Q"
-//		lutramLibCells[cellLibrary["SRL16E"]] = "Q"
-//		lutramLibCells[cellLibrary["RAMD32"]] = "O"
-//		lutramLibCells[cellLibrary["RAMS32"]] = "O"
-//		lutramLibCells[cellLibrary["RAMS64E"]] = "O"
+		lutramLibCells[cellLibrary["SRLC16E"]] = "Q"
+		lutramLibCells[cellLibrary["SRLC32E"]] = "Q"
+		lutramLibCells[cellLibrary["SRL16E"]] = "Q"
+		lutramLibCells[cellLibrary["RAMD32"]] = "O"
+		lutramLibCells[cellLibrary["RAMS32"]] = "O"
+		lutramLibCells[cellLibrary["RAMS64E"]] = "O"
 	}
 
 	override fun init(design: CellDesign) {

@@ -15,8 +15,6 @@ import edu.byu.ece.rapidSmith.device.Bel
  * outdated and doesn't work properly with RAMs that use both the 5 and 6 LUT
  * components of a LUT.  This is being left in for reference.
  */
-
-// not thorouguhly tested
 class LutramPrepackerFactory(private val ramMaker: RamMaker)
 	: PrepackerFactory<PackUnit>() {
 
@@ -83,12 +81,10 @@ private class LutramPrepacker(
 
 					mapOf("SP" to "${c}6LUT", "DP" to "${c-1}6LUT")
 				}
-				// NOTE: Supported by Yosys.
 				"RAM128X1D" -> {
 					// check the names to indices map
 					mapOf("SP.LOW" to "D6LUT", "SP.HIGH" to "C6LUT", "DP.LOW" to "B6LUT", "DP.HIGH" to "A6LUT", "F7.SP" to "F7BMUX", "F7.DP" to "F7AMUX")
 				}
-			// TODO: Is this different for some devices?? This was the reverse before and it worked fine. Maybe it is because I changed the pack units?
 				"RAM32M" -> {
 					mapOf("RAMD" to "D5LUT", "RAMC" to "C5LUT", "RAMB" to "B5LUT", "RAMA" to "A5LUT",
 							"RAMD_D1" to "D6LUT", "RAMC_D1" to "C6LUT", "RAMB_D1" to "B6LUT", "RAMA_D1" to "A6LUT")
@@ -103,7 +99,6 @@ private class LutramPrepacker(
 
 			for (cell in ram.cells) {
 				val ext = cell.name.substringAfterLast("/")
-				//val expected = mapping[ext]!! + "LUT"
 				val expected = mapping[ext]!!
 				if (cell.locationInCluster == null) {
 					val bel = getBel(cluster, expected)
@@ -189,7 +184,6 @@ private class LutramPrepacker(
 				}
 				Pair(ch[0]!!, index[0]!! - '0')
 			}
-			// NOTE: Supported by Yosys
 			"RAM64X1D" -> {
 				val ch = arrayOfNulls<Char>(1)
 				for (cell in ram.cells) {

@@ -109,7 +109,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 
 	/** Returns `true` if all Bels in this cluster are occupied. */
 	fun isFull(): Boolean =
-			placementMap.size == type.template.bels.size
+		placementMap.size == type.template.bels.size
 
 	/**
 	 * Returns the location of [cell] in this cluster or `null` if it is not in
@@ -150,10 +150,10 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		externalNets = LinkedHashMap()
 
 		val nets = cells
-				.flatMap { it.pins }
-				.filter { it.isConnectedToNet }
-				.map { it.net }
-				.distinct()
+			.flatMap { it.pins }
+			.filter { it.isConnectedToNet }
+			.map { it.net }
+			.distinct()
 
 		for (net in nets) {
 			val leavesCluster = net.pins.any { it.isPartitionPin || !hasCell(it.cell) }

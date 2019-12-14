@@ -48,8 +48,6 @@ private class BasicPathFinderRouter<T: PackUnit>(
 	init {
 		clusterOutputs = Terminal.Builder()
 		clusterOutputs.wires += template.outputs
-
-		// TODO: Replace with parameter
 		libCells = CellLibrary(RSEnvironment.defaultEnv()
 				.getPartFolderPath(template.device.partName)
 				.resolve("cellLibrary.xml"))
@@ -76,8 +74,6 @@ private class BasicPathFinderRouter<T: PackUnit>(
 						// If the LUT6 or LUT5 BEL is not occupied, this is an implied static source BEL.
 						if (!cluster.isBelOccupied(bel)) {
 							// Add a cell for the static source BEL so we can attach pseudo pins if needed.
-							//val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"), true)
-							//val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"), false)
 							val cell = Cell("pseudo_" + bel.name + "_" + cluster.name, libCells.get("LUT5"), true)
 							cell.initPackingInfo()
 							cell.getPin("O").setPinToGlobalNet(net)
@@ -164,7 +160,6 @@ private class BasicPathFinderRouter<T: PackUnit>(
 					source.wires += gndSources.map { it.wire }
 				}
 				net.sourcePin.isPartitionPin -> {
-					// TODO: Handle partition pins intelligently
 					// This net has no source because the source is out of the boundaries of the partial device.
 					initOutsidePartialDeviceSource(source)
 				}
@@ -222,24 +217,6 @@ private class BasicPathFinderRouter<T: PackUnit>(
 		// Just create an object.  The sinks will be built when a source is added
 		// into the cluster.
 		private fun initNetSinks(net: CellNet, pinsOfNets: List<CellPin>): Sinks {
-
-            // TODO: Handle partition pins intelligently
-         //  val sourceInCluster = (!net.sourcePin.isPartitionPin && net.sourcePin.cell.getCluster<Cluster<*, *>>() === cluster)
-            // update the sinks with external routes now
-          //  val netSinks = Sinks.Builder()
-          //  for (sinkPin in net.sinkPins) {
-          //      val sinkCluster = if (sinkPin.isPartitionPin) null else sinkPin.cell.getCluster<Cluster<*, *>>()
-          //      if (!sinkPin.isPartitionPin && sinkCluster === cluster) {
-          //          initInsideClusterSink(netSinks, sinkPin)
-          //      } else if (sinkCluster !== cluster && sourceInCluster) {
-          //          initOutsideClusterSink(netSinks, sinkPin)
-          //      }
-          //  }
-           // return netSinks
-
-
-
-            // TODO: Handle partition pins intelligently
             val sourceInCluster = (!net.sourcePin.isPartitionPin && net.sourcePin.cell.getCluster<Cluster<*, *>>() === cluster)
             // update the sinks with external routes now
 			val netSinks = Sinks.Builder()
@@ -274,11 +251,6 @@ private class BasicPathFinderRouter<T: PackUnit>(
 			if (belPins == null)
 				throw CadException("Illegal pin mapping, $sinkPin")
 
-            // What if there is contention over the BelPin wire?
-            // (ex: One net has sink A5LUT.A1 and another net has sink A6LUT.A1).
-            // These nets obviously can't both route to the shared A1 wire.
-            // maybe use sinkPinsInCluster to check? If a sink pin WIRE has already been used by a different net,
-            // then try another pin.
 			val pinMap = Terminal.Builder()
 			pinMap.cellPin = sinkPin
 			pinMap.belPins.addAll(belPins)
@@ -349,13 +321,12 @@ private class BasicPathFinderRouter<T: PackUnit>(
 						continue
 					unrouteNet(net)
 				}
-				// TODO: Verbosity print.
-				// println("Route net " + net.name)
 
-				// If the net has a source, add it to the list of contention nets (WHY?)
+				// If the net has a source, add it to the list of contention nets
 				if (net.isSourced) // && !net.sourcePin.isPartitionPin
 					status.contentionNets.add(net)
 				val netRouteStatus = routeNet(net, pins)
+
 				// exit early if the route isn't feasible
 				when (netRouteStatus) {
 					RouteStatus.IMPOSSIBLE -> {

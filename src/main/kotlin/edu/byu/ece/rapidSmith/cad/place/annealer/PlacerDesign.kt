@@ -73,28 +73,12 @@ class PlacerDesign<S : ClusterSite>(
 				}
 			}
 
-			// TODO: Actually check that partition pins can be routed earlier? Like the other pins?
-		//	for (net in cluster.getExternalNets()) {
-		//		if (net.sinkPins.iterator().hasNext()) {
-		///			val sinkPin = net.sinkPins.iterator().next()
-		//			if (sinkPin.isPartitionPin)
-		//				net.addRoutedSink(sinkPin)
-		//		}
-		//	}
-
 			for ((net, tree) in cluster.routeTreeMap) {
 				for (rt in tree) {
 					if (rt.wire.source != null) {
 						net.sourceRouteTree = rt
-
-						// TODO: This is inadequate. A static net might be intrasite still.
-						// Figure out why GND is sometimes being marked as intrasite and do a proper check.
 						if (!net.isStaticNet)
 							net.setIsIntrasite(rt.none { it.isLeaf && it.connectedSitePin != null })
-
-						// TODO: If not intrasite, figure out the used SITE PIPs (Routing BELs)
-						// so routers can figure out what site pins to route to
-
 					}
 
 					rt.wire.reverseConnectedPin?.let { net.addSinkRouteTree(it, rt) }
