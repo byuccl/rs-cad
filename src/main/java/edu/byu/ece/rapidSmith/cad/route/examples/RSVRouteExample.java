@@ -1,12 +1,14 @@
-package edu.byu.ece.rapidSmith.route.examples;
+package edu.byu.ece.rapidSmith.cad.route.examples;
 
 import edu.byu.ece.rapidSmith.cad.route.RSVRoute;
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.CadException;
 import edu.byu.ece.rapidSmith.design.subsite.*;
+import edu.byu.ece.rapidSmith.device.Bel;
 import edu.byu.ece.rapidSmith.device.Device;
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoCheckpoint;
 import edu.byu.ece.rapidSmith.interfaces.vivado.VivadoInterface;
 import edu.byu.ece.rapidSmith.interfaces.vivado.XdcConstraint;
+import edu.byu.ece.rapidSmith.util.Time;
 
 import java.io.IOException;
 import java.util.*;
@@ -15,6 +17,8 @@ public class RSVRouteExample {
     private static CellDesign design;
     private static Device device;
     private static CellLibrary libCells;
+    private static Set<Bel> gndSourceBels;
+    private static Set<Bel> vccSourceBels;
 
     /**
      * Removes HLUTNM, SOFT_HLUTNM, and LUTNM properties from a netlist.
@@ -64,6 +68,10 @@ public class RSVRouteExample {
         design = vcp.getDesign();
         device = vcp.getDevice();
         libCells = vcp.getLibCells();
+        vccSourceBels = new HashSet<>();
+        gndSourceBels = new HashSet<>();
+        vccSourceBels.addAll(vcp.getVccSourceBels());
+        gndSourceBels.addAll(vcp.getGndSourceBels());
     }
 
     private static void exportDesign(String checkpointOut) throws IOException {
@@ -75,20 +83,29 @@ public class RSVRouteExample {
     }
 
     public static void main(String[] args) throws IOException {
-        if (args.length < 1) {
-            System.err.println("Usage: RSVRouteExample rscpCheckpointDirectoryName");
+        if (args.length < 4) {
+            System.err.println("Usage: RSVRouteExample rscpCheckpointDirectoryName presentCongestionFactor presentCongestionMultFactor historyFactor");
             System.exit(1);
         }
         String checkpointIn = args[0];
-        String tcpOut = checkpointIn.substring(0, checkpointIn.length() - 4) + "tcp";
+        String tcpOut = checkpointIn.substring(0, checkpointIn.length() - 4) + ".routed.tcp";
+
+        double presentCongestionFactor = Double.parseDouble(args[1]);
+        double presentCongestionMultFactor = Double.parseDouble(args[2]);
+        double historyFactor = Double.parseDouble(args[3]);
 
         // Import a placed design
         importDesign(checkpointIn);
 
         // Route the design with RSVRoute
-        RSVRoute router = new RSVRoute(device, design, libCells, true);
+        // NOTE: You must use allow site route-throughs for full-device designs
+        RSVRoute router = new RSVRoute(device, design, libCells, true, vccSourceBels, gndSourceBels);
         try {
-            router.routeDesign();
+            Time runTime = new Time();
+            runTime.setStartTime();
+            router.routeDesign(presentCongestionFactor, presentCongestionMultFactor, historyFactor);
+            runTime.setEndTime();
+            System.out.print(runTime.getTotalTime() + " ");
         } catch (CadException e) {
             e.printStackTrace();
         }

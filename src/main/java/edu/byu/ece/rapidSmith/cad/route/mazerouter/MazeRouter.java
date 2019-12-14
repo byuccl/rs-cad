@@ -7,6 +7,7 @@ import edu.byu.ece.rapidSmith.design.subsite.CellDesign;
 import edu.byu.ece.rapidSmith.design.subsite.CellNet;
 import edu.byu.ece.rapidSmith.design.subsite.RouteTree;
 import edu.byu.ece.rapidSmith.device.*;
+import edu.byu.ece.rapidSmith.device.families.FamilyInfos;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -16,7 +17,7 @@ import java.util.stream.Collectors;
  */
 public abstract class MazeRouter {
     protected CellDesign design;
-    private FamilyType family;
+    protected FamilyType family;
     /** A map from wires to their wire usage. */
     protected Map<Wire, WireUsage> wireUsageMap;
     /** Whether to use site routethroughs */
@@ -51,6 +52,9 @@ public abstract class MazeRouter {
     protected int manhattanDistance(RouteTree tree, Tile compareTile) {
         Wire wire = tree.getWire();
 
+     //   if (wire.getTile() == compareTile)
+      //  	System.out.println("OK");
+
         if (wire instanceof GlobalWire) {
             return 0;
         } else {
@@ -68,10 +72,10 @@ public abstract class MazeRouter {
      * @param excludeWires sink wires to not include
      * @return the list of filtered connections
      */
-    protected Collection<Connection> getFilteredConnections(IntersiteRoute intersiteRoute, RouteTree routeTree, Set<Wire> excludeWires) {
+    protected Collection<Connection> getFilteredConnections(IntersiteRoute intersiteRoute, Wire terminalWire, RouteTree routeTree, Set<Wire> excludeWires) {
         return routeTree.getWire().getWireConnections().stream()
                 .filter(conn -> !excludeWires.contains(conn.getSinkWire()))
-                .filter(conn -> isConnectionValid(intersiteRoute, conn))
+                .filter(conn -> isConnectionValid(intersiteRoute, conn, terminalWire))
                 .filter(conn -> design.isWireAvailable(intersiteRoute.getNet(), conn.getSinkWire()))
                 .collect(Collectors.toList());
     }
@@ -80,7 +84,7 @@ public abstract class MazeRouter {
      * Returns whether a given connection is valid, taking into account the type of net that is being routed, the type of
      * sink wire, and the type of the connection.
      */
-    private boolean isConnectionValid(IntersiteRoute intersiteRoute, Connection connection) {
+    private boolean isConnectionValid(IntersiteRoute intersiteRoute, Connection connection, Wire terminalWire) {
         Wire wire = connection.getSinkWire();
         Tile sinkTile = wire.getTile();
         boolean clk = wire.getName().contains("CLK");
@@ -92,15 +96,17 @@ public abstract class MazeRouter {
 
         // If the connection is a route-through, check that it can be used
         if (connection.isRouteThrough()) {
-            if (!useRoutethroughs)
-                return false;
-            else if (!canUseRoutethrough(connection))
+            if (!canUseRoutethrough(connection))
                 return false;
         }
 
         // Ensure certain types of nets only use certain wires
         if (intersiteRoute.isGlobalClk()) {
             // Global clock nets can only use "CLK" and "GFAN" wire sinks.
+            // But if the clock is going to an IO, it needs to be able to use other wires
+            if (FamilyInfos.get(family).ioTiles().contains(terminalWire.getTile().getType())) {
+                return true;
+            }
             return clk || gfan;
         } else if (intersiteRoute.isLocalClk()) {
             // local clocks can use normal local routing resources, clk sink wires, HCLK, LIO, etc.
@@ -111,7 +117,13 @@ public abstract class MazeRouter {
             // CGF_CENTER_MID, INT_INTERFACE, INT, etc.
             return true;
         } else if (intersiteRoute.isStatic()) {
-            // static nets can connect to clock sinks
+			if (intersiteRoute.isGnd() && (wire.getName().equals("GND_WIRE"))) {
+				// For speed, don't allow tie-offs from other tiles
+				return intersiteRoute.isLocalTieOff(terminalWire.getTile(), sinkTile);
+			} else if (intersiteRoute.isVcc() && (wire.getName().equals("VCC_WIRE"))) {
+				return intersiteRoute.isLocalTieOff(terminalWire.getTile(), sinkTile);
+			}
+			// static nets can connect to clock sinks
             if (clk)
                 return true;
         } else {
@@ -131,53 +143,63 @@ public abstract class MazeRouter {
      */
     private boolean canUseRoutethrough(Connection connection) {
         SiteType siteType = connection.getSite().getType();
-        if (siteType.equals(SiteType.valueOf(family, "SLICEM")) || siteType.equals(SiteType.valueOf(family, "SLICEL"))) {
-            // Make the assumption that if the site-routethrough is an output-to-output routethrough,
-            // we can use it even if the site is used.
-            SitePin sourceSitePin = connection.getSourceWire().getReverseConnectedPin();
-            SitePin sinkSitePin = connection.getSinkWire().getReverseConnectedPin();
 
-            // If output-to-output
-            if (sourceSitePin != null && sinkSitePin != null) {
-                // TODO: Optimize
-                switch (sourceSitePin.getName()) {
-                    case "A":
-                        if ("AMUX".equals(sinkSitePin.getName())) {
-                            if (design.isSitePipAtSiteUsed(connection.getSite(), "AOUTMUX")) {
-                                return false;
-                            }
-                        } else {
-                            System.err.println("Unexpected site routethrough: A-> " + sinkSitePin.getName());
-                        }
-                        break;
-                    case "B":
-                        if ("BMUX".equals(sinkSitePin.getName())) {
-                            if (design.isSitePipAtSiteUsed(connection.getSite(), "BOUTMUX")) {
-                                return false;
-                            }
-                        } else {
-                            System.err.println("Unexpected site routethrough: B-> " + sinkSitePin.getName());
-                        }
-                        break;
-                    case "C":
-                        if ("CMUX".equals(sinkSitePin.getName())) {
-                            if (design.isSitePipAtSiteUsed(connection.getSite(), "COUTMUX")) {
-                                return false;
-                            }
-                        } else {
-                            System.err.println("Unexpected site routethrough: C-> " + sinkSitePin.getName());
-                        }
-                        break;
-                    case "D":
-                        if ("DMUX".equals(sinkSitePin.getName())) {
-                            if (design.isSitePipAtSiteUsed(connection.getSite(), "DOUTMUX")) {
-                                return false;
-                            }
-                        } else {
-                            System.err.println("Unexpected site routethrough: D-> " + sinkSitePin.getName());
-                        }
-                        break;
-                    case "COUT":
+		if (!useRoutethroughs) {
+			SitePin sourceSitePin = connection.getSourceWire().getReverseConnectedPin();
+			SitePin sinkSitePin = connection.getSinkWire().getReverseConnectedPin();
+
+			if (sourceSitePin != null && sinkSitePin != null) {
+				// always allow, even if route-throughs are disabled.
+				return sourceSitePin.getName().equals("COUT");
+			}
+		} else {
+			if (siteType.equals(SiteType.valueOf(family, "SLICEM")) || siteType.equals(SiteType.valueOf(family, "SLICEL"))) {
+				// Make the assumption that if the site-routethrough is an output-to-output routethrough,
+				// we can use it even if the site is used.
+				SitePin sourceSitePin = connection.getSourceWire().getReverseConnectedPin();
+				SitePin sinkSitePin = connection.getSinkWire().getReverseConnectedPin();
+
+				// If output-to-output
+				if (sourceSitePin != null && sinkSitePin != null) {
+					// TODO: Optimize
+					switch (sourceSitePin.getName()) {
+						case "A":
+							if ("AMUX".equals(sinkSitePin.getName())) {
+								if (design.isSitePipAtSiteUsed(connection.getSite(), "AOUTMUX")) {
+									return false;
+								}
+							} else {
+								System.err.println("Unexpected site routethrough: A-> " + sinkSitePin.getName());
+							}
+							break;
+						case "B":
+							if ("BMUX".equals(sinkSitePin.getName())) {
+								if (design.isSitePipAtSiteUsed(connection.getSite(), "BOUTMUX")) {
+									return false;
+								}
+							} else {
+								System.err.println("Unexpected site routethrough: B-> " + sinkSitePin.getName());
+							}
+							break;
+						case "C":
+							if ("CMUX".equals(sinkSitePin.getName())) {
+								if (design.isSitePipAtSiteUsed(connection.getSite(), "COUTMUX")) {
+									return false;
+								}
+							} else {
+								System.err.println("Unexpected site routethrough: C-> " + sinkSitePin.getName());
+							}
+							break;
+						case "D":
+							if ("DMUX".equals(sinkSitePin.getName())) {
+								if (design.isSitePipAtSiteUsed(connection.getSite(), "DOUTMUX")) {
+									return false;
+								}
+							} else {
+								System.err.println("Unexpected site routethrough: D-> " + sinkSitePin.getName());
+							}
+							break;
+						case "COUT":
                         /*
                         if ("DMUX".equals(sinkSitePin.getName())) {
                             // COUTUSED is used and DOUTMUX with CY as the input pin.
@@ -186,22 +208,27 @@ public abstract class MazeRouter {
                             }
                         }
                         */
-                        return true;
-                    default:
-                        System.err.println("Unexpected site routethrough: " + sourceSitePin.getName() + "-> " + sinkSitePin.getName());
-                        break;
+							return true;
+						default:
+							System.err.println("Unexpected site routethrough: " + sourceSitePin.getName() + "-> " + sinkSitePin.getName());
+							break;
 
-                }
-            } else {
-                // Assume the site-route-through is from a site's input pin to a site's output pin
-                // If the site is used at all, don't use it for routing
-                //return !design.isSiteUsed(connection.getSite());
-                return false;
-            }
-        }
+					}
+				} else {
+					// Assume the site-route-through is from a site's input pin to a site's output pin
+					// If the site is used at all, don't use it for routing
+					//return !design.isSiteUsed(connection.getSite());
+					return false;
+				}
+			}
 
-        // Allow all other site route-throughs.
-        return true;
+
+			// Allow all other site route-throughs.
+			return true;
+		}
+
+
+	return false;
 
     }
 }

@@ -23,6 +23,8 @@ public class RSVRoute {
 	private FamilyInfo familyInfo;
 	private FamilyType familyType;
 	private CellLibrary libCells;
+	private Set<Bel> vccSourceBels;
+	private Set<Bel> gndSourceBels;
 	/** Whether to use site route-throughs. */
 	private boolean useRoutethroughs;
 
@@ -33,18 +35,40 @@ public class RSVRoute {
 	 * @param libCells the cell library
 	 * @param useRoutethroughs whether site route-throughs are allowed to be used.
 	 */
-	public RSVRoute(Device device, CellDesign design, CellLibrary libCells, boolean useRoutethroughs) {
+	public RSVRoute(Device device, CellDesign design, CellLibrary libCells, boolean useRoutethroughs, Set<Bel> vccSourceBels, Set<Bel> gndSourceBels) {
 		this.device = device;
 		familyType = device.getFamily();
 		familyInfo = FamilyInfos.get(familyType);
 		this.design = design;
 		this.libCells = libCells;
 		this.useRoutethroughs = useRoutethroughs;
+		this.vccSourceBels = vccSourceBels;
+		this.gndSourceBels = gndSourceBels;
 	}
 
-	public RSVRoute(Device device, CellDesign design, CellLibrary libCells) {
-		this(device, design, libCells, false);
+	public RSVRoute(Device device, CellDesign design, CellLibrary libCells, Set<Bel> vccSourceBels, Set<Bel> gndSourceBels) {
+		this(device, design, libCells, false, vccSourceBels, gndSourceBels);
 	}
+
+
+	public void routeDesign(double presentCongestionFactor, double presentCongestionMultFactor, double historyFactor) throws CadException {
+		// Perform necessary initialization, creating inter-site route objects for each net.
+		ArrayList<IntersiteRoute> intersiteRoutes = createIntersiteRoutes();
+
+		// Create a map from wires to WireUsage to keep track of how wires are used
+		Map<Wire, WireUsage> wireUsageMap = new HashMap<>();
+
+		// Choose a maze router to use
+		MazeRouter mazeRouter = new AStarRouter(design, wireUsageMap, useRoutethroughs);
+
+		// Start the pathfinder algorithm
+		PathFinder pathFinder = new PathFinder(device, libCells, design, mazeRouter, wireUsageMap, vccSourceBels, gndSourceBels);
+		pathFinder.setPresentCongestionFactor(presentCongestionFactor);
+		pathFinder.setPresentCongestionMultFactor(presentCongestionMultFactor);
+		pathFinder.setHistoryFactor(historyFactor);
+		pathFinder.execute(intersiteRoutes);
+	}
+
 
 	/**
 	 * Routes the cell-design. Currently automatically creates inter-site route objects for all nets in the design
@@ -61,7 +85,7 @@ public class RSVRoute {
 		MazeRouter mazeRouter = new AStarRouter(design, wireUsageMap, useRoutethroughs);
 
 		// Start the pathfinder algorithm
-		PathFinder pathFinder = new PathFinder(device, libCells, design, mazeRouter, wireUsageMap);
+		PathFinder pathFinder = new PathFinder(device, libCells, design, mazeRouter, wireUsageMap, vccSourceBels, gndSourceBels);
 		pathFinder.execute(intersiteRoutes);
 	}
 
@@ -109,7 +133,7 @@ public class RSVRoute {
 		// (at least if it is routing to a slice). If this is an RM where the clock net isn't being used, it will
 		// route to a LUT input pin. In this case, the sink wire at this point will not be CLK_L0 or CLK_L1. The sink
 		// will instead need to be routed to by a GFAN pip. Find this and use it as the sink wire.
-		if (net.isGlobalClkNet() && !wire.getName().contains("CLK")) {
+		if (net.isGlobalClkNet() && !wire.getName().contains("CLK") && !(sinkWire.getName().contains("IOB"))) {
 			// Filter for just GFANs.
 			Collection<Connection> filteredReverseConns = wire.getReverseWireConnections().stream()
 					.filter(connection -> connection.getSinkWire().getName().contains("GFAN"))
@@ -118,6 +142,7 @@ public class RSVRoute {
 			// Assuming there will only ever be one GFAN connecting to this wire.
 			assert (filteredReverseConns.size() == 1);
 			wiresForTree.push(wire);
+
 			wire = filteredReverseConns.iterator().next().getSinkWire();
 		}
 
@@ -202,12 +227,13 @@ public class RSVRoute {
 
 	/**
 	 * Get the tie-off wires located in INT tiles for a static net. Note that this does not gather all tie-off wires
-	 * in a device, but only the tie-off wires located in the INT tiles next to used slices.
+	 * in a device, but only the tie-off wires located in the INT tiles next to used slices and IO.
 	 *
 	 * @param staticNet the VCC/2GND net
 	 * @return a collection of tie-off wires.
 	 */
-	private Collection<Wire> getTieOffWires(CellNet staticNet) throws CadException {
+	private Collection<Wire> getTieOffWires(CellNet staticNet, Map<Tile, Tile> tileToTieOffTileMap) throws CadException {
+
 		Collection<Wire> wires = new HashSet<>();
 		Set<Tile> staticClbTiles = staticNet.getSinkTiles().stream()
 				.filter(tile -> familyInfo.clbTiles().contains(tile.getType()))
@@ -215,8 +241,10 @@ public class RSVRoute {
 
 		for (Tile sinkTile : staticClbTiles) {
 			// Find the neighboring tile tie-off.
-			SitePin tieOffPin = getIntTieOffPin(getNeighborIntTile(sinkTile), staticNet.isVCCNet());
+			Tile tieOffTile = getNeighborIntTile(sinkTile);
+			SitePin tieOffPin = getIntTieOffPin(tieOffTile, staticNet.isVCCNet());
 			wires.add(tieOffPin.getExternalWire());
+			tileToTieOffTileMap.put(sinkTile, tieOffTile);
 		}
 
 		// Handle the I/O sinks.
@@ -243,18 +271,20 @@ public class RSVRoute {
 			}
 
 			// If index is 1, we need to go up 1 tile to get to the desired INT tile
-			intTile = intTile.getAdjacentTile(TileDirection.NORTH);
-
+			if (siteIndex == 0) {
+				intTile = intTile.getAdjacentTile(TileDirection.NORTH);
+			}
 			assert (familyInfo.switchboxTiles().contains(intTile.getType()));
+			tileToTieOffTileMap.put(sinkTile, intTile);
 
 			// Find the VCC/GND source wire
 			SitePin tieOffPin = getIntTieOffPin(intTile, staticNet.isVCCNet());
 			wires.add(tieOffPin.getExternalWire());
-
 		}
 
 		return wires;
 	}
+
 
 	/**
 	 * Creates the source route tree by building a tree until the first possible branch.
@@ -300,9 +330,21 @@ public class RSVRoute {
 				// More than one cell pin may share the same site pin.
 				// We need to make sure there is only one unique sink site pin tree.
 				List<SitePin> sinkSitePins = getSinkSitePins(sinkPin);
+
+				if (!net.getSourcePin().isPartitionPin()) {
+					Site sourceSite = net.getSourcePin().getCell().getBel().getSite();
+					Site sinkSite = sinkPin.getCell().getBel().getSite();
+
+					if (sinkSitePins == null && sourceSite == sinkSite) {
+						// If the pins are in the same site, no inter-site routing needed (this seems to only come up
+						// for yosys-synthesized designs. Why?
+						continue;
+					}
+				}
+
 				assert (sinkSitePins != null);
 
-				for (SitePin sitePin : getSinkSitePins(sinkPin)) {
+				for (SitePin sitePin : sinkSitePins) {
 					Wire terminalWire = sitePin.getExternalWire();
 
 					if (terminalWireCellPinMap.containsKey(terminalWire)) {
@@ -359,12 +401,12 @@ public class RSVRoute {
 	 * @param staticNet the VCC/GND net.
 	 * @return the global wire
 	 */
-	private GlobalWire createGlobalWire(CellNet staticNet) throws CadException {
+	private GlobalWire createGlobalWire(CellNet staticNet, Map<Tile, Tile> tileToTieOffTileMap) throws CadException {
 		GlobalWire staticWire = new GlobalWire(device, staticNet.isVCCNet());
 		Set<Connection> forwardStaticConnections = new HashSet<>();
 
 		// Make connections for the tie-off wires in INT tiles
-		Collection<Wire> tieOffWires = getTieOffWires(staticNet);
+		Collection<Wire> tieOffWires = getTieOffWires(staticNet, tileToTieOffTileMap);
 		for (Wire tieOffWire : tieOffWires) {
 			forwardStaticConnections.add(new GlobalWireConnection(staticWire, tieOffWire));
 		}
@@ -382,7 +424,8 @@ public class RSVRoute {
 	 */
 	private IntersiteRoute createStaticIntersiteRoute(CellNet net) throws CadException {
 		// Create a global wire for VCC/GND.
-		GlobalWire staticWire = createGlobalWire(net);
+		Map<Tile, Tile> tileToTieOffTileMap = new HashMap<>();
+		GlobalWire staticWire = createGlobalWire(net, tileToTieOffTileMap);
 		PathFinderRouteTree staticRouteTree = new PathFinderRouteTree(staticWire);
 
 		// Get the inter-site sink route tree
@@ -394,6 +437,16 @@ public class RSVRoute {
 		Collection<CellPin> sinkPins = net.getSinkPins().stream()
 				.filter(cellPin -> net.getSinkSitePins(cellPin) != null)
 				.collect(Collectors.toList());
+
+		Collection<SitePin> sitePins = net.getSinkSitePins();
+		Collection<Site> allSites = new ArrayList<>();
+		Collection<Site> siteSet = new HashSet<>();
+
+		for (SitePin sitePin : sitePins) {
+			allSites.add(sitePin.getSite());
+			siteSet.add(sitePin.getSite());
+		}
+
 
 		for (CellPin sinkPin : sinkPins) {
 			List<SitePin> sinkSitePins = net.getSinkSitePins(sinkPin);
@@ -418,7 +471,7 @@ public class RSVRoute {
 			}
 		}
 
-		return new IntersiteRoute(net, staticRouteTree, sinkTreeMap, terminalSinkTreeMap, terminalWireCellPinMap);
+		return new IntersiteRoute(net, staticRouteTree, sinkTreeMap, terminalSinkTreeMap, terminalWireCellPinMap, tileToTieOffTileMap);
 	}
 
 	/**
@@ -433,11 +486,13 @@ public class RSVRoute {
 				.filter(cellNet -> !cellNet.isIntrasite())
 				.filter(cellNet -> !cellNet.getRouteStatus().equals(RouteStatus.FULLY_ROUTED))
 				.filter(cellNet -> !cellNet.getSinkPins().isEmpty())
+				.filter(cellNet -> !cellNet.getSinkSites().isEmpty()) // CI GND case. See pwm256
 				.collect(Collectors.toList());
 
 		// Filter out static (VCC/GND), intra-site, and nets with no sinks.
 		Collection<CellNet> logicNets = design.getNets().stream()
 				.filter(cellNet -> !cellNet.isIntrasite())
+				.filter(CellNet::isSourced)
 				.filter(cellNet -> !cellNet.getRouteStatus().equals(RouteStatus.FULLY_ROUTED))
 				.filter(cellNet -> !cellNet.isStaticNet())
 				.filter(cellNet -> !cellNet.getSinkPins().isEmpty())

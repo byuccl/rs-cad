@@ -10,6 +10,7 @@ import edu.byu.ece.rapidSmith.device.*;
 import edu.byu.ece.rapidSmith.device.families.FamilyInfo;
 import edu.byu.ece.rapidSmith.device.families.FamilyInfos;
 import edu.byu.ece.rapidSmith.util.Sorting;
+import edu.byu.ece.rapidSmith.util.Time;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -22,36 +23,42 @@ public class PathFinder {
     private CellDesign design;
     private CellLibrary libCells;
     private FamilyInfo familyInfo;
+    private Set<Bel> vccSourceBels;
+    private Set<Bel> gndSourceBels;
     /** The maze router to use in the inner loop of PathFinder */
     private MazeRouter mazeRouter;
     /** Present congestion factor */
-    private static double presentCongestionFactor;
+    private double presentCongestionFactor;
+    /** How much to multiply the present congestion factor by after each iteration */
+    private double presentCongestionMultFactor;
     /** Historical congestion factor */
-    private static double historyFactor;
+    private double historyFactor;
     /** The initial value for searching for static sources */
-    private static int initStaticSearchSize;
+    private int initStaticSearchSize;
     /** How much to increase the static search size per iteration */
-    private static int staticSearchSizeFactor;
+    private int staticSearchSizeFactor;
     /** Map from wires to their corresponding wire usage. */
     private Map<Wire, WireUsage> wireUsageMap;
 
-    public PathFinder(Device device, CellLibrary libCells, CellDesign design, MazeRouter mazeRouter, Map<Wire, WireUsage> wireUsageMap) {
+    public PathFinder(Device device, CellLibrary libCells, CellDesign design, MazeRouter mazeRouter, Map<Wire, WireUsage> wireUsageMap, Set<Bel> vccSourceBels, Set<Bel> gndSourceBels) {
         this.familyInfo = FamilyInfos.get(device.getFamily());
         this.design = design;
         this.libCells = libCells;
         this.mazeRouter = mazeRouter;
         this.wireUsageMap = wireUsageMap;
-        presentCongestionFactor = 1; //10000;
-        historyFactor = 1; //10000;
-        initStaticSearchSize = 0;
-        staticSearchSizeFactor = 1;
+        presentCongestionFactor = 1;
+        presentCongestionMultFactor = 1.3;
+        historyFactor = 1;
+        staticSearchSizeFactor = 4;
+        this.vccSourceBels = vccSourceBels;
+        this.gndSourceBels = gndSourceBels;
     }
 
     /**
      * Execute the pathfinder algorithm.
      * @param intersiteRoutes The inter-site routes for PathFinder to route
      */
-    public void execute(ArrayList<IntersiteRoute> intersiteRoutes) throws CadException {
+    public void execute(ArrayList<IntersiteRoute> intersiteRoutes) {
         // Initialize the static search size (the tile distance to search for static sources)
         int staticSearchSize = initStaticSearchSize;
 
@@ -74,18 +81,16 @@ public class PathFinder {
                     ripUpRoute(intersiteRoute);
                 }
 
-                if (intersiteRoute.isStatic()) {
-                    addPossibleStaticSources(intersiteRoute, staticSearchSize);
-                }
-
                 System.out.println("[INFO] Finding route for " + intersiteRoute.getNet().getName() + " (" + numRouted + "/" + toRoute.size() + ")");
                 if (mazeRouter.routeNet(intersiteRoute)) {
                     // Update the occupancy and present congestion of every node in the new route
-                    updateWireUsage(intersiteRoute);
+
+                    if (iteration > 1)
+                        updateWireUsage(intersiteRoute);
                 } else {
                     // Route could not be found
                     System.err.println("[WARNING] " + intersiteRoute.getNet().getName() + " could not be routed.");
-                    intersiteRoutes.remove(intersiteRoute);
+                    return;
                 }
 
                 numRouted++;
@@ -98,6 +103,10 @@ public class PathFinder {
 
             // Identify congested wires by iterating through all routes just made
             for (IntersiteRoute intersiteRoute : toRoute) {
+
+                if (iteration == 1)
+                    updateWireUsage(intersiteRoute);
+
                 // Search the inter-site tree for conflicted wires
                 PathFinderRouteTree root = intersiteRoute.getRouteTree().getRoot();
                 Iterable<PathFinderRouteTree> typed = root.typedIterator();
@@ -107,7 +116,7 @@ public class PathFinder {
                     assert (wireUsage.getRoutes() != null);
                     assert (wireUsageMap.get(rt.getWire()) != null);
 
-                    if (wireUsage.getRoutes().size() > wireUsageMap.get(rt.getWire()).getCapacity()) {
+                    if (wireUsage.isCongested()) {
                         congestedWires.add(wireUsage);
                     }
                 }
@@ -130,7 +139,7 @@ public class PathFinder {
                 wireUsage.incrementHistory(historyFactor);
             }
 
-            // Update the set of routed and unrouted sinks for each of the inter-site routes that aren't fully routed.
+            // Update the set of routed and un-routed sinks for each of the inter-site routes that aren't fully routed.
             for (IntersiteRoute intersiteRoute : unrouted) {
                 updateSinkStatus(intersiteRoute);
             }
@@ -151,53 +160,57 @@ public class PathFinder {
 
                 // increase the present congestion factor
                 iteration++;
-                presentCongestionFactor *= 2.3;
+                presentCongestionFactor *= presentCongestionMultFactor;
                 staticSearchSize += (iteration * staticSearchSizeFactor);
 
                 // Re-sort the list of inter-site routes to route
                 Sorting.quickSort(toRoute, 0, toRoute.size() - 1);
             }
 
+            System.out.println("Iteration " + iteration + " done");
             System.out.println("[INFO] " + congestedWires.size() + " wires still congested.");
             System.out.println("[INFO] " + unrouted.size() + " routes still congested.\n");
         }
 
         // Apply the inter-site routes and add any static source LUTs
         applyRoutes(intersiteRoutes);
-
-        // System.out.println("PathFinder took " + runTime.getTotalTime() + " seconds!");
     }
 
     /**
      * Set the present congestion factor for Path Finder.
      * @param presentCongestionFactor the factor
      */
-    public static void setPresentCongestionFactor(double presentCongestionFactor) {
-        PathFinder.presentCongestionFactor = presentCongestionFactor;
+    public void setPresentCongestionFactor(double presentCongestionFactor) {
+        this.presentCongestionFactor = presentCongestionFactor;
     }
 
     /**
      * Set the historical congestion factor for Path Finder
      * @param historyFactor the factor
      */
-    public static void setHistoryFactor(double historyFactor) {
-        PathFinder.historyFactor = historyFactor;
+    public void setHistoryFactor(double historyFactor) {
+        this.historyFactor = historyFactor;
+    }
+
+
+    public void setPresentCongestionMultFactor(double presentCongestionMultFactor) {
+        this.presentCongestionMultFactor = presentCongestionMultFactor;
     }
 
     /**
      * Sets the size (in tiles) to search for static sources from sinks on the first iteration.
      * @param initStaticSearchSize size in tile distance
      */
-    public static void setInitStaticSearchSize(int initStaticSearchSize) {
-        PathFinder.initStaticSearchSize = initStaticSearchSize;
+    public void setInitStaticSearchSize(int initStaticSearchSize) {
+        initStaticSearchSize = initStaticSearchSize;
     }
 
     /**
      * Set the factor to increase the static search for by each iteration
      * @param staticSearchSizeFactor the factor
      */
-    public static void setStaticSearchSizeFactor(int staticSearchSizeFactor) {
-        PathFinder.staticSearchSizeFactor = staticSearchSizeFactor;
+    public void setStaticSearchSizeFactor(int staticSearchSizeFactor) {
+        staticSearchSizeFactor = staticSearchSizeFactor;
     }
 
     /**
@@ -206,7 +219,6 @@ public class PathFinder {
      */
     private void ripUpRoute(IntersiteRoute intersiteRoute) {
         assert (intersiteRoute.getRouteTree() != null);
-
         // Update the congestion for every node (and its wires)
         for (RouteTree rt : intersiteRoute.getRouteTree().getRoot()) {
             // Update for every wire in the node
@@ -218,9 +230,13 @@ public class PathFinder {
             }
         }
 
-        // TODO: Only get the inter-site sinks
-        for (CellPin sink : intersiteRoute.getNet().getSinkPins()) {
-            intersiteRoute.getNet().removeRoutedSink(sink);
+        // Remove the congested cell pins from the list of routed sinks
+        for (PathFinderRouteTree rt : intersiteRoute.getSinksToRoute()) {
+            Wire terminalWire = intersiteRoute.getSinkTerminalTreeMap().get(rt).getWire();
+            for (CellPin cellPin : intersiteRoute.getSinkCellPins(terminalWire)) {
+                CellNet net = cellPin.getNet();
+                net.removeRoutedSink(cellPin);
+            }
         }
 
         Set<PathFinderRouteTree> terminalsToKeep = new HashSet<>();
@@ -229,11 +245,13 @@ public class PathFinder {
         }
         intersiteRoute.getRouteTree().prune(terminalsToKeep);
         intersiteRoute.getRouteTree().unregisterLeaves();
+
+        assert (!intersiteRoute.getSinksToRoute().isEmpty());
     }
 
     /**
      * Finds the conflicted sinks of an inter-site route and moves them from the set of routed sinks to the set
-     * of sinks to route.
+     * of sinks to route. NOTE: Also detaches trees of conflicted children!
      * @param intersiteRoute the inter-site route to search
      */
     private void updateSinkStatus(IntersiteRoute intersiteRoute) {
@@ -247,13 +265,25 @@ public class PathFinder {
             Wire wire = tree.getWire();
             WireUsage wireUsage = wireUsageMap.get(wire);
 
+
             // If there is congestion
-            if (wireUsage.getRoutes().size() > wireUsageMap.get(tree.getWire()).getCapacity()) {
+            if (wireUsage.isCongested()) {
                 // Remove the sinks of the conflicted wire from the inter-site route's list of routed sinks
                 // and add them to the list of sinks to route
                 for (PathFinderRouteTree terminal : tree.getLeaves()) {
                     PathFinderRouteTree sink = intersiteRoute.getTerminalSinkTreeMap().get(terminal);
                     intersiteRoute.getRoutedSinks().remove(sink);
+
+                    // ADDED recently!
+                    // Remove the route from the sink and its children's wire usage
+                    Iterable<PathFinderRouteTree> typed = sink.typedIterator();
+                    for (PathFinderRouteTree sinkNode : typed) {
+                        WireUsage sinkWireUsage = wireUsageMap.get(sinkNode.getWire());
+                        assert (sinkWireUsage != null);
+                        assert (sinkWireUsage.getRoutes() != null);
+                        assert (wireUsageMap.get(sinkNode.getWire()) != null);
+                        sinkWireUsage.removeRoute(intersiteRoute);
+                    }
 
                     // Detach the tree from its parent
                     assert (sink.getParent() != null);
@@ -269,6 +299,8 @@ public class PathFinder {
                 }
             }
         }
+
+        assert(!(intersiteRoute.getSinksToRoute().isEmpty()));
     }
 
     /**
@@ -280,25 +312,27 @@ public class PathFinder {
     private void applyRoutes(ArrayList<IntersiteRoute> intersiteRoutes) {
         // Apply Route Trees to RS2 data structures.
         for (IntersiteRoute intersiteRoute : intersiteRoutes) {
-            intersiteRoute.getNet().setIntersiteRouteTrees(null);
+            CellNet net = intersiteRoute.getNet();
+            net.setIntersiteRouteTrees(null);
             assert (intersiteRoute.getRouteTree() != null);
 
             // Add the inter-site route tree to the cell net
-            if (intersiteRoute.getNet().isStaticNet()) {
+            if (intersiteRoute.isStatic()) {
                 // For static nets, every child tree of the start tree (beginning at a global wire) is an inter-site tree
                 RouteTree globalTree = intersiteRoute.getRouteTree();
                 Collection<RouteTree> intersiteTrees = new ArrayList<>(intersiteRoute.getRouteTree().getChildren());
                 for (RouteTree rt : intersiteTrees) {
                     // Disconnect the inter-site tree from the global wire
                     globalTree.disconnect(rt);
-                    intersiteRoute.getNet().addIntersiteRouteTree(rt);
+                    net.addIntersiteRouteTree(rt);
                 }
 
                 // Find any LUT BELs used as static sources and add them
                 addStaticSourceLutCells(intersiteRoute);
             } else {
-                intersiteRoute.getNet().addIntersiteRouteTree(intersiteRoute.getRouteTree());
+                net.addIntersiteRouteTree(intersiteRoute.getRouteTree());
             }
+            net.setRouteStatus(RouteStatus.FULLY_ROUTED);
         }
     }
 
@@ -314,6 +348,9 @@ public class PathFinder {
      * @param staticSearchSize the distance in tiles to search for sources
      */
     private void addPossibleStaticSources(IntersiteRoute intersiteRoute, int staticSearchSize) {
+        Time runTime = new Time();
+        runTime.setStartTime();
+
         Device device = design.getDevice();
         FamilyInfo familyInfo = FamilyInfos.get(device.getFamily());
         List<Wire> staticSourceWires = new ArrayList<>();
@@ -370,6 +407,10 @@ public class PathFinder {
         for (Wire wire : staticSourceWires) {
             ((GlobalWire) globalWire).addConnection(new GlobalWireConnection(globalWire, wire));
         }
+
+        runTime.setEndTime();
+        System.err.println("Took " + runTime.getTotalTime() + " seconds to get more static sources");
+
     }
 
 
@@ -379,10 +420,11 @@ public class PathFinder {
      * @param staticIntersiteRoute the inter-site route for the static (VCC/GND) net
      */
     private void addStaticSourceLutCells(IntersiteRoute staticIntersiteRoute) {
-        String cellPrefix = (staticIntersiteRoute.getNet().isVCCNet()) ? "StaticVCCSource_" : "StaticGNDSource_";
+        CellNet net = staticIntersiteRoute.getNet();
+        String cellPrefix = (net.isVCCNet()) ? "StaticVCCSource_" : "StaticGNDSource_";
         LibraryCell libCell = libCells.get("LUT1");
 
-        for (RouteTree rt : staticIntersiteRoute.getNet().getIntersiteRouteTreeList()) {
+        for (RouteTree rt : net.getIntersiteRouteTreeList()) {
             Wire startWire = rt.getRoot().getWire();
             SitePin startPin = startWire.getReverseConnectedPin();
             if (startPin != null && familyInfo.sliceSites().contains(startPin.getSite().getType())) {
@@ -400,6 +442,13 @@ public class PathFinder {
                 design.addCell(staticSourceCell);
                 design.placeCell(staticSourceCell, staticSourceBel);
                 design.addPipInputValAtSite(staticSourceBel.getSite(), staticSourceBel.getName().charAt(0) + "USED", "0");
+
+                // Add the BEL to the list of VCC/GND BELs
+                if (net.isVCCNet()) {
+                    vccSourceBels.add(staticSourceBel);
+                } else if (net.isGNDNet()) {
+                    gndSourceBels.add(staticSourceBel);
+                }
 
                 // TODO: RapidSmith2 currently does not represent the intra-site source trees for static nets.
                 // Add this functionality and save the tree (O6 -> USED.0 -> USED.OUT -> A.A/B.B/etc.)
