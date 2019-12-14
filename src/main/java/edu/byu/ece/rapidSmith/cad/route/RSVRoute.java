@@ -70,10 +70,10 @@ public class RSVRoute {
 	}
 
 
-		/**
-		 * Routes the cell-design. Currently automatically creates inter-site route objects for all nets in the design
-		 * (so all nets become routed) and uses the A* router as the maze router.
-		 */
+	/**
+	 * Routes the cell-design. Currently automatically creates inter-site route objects for all nets in the design
+	 * (so all nets become routed) and uses the A* router as the maze router.
+	 */
 	public void routeDesign() throws CadException {
 		// Perform necessary initialization, creating inter-site route objects for each net.
 		ArrayList<IntersiteRoute> intersiteRoutes = createIntersiteRoutes();
@@ -285,56 +285,6 @@ public class RSVRoute {
 		return wires;
 	}
 
-
-	private Collection<Wire> getTieOffWiresOld(CellNet staticNet) throws CadException {
-		Collection<Wire> wires = new HashSet<>();
-		Set<Tile> staticClbTiles = staticNet.getSinkTiles().stream()
-				.filter(tile -> familyInfo.clbTiles().contains(tile.getType()))
-				.collect(Collectors.toSet());
-
-		for (Tile sinkTile : staticClbTiles) {
-			// Find the neighboring tile tie-off.
-			SitePin tieOffPin = getIntTieOffPin(getNeighborIntTile(sinkTile), staticNet.isVCCNet());
-			wires.add(tieOffPin.getExternalWire());
-		}
-
-		// Handle the I/O sinks.
-		Set<Site> staticIoSites = staticNet.getSinkSites().stream()
-				.filter(site -> familyInfo.ioSites().contains(site.getType()))
-				.collect(Collectors.toSet());
-
-		for (Site sinkSite : staticIoSites) {
-			// index of 0 means it is the bottom site in the tile
-			int siteIndex = sinkSite.getIndex();
-			assert (siteIndex == 0 || siteIndex == 1);
-
-			Tile sinkTile = sinkSite.getTile();
-			int tileCol = sinkTile.getColumn();
-			assert (tileCol == 0 || tileCol == device.getColumns() - 1);
-
-			// There should be an INT tile to the left or right of the IO tile
-			TileDirection tileDirection = (tileCol == 0) ? TileDirection.EAST : TileDirection.WEST;
-			Tile intTile = sinkTile;
-			TileType tileType = null;
-			while (!familyInfo.switchboxTiles().contains(tileType)) {
-				intTile = intTile.getAdjacentTile(tileDirection);
-				tileType = intTile.getType();
-			}
-
-			// If index is 1, we need to go up 1 tile to get to the desired INT tile
-			if (siteIndex == 0) {
-				intTile = intTile.getAdjacentTile(TileDirection.NORTH);
-			}
-			assert (familyInfo.switchboxTiles().contains(intTile.getType()));
-
-			// Find the VCC/GND source wire
-			SitePin tieOffPin = getIntTieOffPin(intTile, staticNet.isVCCNet());
-			wires.add(tieOffPin.getExternalWire());
-
-		}
-
-		return wires;
-	}
 
 	/**
 	 * Creates the source route tree by building a tree until the first possible branch.

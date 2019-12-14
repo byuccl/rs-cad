@@ -87,7 +87,6 @@ public abstract class MazeRouter {
     private boolean isConnectionValid(IntersiteRoute intersiteRoute, Connection connection, Wire terminalWire) {
         Wire wire = connection.getSinkWire();
         Tile sinkTile = wire.getTile();
-
         boolean clk = wire.getName().contains("CLK");
         boolean gfan = wire.getName().contains("GFAN");
 
