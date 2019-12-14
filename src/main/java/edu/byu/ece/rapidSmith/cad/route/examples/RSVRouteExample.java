@@ -90,9 +90,9 @@ public class RSVRouteExample {
         String checkpointIn = args[0];
         String tcpOut = checkpointIn.substring(0, checkpointIn.length() - 4) + ".routed.tcp";
 
-        double presentCongestionFactor = Double.parseDouble(args[1]); //1;
-        double presentCongestionMultFactor = Double.parseDouble(args[2]); //1.3;
-        double historyFactor = Double.parseDouble(args[3]); // 1
+        double presentCongestionFactor = Double.parseDouble(args[1]);
+        double presentCongestionMultFactor = Double.parseDouble(args[2]);
+        double historyFactor = Double.parseDouble(args[3]);
 
         // Import a placed design
         importDesign(checkpointIn);
