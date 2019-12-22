@@ -5,6 +5,7 @@ import edu.byu.ece.rapidSmith.cad.pack.rsvpack.*
 import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import edu.byu.ece.rapidSmith.design.subsite.LibraryPin
+import edu.byu.ece.rapidSmith.design.subsite.PropertyType
 import edu.byu.ece.rapidSmith.device.*
 import edu.byu.ece.rapidSmith.util.getBelPinConnection
 import edu.byu.ece.rapidSmith.util.getSitePinConnection
@@ -73,8 +74,9 @@ class ForcedRoutingPrepacker(
 					continue
 
 				for (sinkCellPin in sourceCellPin.net.pins) {
-					if (sinkCellPin === sourceCellPin)
+					if (sinkCellPin === sourceCellPin || sinkCellPin.isPartitionPin)
 						continue
+
 					val sinkCell = sinkCellPin.cell as Cell
 					val cellCluster = sinkCell.getCluster<Cluster<*, *>>()
 					if (cellCluster != null)
@@ -171,6 +173,10 @@ class ForcedRoutingPrepacker(
 					continue
 
 				val sourceCellPin = sinkCellPin.net.sourcePin ?: continue
+
+				if (sourceCellPin.isPartitionPin)
+					continue
+
 				val sourceCell = sourceCellPin.cell as Cell
 				if (sourceCell.getCluster<Cluster<*, *>>() != null)
 					continue
@@ -201,10 +207,12 @@ class ForcedRoutingPrepacker(
 		return if (changed) PrepackStatus.CHANGED else PrepackStatus.UNCHANGED
 	}
 
-// Null indicate the connections are possible through general fabric
-// Empty set indicates an invalid configuration
-// One element indicates a forced packing
-// More than one element indicates multiple possible packings
+	/**
+	 * Answers the question: do these cell pins need to be in the same cluster?
+	 * Null indicate the connections are possible through general fabric.
+	 * Empty set indicates an invalid configuration.
+	 * One element indicates a forced packing.
+	 */
 	private fun getPossibleSourceBels(
 		sinkCellPin: CellPin, sourceCellPin: CellPin, candidate: Cluster<*, *>
 	): Set<Bel>? {

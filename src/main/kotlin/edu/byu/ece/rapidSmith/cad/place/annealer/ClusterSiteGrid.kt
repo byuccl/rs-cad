@@ -1,6 +1,7 @@
 package edu.byu.ece.rapidSmith.cad.place.annealer
 
 import edu.byu.ece.rapidSmith.cad.cluster.ClusterSite
+import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.Device
 import edu.byu.ece.rapidSmith.device.Site
 import edu.byu.ece.rapidSmith.device.Tile
@@ -10,7 +11,7 @@ import edu.byu.ece.rapidSmith.util.Index
 typealias Coordinates = Index
 
 interface ClusterSiteGridFactory<S: ClusterSite> {
-	fun makeClusterSiteGrid(device: Device): ClusterSiteGrid<S>
+	fun makeClusterSiteGrid(device: Device, design: CellDesign): ClusterSiteGrid<S>
 }
 
 abstract class ClusterSiteGrid<S: ClusterSite> : Grid<S?> {

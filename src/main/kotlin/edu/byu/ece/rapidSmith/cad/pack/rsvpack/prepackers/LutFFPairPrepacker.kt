@@ -7,10 +7,11 @@ import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellLibrary
 import edu.byu.ece.rapidSmith.design.subsite.LibraryCell
 import edu.byu.ece.rapidSmith.device.Bel
-import java.util.HashMap
 import kotlin.streams.asSequence
-import kotlin.streams.toList
 
+/**
+ * If a lut is driving a single ff and there is a space, pack it.
+ */
 class Artix7LutFFPrepackerFactory(
 	cellLibrary: CellLibrary
 ) : PrepackerFactory<PackUnit>() {
@@ -45,17 +46,18 @@ class Artix7LutFFPrepackerFactory(
 		f78LibCells[cellLibrary.get("MUXF7")] = "O"
 
 		lutramLibCells = LinkedHashMap()
+		lutramLibCells[cellLibrary["RAMD64E"]] = "O"
+
 		lutramLibCells[cellLibrary["SRLC16E"]] = "Q"
 		lutramLibCells[cellLibrary["SRLC32E"]] = "Q"
 		lutramLibCells[cellLibrary["SRL16E"]] = "Q"
 		lutramLibCells[cellLibrary["RAMD32"]] = "O"
-		lutramLibCells[cellLibrary["RAMD64E"]] = "O"
 		lutramLibCells[cellLibrary["RAMS32"]] = "O"
 		lutramLibCells[cellLibrary["RAMS64E"]] = "O"
 	}
 
 	override fun init(design: CellDesign) {
-		val pairs = design.leafCells.asSequence()
+		val pairs = design.inContextLeafCells.asSequence()
 			.sortedBy { it.name }
 			.filter { it.libCell in ffLibCells }
 			.map { it to getFFSource((it)) }

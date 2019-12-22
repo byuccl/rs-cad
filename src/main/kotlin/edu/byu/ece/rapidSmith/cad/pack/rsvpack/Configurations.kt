@@ -7,7 +7,6 @@ import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.device.Bel
 
-
 /**
  * The selector for identifying and choosing BELs for a cell.
  *

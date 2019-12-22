@@ -7,6 +7,7 @@ import edu.byu.ece.rapidSmith.design.subsite.Cell
 import edu.byu.ece.rapidSmith.design.subsite.CellDesign
 import edu.byu.ece.rapidSmith.design.subsite.CellPin
 import java.util.*
+import java.util.stream.Stream
 import kotlin.streams.asSequence
 
 /**
@@ -23,7 +24,8 @@ class HighestPinCountSeedSelector : SeedSelector<PackUnit> {
 
 		// Add all the cells to the appropriate location
 		maxCellInputs = 0
-		for (cell in design.leafCells.asSequence().sortedBy { it.name }) {
+
+		for (cell in design.inContextLeafCells.asSequence().sortedBy { it.name }) {
 			val numInputPins = getNumExternalPinsOfCell(cell)
 			unclusteredCellsMap!!.computeIfAbsent(numInputPins) { ArrayList() }.add(cell)
 			if (numInputPins > maxCellInputs)
@@ -74,7 +76,6 @@ class HighestPinCountSeedSelector : SeedSelector<PackUnit> {
 		for (externalInputs in maxCellInputs downTo 0) {
 			val possibleSeeds = unclusteredCellsMap!![externalInputs] ?: continue
 			val cell = possibleSeeds[0]
-
 			assert(cell.isValid)
 			return cell
 		}

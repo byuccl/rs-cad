@@ -1,11 +1,10 @@
-package edu.byu.ece.rapidSmith.cad.families.artix7
+package edu.byu.ece.rapidSmith.cad.families
 
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.getCluster
 import edu.byu.ece.rapidSmith.cad.cluster.isValid
 import edu.byu.ece.rapidSmith.design.subsite.*
 import kotlin.streams.asSequence
-
 
 class Ram(var parent: Cell) {
 	val cells : Collection<Cell>
@@ -36,7 +35,7 @@ class RamMaker(cellLibrary: CellLibrary) {
 		cellLibrary.get("RAMS64E"))
 
 	fun make(design: CellDesign): Map<Cell, Ram> {
-		return design.leafCells.asSequence()
+		return design.inContextLeafCells.asSequence()
 			.sortedBy { it.name }
 			.filter { it.libCell in leafRamCellTypes } // look at just RAM cells
 			.map { it to it.parent } // RAM cell to parent cell

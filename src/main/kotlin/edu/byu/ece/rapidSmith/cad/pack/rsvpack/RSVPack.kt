@@ -73,7 +73,7 @@ private class _RSVPack<out T: PackUnit>(
 ) {
 	private val clusters = ArrayList<Cluster<T, ClusterSite>>()
 	private val unclusteredCells = LinkedHashSet<Cell>(
-		(design.leafCells.count() * 1.5).toInt())
+		(design.inContextLeafCells.count() * 1.5).toInt())
 
 	fun pack(): List<Cluster<T, *>> {
 		init()
@@ -84,21 +84,24 @@ private class _RSVPack<out T: PackUnit>(
 
 	private fun init() {
 		// perform any needed modifications to the design prior to packing
+
+		// Replace route-throughs with LUTs
 		utils.prepareDesign(design)
 
-		// set the unclustered cells to all cells in the design
-		unclusteredCells += design.leafCells.toList().sortedBy { it.name }
+		// Set the unclustered cells to all non-port cells in the design
+		// We don't want to pack port cells if doing partial reconfig - they are outside the reconfig. partition.
+		unclusteredCells += design.inContextLeafCells.toList().sortedBy { it.name }
 		// remove the shared gnd and vcc cells
 		unclusteredCells -= design.vccNet.sourcePin.cell
 		unclusteredCells -= design.gndNet.sourcePin.cell
 
-		// initialize the packing info for all cells in the design
 		initCellPackingInformation()
 
+		// add carry chain to packing info
 		CarryChainFinder().findCarryChains(
 			clusterFactory.supportedPackUnits, design)
 
-		// Initialize all of the configurations
+		// Initialize all of the packing configurations
 		packStrategies.values.forEach { it.init(design) }
 		seedSelector.init(clusterFactory.supportedPackUnits, design)
 		clusterFactory.init()
@@ -113,7 +116,7 @@ private class _RSVPack<out T: PackUnit>(
 
 	private fun packNetlist() {
 		var remainingCells = unclusteredCells.size
-		println("Cells remaining to pack $remainingCells")
+		println("Cells remaining to pack " + remainingCells)
 
 		// do until all cells have been packed
 		while (!unclusteredCells.isEmpty()) {
@@ -135,8 +138,8 @@ private class _RSVPack<out T: PackUnit>(
 				val cluster = clusterFactory.createNewCluster(seedCell.name, type)
 				val strategy = packStrategies[type.type] ?:
 					throw CadException("No strategy for pack unit $type")
-				val result = strategy.tryPackCluster(cluster, seedCell)
 
+				val result = strategy.tryPackCluster(cluster, seedCell)
 				if (result == PackStatus.VALID) {
 					val cost = clusterCostCalculator.calculateCost(cluster)
 					cluster.cost = cost
@@ -154,6 +157,7 @@ private class _RSVPack<out T: PackUnit>(
 					s += "Input pin: ${cp.name.split("/").last()} is driven by net: $n \n"
 					s += "  which is cell: ${cp.net?.sourcePin?.cell?.name ?: "no cell"} --> ${cp.net?.sourcePin?.name ?: "no pin"} pin \n"
 				}
+				s += "$remainingCells remaining cells\n"
 				throw CadException("No valid pack unit for clusterChain " + seedCell.name + "\n" + s)
 			}
 

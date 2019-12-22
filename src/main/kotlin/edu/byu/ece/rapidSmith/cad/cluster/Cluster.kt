@@ -64,48 +64,48 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 
 	operator fun contains(cell: Cell): Boolean = hasCell(cell)
 
-    /** Checks if the [bel] is occupied in the cluster. If checkOtherLUT is true, the corresponding
-     * LUT of a LUT5/LUT6 pair is checked as well; if either LUT has a cell, then both LUT BELs are
-     * considered occupied.
-     */
-    fun isBelOccupied(bel: Bel, checkOtherLut: Boolean): Boolean {
-        if (!checkOtherLut)
-            return bel in placementMap
+	/** Checks if the [bel] is occupied in the cluster. If checkOtherLUT is true, the corresponding
+	 * LUT of a LUT5/LUT6 pair is checked as well; if either LUT has a cell, then both LUT BELs are
+	 * considered occupied.
+	 */
+	fun isBelOccupied(bel: Bel, checkOtherLut: Boolean): Boolean {
+		if (!checkOtherLut)
+			return bel in placementMap
 
-        if (bel in placementMap)
-            return true
+		if (bel in placementMap)
+			return true
 
-        val belName = bel.name
-        if (belName.endsWith("5LUT")) {
-            // get the cell at the corresponding lut6 BEL
-            val lut6Name = belName[0] + "6LUT"
-            val lut6 = bel.site.getBel(lut6Name)
-            val cellAtLut6 = placementMap[lut6] ?: return false
+		val belName = bel.name
+		if (belName.endsWith("5LUT")) {
+			// get the cell at the corresponding lut6 BEL
+			val lut6Name = belName[0] + "6LUT"
+			val lut6 = bel.site.getBel(lut6Name)
+			val cellAtLut6 = placementMap[lut6] ?: return false
 
-            // if the cell at the 6LUT uses all 6 inputs, then the 5LUT BEL is
-            // occupied by the 6LUT cell.
-            if (cellAtLut6.libCell.numLutInputs == 6)
-                return true
+			// if the cell at the 6LUT uses all 6 inputs, then the 5LUT BEL is
+			// occupied by the 6LUT cell.
+			if (cellAtLut6.libCell.numLutInputs == 6)
+				return true
 
-            // checks that the cell placed here is not a lutram (I think)
-            // a lutram would prevent this cell from being a static source
-            if (!cellAtLut6.libCell.name.startsWith("LUT"))
-                return true
-        } else if (belName.endsWith("6LUT")) {
-            // get the cell at the corresponding lut5 BEL
-            val lut5Name = belName[0] + "5LUT"
-            val lut5 = bel.site.getBel(lut5Name)
-            val cellAtLut5 = placementMap[lut5] ?: return false
+			// checks that the cell placed here is not a lutram (I think)
+			// a lutram would prevent this cell from being a static source
+			if (!cellAtLut6.libCell.name.startsWith("LUT"))
+				return true
+		} else if (belName.endsWith("6LUT")) {
+			// get the cell at the corresponding lut5 BEL
+			val lut5Name = belName[0] + "5LUT"
+			val lut5 = bel.site.getBel(lut5Name)
+			val cellAtLut5 = placementMap[lut5] ?: return false
 
-            if (!cellAtLut5.libCell.name.startsWith("LUT"))
-                return true
-        }
-        return false
-    }
+			if (!cellAtLut5.libCell.name.startsWith("LUT"))
+				return true
+		}
+		return false
+	}
 
-    fun isBelOccupied(bel: Bel): Boolean {
-        return bel in placementMap
-    }
+	fun isBelOccupied(bel: Bel): Boolean {
+		return bel in placementMap
+	}
 
 	/** Returns `true` if all Bels in this cluster are occupied. */
 	fun isFull(): Boolean =
@@ -135,6 +135,10 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 		this._chain = chain
 	}
 
+	fun addRouteTree(net : CellNet, trees : ArrayList<RouteTree>) {
+		externalNets?.put(net, trees)
+	}
+
 	// Nets in cluster methods
 	/**
 	 * Method to construct the structures containing the nets in the cluster from
@@ -152,7 +156,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 			.distinct()
 
 		for (net in nets) {
-			val leavesCluster = net.pins.any { !hasCell(it.cell) }
+			val leavesCluster = net.pins.any { it.isPartitionPin || !hasCell(it.cell) }
 			if (leavesCluster)
 				externalNets!![net] = ArrayList()
 			else
@@ -240,24 +244,24 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	/**
 	 * Map of nets in the cluster to route trees for the nets.
 	 */
-	var routeTreeMap: Map<CellNet, List<RouteTree>>
+	var routeTreeMap: MutableMap<CellNet, MutableList<RouteTree>>
 		get() {
 			checkNotNull(externalNets)
 			checkNotNull(internalNets)
 
-			val routeTreeMap = LinkedHashMap<CellNet, List<RouteTree>>()
+			val routeTreeMap = mutableMapOf<CellNet, MutableList<RouteTree>>()
 			routeTreeMap.putAll(internalNets!!)
 			routeTreeMap.putAll(externalNets!!)
 			return routeTreeMap
 		}
 		set(newMap) {
 			for (e in internalNets!!.entries) {
-				val newRouteTree = newMap[e.key] ?: emptyList()
+				val newRouteTree = newMap[e.key] ?: mutableListOf()
 				e.setValue(ArrayList(newRouteTree))
 			}
 
 			for (e in externalNets!!.entries) {
-				val newRouteTree = newMap[e.key] ?: emptyList()
+				val newRouteTree = newMap[e.key] ?: mutableListOf()
 				e.setValue(ArrayList(newRouteTree))
 			}
 		}
@@ -390,7 +394,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 
 				val sourceTree = map[rt.getParent()]!!
 				val newConn = getRelocatedConnection(
-					sourceTree.wire, rt.connection, newAnchor)
+						sourceTree.wire, rt.connection, newAnchor)
 				map[rt] = sourceTree.connect<RouteTree>(newConn)
 			}
 		}
@@ -421,7 +425,7 @@ abstract class Cluster<out T: PackUnit, S: ClusterSite>(
 	 * the new anchor [newAnchor].
 	 */
 	protected abstract fun getRelocatedConnection(
-		sourceWire: Wire, connection: Connection, newAnchor: Bel): Connection
+			sourceWire: Wire, connection: Connection, newAnchor: Bel): Connection
 
 	override fun toString(): String {
 		return "Cluster{$name}"

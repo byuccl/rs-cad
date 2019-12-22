@@ -285,7 +285,6 @@ public class RSVRoute {
 		return wires;
 	}
 
-
 	/**
 	 * Creates the source route tree by building a tree until the first possible branch.
 	 *

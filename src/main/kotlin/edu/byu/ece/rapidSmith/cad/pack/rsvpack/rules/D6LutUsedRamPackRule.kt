@@ -3,8 +3,8 @@ package edu.byu.ece.rapidSmith.cad.pack.rsvpack.rules
 import edu.byu.ece.rapidSmith.cad.cluster.Cluster
 import edu.byu.ece.rapidSmith.cad.cluster.isValid
 import edu.byu.ece.rapidSmith.cad.cluster.locationInCluster
-import edu.byu.ece.rapidSmith.cad.families.artix7.Ram
-import edu.byu.ece.rapidSmith.cad.families.artix7.RamMaker
+import edu.byu.ece.rapidSmith.cad.families.Ram
+import edu.byu.ece.rapidSmith.cad.families.RamMaker
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRule
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRuleFactory
 import edu.byu.ece.rapidSmith.cad.pack.rsvpack.PackRuleResult
@@ -17,7 +17,7 @@ import edu.byu.ece.rapidSmith.device.Site
 import java.util.*
 
 /**
-
+ * LUTRAMs must use the D6LUT.
  */
 class D6LutUsedRamPackRuleFactory(
 	private val ramMaker: RamMaker

@@ -30,6 +30,14 @@ class SitePinConnection internal constructor(
 	private val pin: SitePin,
 	private val dir: PinConnectionDirection
 ) : Connection() {
+	override fun isDirectConnection(): Boolean {
+		return true
+	}
+
+	override fun getSite(): Site {
+		return pin.site;
+	}
+
 	override fun getSourceWire(): Wire = when (dir) {
 		PinConnectionDirection.INWARD -> pin.externalWire
 		PinConnectionDirection.OUTWARD -> pin.internalWire

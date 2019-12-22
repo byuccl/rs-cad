@@ -161,7 +161,7 @@ fun CellDesign.convertToSiteClusterDesign(packUnits: PackUnitList<SitePackUnit>)
 
 	val clusters = LinkedHashMap<Site, SiteCluster>()
 	var index = 0
-	for (cell in leafCells) {
+	for (cell in inContextLeafCells) {
 		if (!cell.isGndSource && !cell.isVccSource) {
 			val bel = requireNotNull(cell.bel) { "Unplaced cells not allowed" }
 			val site = bel.site
@@ -185,8 +185,9 @@ fun CellDesign.convertToSiteClusterDesign(packUnits: PackUnitList<SitePackUnit>)
 }
 
 fun main(args: Array<String>) {
-	val design = VivadoInterface.loadRSCP(args[0]).design
-	val device = design.device
+	val vcp = VivadoInterface.loadRSCP(args[0])
+	val design = vcp.design
+	val device = vcp.device
 	val family = device.family
 
 	val partsFolder = RSEnvironment.defaultEnv().getPartFolderPath(family)

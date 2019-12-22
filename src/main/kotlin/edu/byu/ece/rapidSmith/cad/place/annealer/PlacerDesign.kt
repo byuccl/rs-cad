@@ -66,6 +66,7 @@ class PlacerDesign<S : ClusterSite>(
 
 			for ((cellPin, belPin) in cluster.getPinMap()) {
 				cellPin.mapToBelPins(belPin)
+                
 				if (cellPin.isInpin) {
 					val net = cellPin.net
 					net.addRoutedSink(cellPin)
@@ -76,7 +77,8 @@ class PlacerDesign<S : ClusterSite>(
 				for (rt in tree) {
 					if (rt.wire.source != null) {
 						net.sourceRouteTree = rt
-						net.setIsIntrasite(rt.none { it.isLeaf && it.connectedSitePin != null })
+						if (!net.isStaticNet)
+							net.setIsIntrasite(rt.none { it.isLeaf && it.connectedSitePin != null })
 					}
 					rt.wire.reverseConnectedPin?.let { net.addSinkRouteTree(it, rt) }
 					for (t in rt) {
