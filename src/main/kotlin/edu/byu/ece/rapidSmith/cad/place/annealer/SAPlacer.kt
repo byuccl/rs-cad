@@ -65,7 +65,6 @@ class SimulatedAnnealingPlacer<S : ClusterSite>(
 		while (coolingSchedule.keepGoing) {
 			var numMovesAccepted = 0
 
-			// This may also take forever (the while move == null loop)
 			// This loop will perform a single move. It will be done "stepsPerTemp" times.
 			for (unused in 0 until coolingSchedule.stepsPerTemp) {
 				// Identify a move

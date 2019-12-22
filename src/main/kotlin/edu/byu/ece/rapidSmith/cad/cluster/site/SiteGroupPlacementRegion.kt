@@ -5,7 +5,7 @@ import edu.byu.ece.rapidSmith.cad.place.annealer.*
 import edu.byu.ece.rapidSmith.device.Site
 import edu.byu.ece.rapidSmith.device.SiteType
 import edu.byu.ece.rapidSmith.device.Wire
-import edu.byu.ece.rapidSmith.device.families.Artix7
+import edu.byu.ece.rapidSmith.device.families.FamilyInfos
 import edu.byu.ece.rapidSmith.util.ArrayGrid
 import edu.byu.ece.rapidSmith.util.Grid
 import edu.byu.ece.rapidSmith.util.Index
@@ -20,9 +20,6 @@ import kotlin.collections.map
 import kotlin.collections.plusAssign
 import kotlin.math.*
 
-/**
- *
- */
 class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterSite>() {
 	private val singleClusterCache = LinkedHashMap<PackUnit, SiteGroupPlacementRegion>()
 	private val sliceLGroupsCache = LinkedHashMap<Int, SiteGroupPlacementRegion>()
@@ -36,9 +33,10 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 		design: PlacerDesign<SiteClusterSite>
 	): SiteGroupPlacementRegion {
 		return if (group is MultipleClusterPlacementGroup<*>) {
+			val family = design.design.family
 			val type = group.type as SitePackUnit
 			when(type.siteType) { // TODO support IOB33S and IOB33M?
-				Artix7.SiteTypes.IOB33 -> {
+				SiteType.valueOf(family, "IOB33") -> {
 					var region = ioGroupsCache
 					if (region == null) {
 						val locs = device.grid.sites
@@ -50,27 +48,27 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 					}
 					region
 				}
-				Artix7.SiteTypes.SLICEL -> {
+				SiteType.valueOf(family, "SLICEL") -> {
 					sliceLGroupsCache.computeIfAbsent(group.size) { _ ->
 						val locs = device.grid.sites
 							.filter { it.isCompatibleWith(type) }
-							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
-								Artix7.SiteTypes.SLICEL, it, group.size) }
+							.mapNotNull { getCCChain(design, device.grid as SiteClusterGrid,
+								SiteType.valueOf(family, "SLICEL"), it, group.size) }
 							.toList()
 						SiteGroupPlacementRegion(locs)
 					}
 				}
-				Artix7.SiteTypes.SLICEM -> {
+				SiteType.valueOf(family, "SLICEM") -> {
 					sliceMGroupsCache.computeIfAbsent(group.size) { _ ->
 						val locs = device.grid.sites
 							.filter { it.isCompatibleWith(type) }
-							.mapNotNull { getCCChain(device.grid as SiteClusterGrid,
-								Artix7.SiteTypes.SLICEM, it, group.size) }
+							.mapNotNull { getCCChain(design, device.grid as SiteClusterGrid,
+								SiteType.valueOf(family, "SLICEM"), it, group.size) }
 							.toList()
 						SiteGroupPlacementRegion(locs)
 					}
 				}
-				Artix7.SiteTypes.DSP48E1 -> {
+				SiteType.valueOf(family, "DSP48E1") -> {
 					dsp48GroupsCache.computeIfAbsent(group.size) { _ ->
 						val locs = device.grid.sites
 							.filter { it.isCompatibleWith(type) }
@@ -99,21 +97,21 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 	): List<SiteClusterSite>? {
 		val sites = ArrayList<SiteClusterSite>()
 		sites += anchor
-
+		val family = anchor.site.tile.device.family
 		val source = anchor.site.getPin("I").externalWire
 		val stack = ArrayDeque<WireDistancePair>()
 		stack.push(WireDistancePair(source, 1))
 		while (stack.isNotEmpty()) {
 			val (wire, distance) = stack.pop()
 			val pin = wire.connectedPin
-			if (pin != null && pin.site.isCompatibleWith(Artix7.SiteTypes.BUFG)) {
+			if (pin != null && pin.site.isCompatibleWith(SiteType.valueOf(family, "BUFG"))) {
 				sites += grid.getClusterSite(pin.site)
 				return sites
 			}
 
 			if (distance < 24) {
 				val sinks = wire.wireConnections.map { it.sinkWire }
-					.filter { it.tile.type !in Artix7.SWITCHBOX_TILES }
+					.filter { it.tile.type !in FamilyInfos.get(family).switchboxTiles() }
 				for (sink in sinks) {
 					stack.push(WireDistancePair(sink, distance + 1))
 				}
@@ -124,14 +122,15 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 
 	// TODO checking site compatibility is still an issue
 	private fun getCCChain(
+		design: PlacerDesign<SiteClusterSite>,
 		grid: SiteClusterGrid,
 		siteType: SiteType,
 		anchor: SiteClusterSite, length: Int
 	): List<SiteClusterSite>? {
 		val sites = ArrayList<SiteClusterSite>()
 		sites += anchor
-
 		var site = anchor.site
+		val family = design.design.family
 		outer@for (i in 1 until length) {
 			val source = site.getPin("COUT").externalWire
 			val stack = ArrayDeque<WireDistancePair>()
@@ -139,7 +138,9 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 			while (stack.isNotEmpty()) {
 				val (wire, distance) = stack.pop()
 				val pin = wire.connectedPin
-				if (pin != null && pin.site.isCompatibleWith(siteType)) {
+
+				// Resered sites can't be used in carry chains
+				if (pin != null && pin.site.isCompatibleWith(siteType) && !design.design.reservedSites.contains(pin.site)) {
 					sites += grid.getClusterSite(pin.site)
 					site = pin.site
 					continue@outer
@@ -147,7 +148,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 
 				if (distance < 8) {
 					val sinks = wire.wireConnections.map { it.sinkWire }
-						.filter { it.tile.type !in Artix7.SWITCHBOX_TILES }
+						.filter { it.tile.type !in FamilyInfos.get(family).switchboxTiles() }
 					for (sink in sinks) {
 						stack.push(WireDistancePair(sink, distance + 1))
 					}
@@ -165,8 +166,8 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 	): List<SiteClusterSite>? {
 		val sites = ArrayList<SiteClusterSite>()
 		sites += anchor
-
 		var site = anchor.site
+		val family = site.tile.device.family
 		outer@for (i in 1 until length) {
 			val source = site.getPin("PCOUT0").externalWire
 			val stack = ArrayDeque<WireDistancePair>()
@@ -174,7 +175,7 @@ class SiteGroupPlacementRegionFactory : GroupPlacementRegionFactory<SiteClusterS
 			while (stack.isNotEmpty()) {
 				val (wire, distance) = stack.pop()
 				val pin = wire.connectedPin
-				if (pin != null && pin.site.isCompatibleWith(Artix7.SiteTypes.DSP48E1)) {
+				if (pin != null && pin.site.isCompatibleWith(SiteType.valueOf(family, "DSP48E1"))) {
 					sites += grid.getClusterSite(pin.site)
 					site = pin.site
 					continue@outer
@@ -249,7 +250,7 @@ class SiteGroupPlacementRegion(
 }
 
 private fun makeSiteIndexGrid(validSites: List<SiteClusterSite>): Grid<Int> {
-	var rows = 0;
+	var rows = 0
 	var cols = 0
 
 	for (i in validSites) {

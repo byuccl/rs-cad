@@ -35,12 +35,8 @@ class SitePinConnection internal constructor(
 	}
 
 	override fun getSite(): Site {
-		TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+		return pin.site;
 	}
-
-	//override fun getSinkTileWires(alreadyVisited: MutableList<Connection>?): MutableSet<Wire> {
-	//	TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-	//}
 
 	override fun getSourceWire(): Wire = when (dir) {
 		PinConnectionDirection.INWARD -> pin.externalWire

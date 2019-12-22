@@ -80,13 +80,11 @@ class PlacerDesign<S : ClusterSite>(
 						if (!net.isStaticNet)
 							net.setIsIntrasite(rt.none { it.isLeaf && it.connectedSitePin != null })
 					}
-
 					rt.wire.reverseConnectedPin?.let { net.addSinkRouteTree(it, rt) }
 					for (t in rt) {
 						if (t.isLeaf && t.connectedSitePin != null) {
 							net.addSourceSitePin(t.connectedSitePin!!)
 						}
-
 						if (t.isLeaf && t.connectedBelPin != null) {
 							net.addSinkRouteTree(t.connectedBelPin!!, t)
 						}
